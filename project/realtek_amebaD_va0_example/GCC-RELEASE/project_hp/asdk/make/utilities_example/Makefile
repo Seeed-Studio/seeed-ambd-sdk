@@ -72,6 +72,7 @@ CSRC += $(DIR)/cJSON/example_cJSON.c
 CSRC += $(DIR)/sdcard_upload_httpd/example_sdcard_upload_httpd.c
 CSRC += $(DIR)/socket_tcp_trx/example_socket_tcp_trx_1.c
 CSRC += $(DIR)/socket_tcp_trx/example_socket_tcp_trx_2.c
+
 # MMF AUDIO EXAMPLE
 # CSRC += $(DIR)/media_framework/example_media_framework.c
 # CSRC += $(DIR)/media_framework/mmf2_example_audioloop_init.c

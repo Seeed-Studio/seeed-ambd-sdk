@@ -252,7 +252,7 @@ WAKEPIN_TypeDef sleep_wakepin_config[]=
 //  	Module			Status		Polarity
 	{PINMUX_S0,		OFF,			1},	/* wakeup_0 config */
 	{PINMUX_S0,		OFF,			1},	/* wakeup_1 config */
-	{PINMUX_S0,		OFF,			1},	/* wakeup_2 config */
+	{PINMUX_S0,		ON,			0},	/* wakeup_2 config */
 	{PINMUX_S0,		OFF,			1},	/* wakeup_3 config */
 	
 	{0xFFFFFFFF,		OFF,			0},	/* Table end */
