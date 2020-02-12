@@ -286,7 +286,7 @@ ifeq ($(CONFIG_TRUSTZONE), y)
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_3_s.bin  __ram_image3_text_start__  $(IMAGE_TARGET_FOLDER)/target_img3.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_3_nsc.bin  __ram_image3_nsc_start__  $(IMAGE_TARGET_FOLDER)/target_img3.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/psram_3_s.bin  __psram_image3_text_start__  $(IMAGE_TARGET_FOLDER)/target_img3.map
-	$(CODE_ANALYZE_PYTHON)
+	-$(CODE_ANALYZE_PYTHON)
 
 	cat $(IMAGE_TARGET_FOLDER)/ram_3_s_prepend.bin $(IMAGE_TARGET_FOLDER)/ram_3_nsc_prepend.bin > $(IMAGE_TARGET_FOLDER)/km4_image3_all.bin
 	cat $(IMAGE_TARGET_FOLDER)/psram_3_s_prepend.bin > $(IMAGE_TARGET_FOLDER)/km4_image3_psram.bin
@@ -331,7 +331,7 @@ linker_image2:
 	@echo "========== Image manipulating start =========="
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_2.bin  __ram_image2_text_start__  $(IMAGE_TARGET_FOLDER)/target.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/xip_image2.bin  __flash_text_start__  $(IMAGE_TARGET_FOLDER)/target.map
-	$(CODE_ANALYZE_PYTHON)
+	-$(CODE_ANALYZE_PYTHON)
 
 	cat $(IMAGE_TARGET_FOLDER)/xip_image2_prepend.bin $(IMAGE_TARGET_FOLDER)/ram_2_prepend.bin > $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin
 	@echo "========== Image manipulating end =========="
@@ -384,12 +384,12 @@ endif
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_2.bin  __ram_image2_text_start__  $(IMAGE_TARGET_FOLDER)/target_img2.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/xip_image2.bin  __flash_text_start__  $(IMAGE_TARGET_FOLDER)/target_img2.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/psram_2.bin  __psram_image2_text_start__  $(IMAGE_TARGET_FOLDER)/target_img2.map
-	$(CODE_ANALYZE_PYTHON)
+	-$(CODE_ANALYZE_PYTHON)
 
 	cat $(IMAGE_TARGET_FOLDER)/xip_image2_prepend.bin $(IMAGE_TARGET_FOLDER)/ram_2_prepend.bin $(IMAGE_TARGET_FOLDER)/psram_2_prepend.bin  > $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin
 	$(UTILITYDIR)/pad.sh $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin
 
-	@if [ ${BUILD_TYPE} == "MFG" ]; then \
+	@if [ ${BUILD_TYPE} = "MFG" ]; then \
 		cat $(KM0_BUILDDIR)/asdk/image/km0_image2_all.bin  $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin $(IMAGE_TARGET_FOLDER)/km4_image3_all.bin $(IMAGE_TARGET_FOLDER)/km4_image3_psram.bin > $(IMAGE_TARGET_FOLDER)/km0_km4_image2.bin; \
 		$(MOVE) $(IMAGE_TARGET_FOLDER)/km0_km4_image2.bin $(IMAGE_TARGET_FOLDER)/km0_km4_image2_mp.bin; \
 		$(RM) $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin; \
@@ -432,7 +432,7 @@ linker_loader:
 	@echo "========== Image manipulating start =========="
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/ram_1.bin  __ram_start_table_start__  $(IMAGE_TARGET_FOLDER)/target_loader.map
 	$(PREPENDTOOL) $(IMAGE_TARGET_FOLDER)/xip_boot.bin  __flash_boot_text_start__  $(IMAGE_TARGET_FOLDER)/target_loader.map
-	$(CODE_ANALYZE_PYTHON)
+	-$(CODE_ANALYZE_PYTHON)
 
 	cat $(IMAGE_TARGET_FOLDER)/xip_boot_prepend.bin $(IMAGE_TARGET_FOLDER)/ram_1_prepend.bin > $(IMAGE_TARGET_FOLDER)/km4_boot_all.bin
 
