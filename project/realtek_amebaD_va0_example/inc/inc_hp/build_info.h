@@ -1,7 +1,0 @@
-#define UTS_VERSION "2020/02/11-18:52:19"
-#define RTL_FW_COMPILE_TIME "2020/02/11-18:52:19"
-#define RTL_FW_COMPILE_DATE "2020/02/11"
-#define RTL_FW_COMPILE_BY "lht"
-#define RTL_FW_COMPILE_HOST ""
-#define RTL_FW_COMPILE_DOMAIN ""
-#define RTL_FW_COMPILER "gcc version 6.4.1 20180307 (Realtek ASDK-6.4.1 Build 2773) "
