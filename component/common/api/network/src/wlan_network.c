@@ -46,9 +46,11 @@ void init_thread(void *param)
 	LwIP_Init();
 #endif
 #endif
+
 #if CONFIG_WIFI_IND_USE_THREAD
 	wifi_manager_init();
 #endif
+
 #if CONFIG_WLAN
 	wifi_on(RTW_MODE_STA);
 #if CONFIG_AUTO_RECONNECT
@@ -57,6 +59,10 @@ void init_thread(void *param)
 #endif
 	printf("\n\r%s(%d), Available heap 0x%x", __FUNCTION__, __LINE__, xPortGetFreeHeapSize());	
 #endif
+
+	#if !defined(__MFG_IMG)
+	printf("\r\nready\r\n");	// esp-at compatible
+	#endif
 
 #if CONFIG_INTERACTIVE_MODE
  	/* Initial uart rx swmaphore*/

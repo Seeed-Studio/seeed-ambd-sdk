@@ -329,6 +329,9 @@ GLOBAL_CFLAGS += -nodefaultlibs
 GLOBAL_CFLAGS += -nostdlib
 GLOBAL_CFLAGS += -O2
 GLOBAL_CFLAGS += -D__FPU_PRESENT
+ifeq ($(BUILD_TYPE),MFG)
+GLOBAL_CFLAGS += -D__MFG_IMG=1
+endif
 
 GLOBAL_CFLAGS += -gdwarf-3
 GLOBAL_CFLAGS += -fstack-usage
