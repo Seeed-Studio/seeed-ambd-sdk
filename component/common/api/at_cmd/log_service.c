@@ -422,7 +422,8 @@ void log_service(void *param)
 	rtw_create_secure_context(configMINIMAL_SECURE_STACK_SIZE);
 #endif
 	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\rStart LOG SERVICE MODE\n\r");
-	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\r# ");        
+	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\r# ");
+
 	while(1){
 		while(xSemaphoreTake(log_rx_interrupt_sema, portMAX_DELAY) != pdTRUE);
 #if CONFIG_LOG_SERVICE_LOCK
@@ -447,8 +448,10 @@ void log_service(void *param)
 #if CONFIG_INIC_EN
 		inic_cmd_ioctl = 0;
 #endif
+		#if defined(__MFG_IMG) && __MFG_IMG
 		_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ALWAYS, "\n\r[MEM] After do cmd, available heap %d\n\r", xPortGetFreeHeapSize());
 		_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ALWAYS, "\r\n\n#\r\n"); //"#" is needed for mp tool
+		#endif
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 		if(atcmd_lwip_is_tt_mode())
 			at_printf(STR_END_OF_ATDATA_RET);

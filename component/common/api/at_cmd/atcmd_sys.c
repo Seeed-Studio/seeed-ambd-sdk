@@ -55,6 +55,13 @@ static char cBuffer[512];
 //#endif
 
 //-------- AT SYS commands ---------------------------------------------------------------
+
+void fATS0(void *arg){
+	/* To avoid gcc warnings */
+	( void ) arg;
+	at_printf("OK\r\n");
+}
+
 #if ATCMD_VER == ATVER_1
 
 #if defined(CONFIG_PLATFORM_8710C)
@@ -1053,10 +1060,6 @@ extern void print_tcpip_at(void *arg);
 extern unsigned char gAT_Echo;
 
 
-void fATS0(void *arg){
-	at_printf("\r\n[AT] OK");
-}
-
 void fATSh(void *arg){
 	// print common AT command
 	at_printf("\r\n[ATS?] ");
@@ -1541,6 +1544,7 @@ log_item_t at_sys_items[] = {
 	{"ATS!", fATSc,{NULL,NULL}},	// Debug config setting
 	{"ATS#", fATSt,{NULL,NULL}},	// test command
 	{"ATS?", fATSx,{NULL,NULL}},	// Help
+	{"AT", 	 fATS0,{NULL,NULL}},	// test AT command ready
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
 	{"AT", 	 fATS0,},	// test AT command ready
 	{"ATS?", fATSh,},	// list all AT command
@@ -1567,7 +1571,7 @@ log_item_t at_sys_items[] = {
 #if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
 	{"ATSL", fATSL,{NULL,NULL}},	 // wakelock test
 #endif
-#endif
+#endif//CONFIG_INIC_NO_FLASH
 };
 
 #if ATCMD_VER == ATVER_2
