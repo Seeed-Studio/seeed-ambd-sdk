@@ -123,7 +123,7 @@ IFLAGS               = -I.
 IFLAGS               += -I$(OSDIR)/
 IFLAGS               += -I$(OSDIR)/freertos
 IFLAGS               += -I$(FREERTOSDIR)/include/
-IFLAGS               += -I$(FREERTOSDIR)/portable/GCC/RTL8721D_LP/
+IFLAGS               += -I$(FREERTOSDIR)/portable/GCC/RTL8721D_LP
 
 IFLAGS               += -I$(TARGETDIR)/cmsis/
 IFLAGS               += -I$(TARGETDIR)/cmsis/device
@@ -135,8 +135,8 @@ IFLAGS               += -I$(TARGETDIR)/app/xmodem
 IFLAGS               += -I$(TARGETDIR)/swlib/include
 IFLAGS               += -I$(TARGETDIR)/swlib/string
 IFLAGS               += -I$(TARGETDIR)/misc
-IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/include/
-IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/../
+IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/include
+IFLAGS               += -I$(TARGETDIR)/swlib
 IFLAGS               += -I$(TARGETDIR)/swlib/std_lib/libc/rom/string
 
 IFLAGS               += -I$(INCDIR)
@@ -168,7 +168,7 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v1.4.1/p
 IFLAGS               += -I$(BASEDIR)/component/common/api
 IFLAGS               += -I$(BASEDIR)/component/common/api/at_cmd
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi/rtw_wpa_supplicant/src
-IFLAGS               += -I$(BASEDIR)/component/os/os_dep/include/
+IFLAGS               += -I$(BASEDIR)/component/os/os_dep/include
 
 #INIC
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/inic/rtl8711b
@@ -183,7 +183,7 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls_ram_ma
 IFLAGS               += -I$(BASEDIR)/component/common/application/amazon/amazon-freertos/lib/include/private
 
 #temp for git server code
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d/
+IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d
 IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d/include
 IFLAGS               += -I$(ROOTDIR)/../git_code/mbed/api/
 IFLAGS               += -I$(ROOTDIR)/../git_code/mbed/hal/
