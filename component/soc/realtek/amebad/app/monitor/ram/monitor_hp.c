@@ -65,6 +65,31 @@ cmd_reboot(
 }
 
 u32
+cmd_reset(
+    IN  u16 argc,
+    IN  u8  *argv[]
+)
+{
+	/* To avoid gcc warnings */
+	( void ) argc;
+	( void ) argv;
+
+	WDG_InitTypeDef WDG_InitStruct;
+	u32 CountProcess;
+	u32 DivFacProcess;
+
+	DBG_8195A("\r\nOK\r\n");
+
+	WDG_Scalar(5, &CountProcess, &DivFacProcess);
+	WDG_InitStruct.CountProcess = CountProcess;
+	WDG_InitStruct.DivFacProcess = DivFacProcess;
+	WDG_Init(&WDG_InitStruct);
+	WDG_Cmd(ENABLE);
+
+	return _TRUE;
+}
+
+u32
 CmdTickPS(
     IN  u16 argc,
     IN  u8  *argv[]
@@ -376,6 +401,8 @@ const COMMAND_TABLE   shell_cmd_table[] = {
 											"\t\t switch shell to KM0 \n"},
 	{(const u8*)"LOGBUF",	4, CmdLogBuf,	(const u8*)"\tLOGBUF \n"
 											"\t\t KM0 help to print KM4 log\n"},
+	{(const u8*)"AT+RST",	4, cmd_reset,		(const u8*)"\tAT+RST\n"
+											"\t\t Reboot the system\n"},
 };
 
 u32
