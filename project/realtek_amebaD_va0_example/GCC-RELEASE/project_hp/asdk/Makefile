@@ -253,7 +253,7 @@ ifeq ($(CONFIG_TRUSTZONE), y)
 	$(OBJDUMP) -d $(IMAGE_TARGET_FOLDER)/target_img3.axf > $(IMAGE_TARGET_FOLDER)/target_img3.asm
 	$(COPY) $(IMAGE_TARGET_FOLDER)/target_img3.axf $(IMAGE_TARGET_FOLDER)/target_pure_img3.axf
 	$(STRIP) $(IMAGE_TARGET_FOLDER)/target_pure_img3.axf
-	$(NM) $(IMAGE_TARGET_FOLDER)/target_pure.axf | sort > $(IMAGE_TARGET_FOLDER)/target_pure_img3.map
+	$(NM) $(IMAGE_TARGET_FOLDER)/target_pure_img3.axf | sort > $(IMAGE_TARGET_FOLDER)/target_pure_img3.map
 
 	##secure
 	$(READELF) -s $(IMAGE_TARGET_FOLDER)/cmse_implib.lib > $(IMAGE_TARGET_FOLDER)/cmse_implib.txt
@@ -394,6 +394,7 @@ endif
 		$(MOVE) $(IMAGE_TARGET_FOLDER)/km0_km4_image2.bin $(IMAGE_TARGET_FOLDER)/km0_km4_image2_mp.bin; \
 		$(RM) $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin; \
 	else \
+		echo $(UTILITYDIR)/image_tool/imagetool.sh $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin $(KM0_BUILDDIR)/asdk/image; \
 		$(UTILITYDIR)/image_tool/imagetool.sh $(IMAGE_TARGET_FOLDER)/km4_image2_all.bin $(KM0_BUILDDIR)/asdk/image; \
 	fi
 
