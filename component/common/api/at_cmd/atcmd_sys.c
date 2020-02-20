@@ -79,6 +79,24 @@ void fATE1(void* arg) {
 	return;
 }
 
+void fATRESTORE(void* arg) {
+	( void ) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATSYSMSG(void* arg) {
+	( void ) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATSYSLOG(void* arg) {
+	( void ) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 #if ATCMD_VER == ATVER_1
 
 #if defined(CONFIG_PLATFORM_8710C)
@@ -1561,6 +1579,9 @@ log_item_t at_sys_items[] = {
 	{"AT", 	 fATS0,{NULL,NULL}},	// test AT command ready
 	{"ATE0", fATE0,{NULL,NULL}},	// disable echo
 	{"ATE1", fATE1,{NULL,NULL}},	// enable  echo
+	{"AT+RESTORE", fATRESTORE, {NULL,NULL}}, // restore all system saved setting
+	{"AT+SYSMSG", fATSYSMSG, {NULL,NULL}},
+	{"AT+SYSLOG", fATSYSLOG, {NULL,NULL}},
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
 	{"AT", 	 fATS0,},	// test AT command ready
 	{"ATS?", fATSh,},	// list all AT command

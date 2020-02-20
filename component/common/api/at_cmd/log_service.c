@@ -221,11 +221,11 @@ void* log_handler(char *cmd)
 	char *copy=buf;
 	char *token = NULL;
 	char *param = NULL;
-	char tok[5] = {0};//'\0'
+	char tok[LOG_SERVICE_BUFLEN] = {0};//'\0' token should be long enough
 #if CONFIG_LOG_HISTORY
 	strcpy(log_history[((log_history_count++)%LOG_HISTORY_LEN)], log_buf);
 #endif
-	strncpy(copy, cmd,LOG_SERVICE_BUFLEN-1);
+	strncpy(copy, cmd, LOG_SERVICE_BUFLEN-1);
 
 #if defined(USE_STRSEP)
 	token = _strsep(&copy, "=");
@@ -234,12 +234,12 @@ void* log_handler(char *cmd)
 	token = strtok(copy, "=");
 	param = strtok(NULL, "\0");
 #endif
-	if(token && (strlen(token) <= 4))
+	if (token) {
 		strcpy(tok, token);
-	else{
+	} else {
 		//printf("\n\rAT Cmd format error!\n");
 		return NULL;
-	};
+	}
 	//printf(" Command %s \n\r ", tok);
 	//printf(" Param %s \n\r", param);
 	action = (log_act_t)log_action(tok);
