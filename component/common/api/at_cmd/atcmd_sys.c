@@ -97,6 +97,27 @@ void fATSYSLOG(void* arg) {
 	return;
 }
 
+void fATGMR(void *arg)
+{
+	char buf[192];
+	int i = 0;
+
+	/* To avoid gcc warnings */
+	( void ) arg;
+
+	i += sprintf(buf + i, "AT version:" "2.0.0.0(0 - %s %s)\r\n",
+		__DATE__, __TIME__);
+	i += sprintf(buf + i, "SDK version:%s\r\n", "v1.0");
+	i += sprintf(buf + i, "compile time (0):%s\r\n",
+		RTL_FW_COMPILE_TIME);
+	i += sprintf(buf + i, "Bin version:1.0.0(RTL8720DM)\r\n");
+
+	at_printf(buf);
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+
 #if ATCMD_VER == ATVER_1
 
 #if defined(CONFIG_PLATFORM_8710C)
@@ -1575,13 +1596,14 @@ log_item_t at_sys_items[] = {
 	{"ATS@", fATSs,{NULL,NULL}},	// Debug message setting
 	{"ATS!", fATSc,{NULL,NULL}},	// Debug config setting
 	{"ATS#", fATSt,{NULL,NULL}},	// test command
-	{"ATS?", fATSx,{NULL,NULL}},	// Help
+	{"ATS?", fATSx,{NULL,NULL}},	// system version info
 	{"AT", 	 fATS0,{NULL,NULL}},	// test AT command ready
 	{"ATE0", fATE0,{NULL,NULL}},	// disable echo
 	{"ATE1", fATE1,{NULL,NULL}},	// enable  echo
 	{"AT+RESTORE", fATRESTORE, {NULL,NULL}}, // restore all system saved setting
 	{"AT+SYSMSG", fATSYSMSG, {NULL,NULL}},
 	{"AT+SYSLOG", fATSYSLOG, {NULL,NULL}},
+	{"AT+GMR",    fATGMR,    {NULL,NULL}}, // show version info
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
 	{"AT", 	 fATS0,},	// test AT command ready
 	{"ATS?", fATSh,},	// list all AT command
