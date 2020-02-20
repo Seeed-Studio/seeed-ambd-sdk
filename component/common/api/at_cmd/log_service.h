@@ -125,4 +125,6 @@ void log_service_unlock(void);
 #define C_NUM_AT_CMD_DLT		1 //"=", 1 charater
 #define STR_END_OF_ATCMD_RET	"\r\n\n# " //each AT command response will end with this string
 #define STR_END_OF_ATDATA_RET	"\r\n\n> " //data transparent transmission indicator
+#define STR_RESP_OK		"OK\r\n"
+#define STR_RESP_FAIL		"ERROR\r\n"
 #endif

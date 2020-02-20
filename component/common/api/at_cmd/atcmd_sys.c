@@ -55,11 +55,28 @@ static char cBuffer[512];
 //#endif
 
 //-------- AT SYS commands ---------------------------------------------------------------
+// echo info
+extern unsigned char gAT_Echo;
+
 
 void fATS0(void *arg){
 	/* To avoid gcc warnings */
 	( void ) arg;
-	at_printf("OK\r\n");
+	at_printf(STR_RESP_OK);
+}
+
+void fATE0(void* arg) {
+	( void ) arg;
+	gAT_Echo = 0;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATE1(void* arg) {
+	( void ) arg;
+	gAT_Echo = 1;
+	at_printf(STR_RESP_OK);
+	return;
 }
 
 #if ATCMD_VER == ATVER_1
@@ -1056,9 +1073,6 @@ void print_system_at(void *arg);
 extern void print_wifi_at(void *arg);
 extern void print_tcpip_at(void *arg);
 
-// uart version 2 echo info
-extern unsigned char gAT_Echo;
-
 
 void fATSh(void *arg){
 	// print common AT command
@@ -1545,6 +1559,8 @@ log_item_t at_sys_items[] = {
 	{"ATS#", fATSt,{NULL,NULL}},	// test command
 	{"ATS?", fATSx,{NULL,NULL}},	// Help
 	{"AT", 	 fATS0,{NULL,NULL}},	// test AT command ready
+	{"ATE0", fATE0,{NULL,NULL}},	// disable echo
+	{"ATE1", fATE1,{NULL,NULL}},	// enable  echo
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
 	{"AT", 	 fATS0,},	// test AT command ready
 	{"ATS?", fATSh,},	// list all AT command

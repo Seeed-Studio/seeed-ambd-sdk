@@ -18,6 +18,8 @@ SHELL_ROM_BSS_SECTION u8						shell_history_cmd[UART_LOG_HISTORY_LEN][UART_LOG_C
 #endif
 SHELL_ROM_BSS_SECTION u32					shell_recv_all_data_onetime;
 
+unsigned char gAT_Echo = 1;
+
 //=================================================
 
 //======================================================
@@ -247,7 +249,7 @@ VOID shell_cmd_history(
 
 		if ((*prvUartLogCtl).RevdNo > 0){
 			shell_recall_oldcmd((*prvUartLogCtl).pTmpLogBuf , (u8*)&(*prvUartLogCtl).pHistoryBuf[(*prvUartLogCtl).SeeIdx],
-				1, (VOID*)pfEcho);
+				gAT_Echo, (VOID*)pfEcho);
 
 		}
 
@@ -265,7 +267,7 @@ VOID shell_cmd_history(
 			}
 		}
 
-		shell_show_backspace(((*(*prvUartLogCtl).pTmpLogBuf).BufCount), 1, pfEcho);
+		shell_show_backspace(((*(*prvUartLogCtl).pTmpLogBuf).BufCount), EchoFlag, pfEcho);
 
 		if ((*prvUartLogCtl).RevdNo > 0){
 			shell_recall_oldcmd((*prvUartLogCtl).pTmpLogBuf, (u8*)&(*prvUartLogCtl).pHistoryBuf[(*prvUartLogCtl).SeeIdx],
@@ -432,11 +434,11 @@ recv_again:
 			shell_ctl.EscSTS = 0;
 #ifdef CONFIG_UART_LOG_HISTORY
 			if ((UartReceiveData=='A')|| UartReceiveData=='B'){
-				shell_cmd_history(UartReceiveData,(UART_LOG_CTL *)&shell_ctl,1);
+				shell_cmd_history(UartReceiveData,(UART_LOG_CTL *)&shell_ctl, gAT_Echo);
 			}
 #endif
 		} else{
-			if (shell_cmd_chk(UartReceiveData,(UART_LOG_CTL *)&shell_ctl,1)==2)
+			if (shell_cmd_chk(UartReceiveData,(UART_LOG_CTL *)&shell_ctl, gAT_Echo)==2)
 			{
 				//4 check UartLog buffer to prevent from incorrect access
 				if (shell_ctl.pTmpLogBuf != NULL)
