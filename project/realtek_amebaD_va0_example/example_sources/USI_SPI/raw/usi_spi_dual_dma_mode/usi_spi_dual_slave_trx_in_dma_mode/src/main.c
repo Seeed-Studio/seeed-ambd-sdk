@@ -219,6 +219,7 @@ void usi_spi_dma_task(void* param)
 		*((u8*)SlaveTxBuf + i) = i;
 		}
 
+	LOG_MASK(LEVEL_ERROR, -1UL);
 	/**
 	* Slave write/read
 	*/

@@ -16,6 +16,7 @@ endif
 
 #gcc release
 SRCDIR		=$(ROOTDIR)/../../../src/src_hp
+#SRCDIR		=$(ROOTDIR)/../../../example_sources/USI_SPI/raw/usi_spi_dual_dma_mode/usi_spi_dual_slave_trx_in_dma_mode/src/
 INCDIR		=$(ROOTDIR)/../../../inc/inc_hp
 BASEDIR		= $(ROOTDIR)/../../../../..
 KM0_BUILDDIR	= $(ROOTDIR)/../../project_lp
