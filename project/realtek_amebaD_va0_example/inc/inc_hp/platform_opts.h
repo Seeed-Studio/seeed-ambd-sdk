@@ -389,7 +389,11 @@
 #define CONFIG_EXAMPLE_WLAN_FAST_CONNECT  0
 #endif
 
-/* For SPI Module AT command example */
+/* For SPI Module AT command example
+ *
+ * Enable SPI_ATCMD should also enable
+ * #define ATCMD_VER ATVER_2
+ */
 #define CONFIG_EXAMPLE_SPI_ATCMD 0
 
 #if CONFIG_EXAMPLE_SPI_ATCMD

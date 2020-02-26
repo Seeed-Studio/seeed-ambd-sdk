@@ -26,13 +26,17 @@
 extern "C" {
 #endif
 
+/*
 typedef struct gpio_irq_s {
 	PinName pin;
 } gpio_irq_t;
+*/
 
 typedef struct gpio_s {
 	PinName pin;
 } gpio_t;
+
+typedef gpio_t gpio_irq_t;
 
 struct port_s {
 	PortName port;

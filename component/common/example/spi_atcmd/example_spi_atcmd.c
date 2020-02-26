@@ -1,6 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2015 Realtek Corporation. All rights reserved.
+ * Copyright(c) 2019 - 2020 Seeed Technology. All rights reserved.
  *
  *
  ******************************************************************************/
@@ -14,7 +15,6 @@
 #include <platform/platform_stdlib.h>
 #include "semphr.h"
 #include "device.h"
-#include "osdep_api.h"
 #include "osdep_service.h"
 #include "device_lock.h"
 
@@ -25,12 +25,15 @@
 #include "at_cmd/atcmd_lwip.h"
 
 #include "flash_api.h"
-
+#include "gpio_api.h"
 #include "spi_api.h"
 #include "spi_ex_api.h"
 
 #include "gpio_irq_api.h"
 #include "gpio_irq_ex_api.h"
+#include "wifi_conf.h"
+#include "atcmd_wifi.h"
+#include "atcmd_lwip.h"
 
 /**** SPI FUNCTIONS ****/
 spi_t spi_obj;
@@ -40,11 +43,8 @@ gpio_t gpio_cs;
 #define SPI_TX_BUFFER_SIZE ATSTRING_LEN/2
 uint16_t spi_chunk_buffer[ATSTRING_LEN/2];
 
-_Sema master_rx_done_sema;
-_Sema master_tx_done_sema;
-
-#define SPI_USE_STREAM (0)
-#define SPI_USE_DMA    (1)
+_sema master_rx_done_sema;
+_sema master_tx_done_sema;
 
 /**** SLAVE HARDWARE READY ****/
 gpio_t gpio_hrdy;
@@ -53,25 +53,19 @@ gpio_t gpio_hrdy;
 #define SPI_SLAVE_READY 1
 
 volatile int spi_slave_status = SPI_SLAVE_BUSY;
-_Sema spi_check_hrdy_sema;
-
-#define BLOCKING    1
-#define NONBLOCKING 0
+_sema spi_check_hrdy_sema;
 
 volatile int hrdy_pull_down_counter = 0;
 
 /**** SLAVE SYNC ****/
-
 gpio_irq_t gpio_sync;
 
 #define SPI_STATE_MISO 0
 #define SPI_STATE_MOSI 1
-
 int spi_state = SPI_STATE_MISO;
 
 /**** TASK THREAD ****/
-
-_Sema spi_check_trx_sema;
+_sema spi_check_trx_sema;
 
 /**** LOG SERVICE ****/
 char at_string[ATSTRING_LEN];
@@ -80,9 +74,8 @@ extern char log_buf[LOG_SERVICE_BUFLEN];
 extern xSemaphoreHandle log_rx_interrupt_sema;
 
 #define LOG_TX_BUFFER_SIZE 16*1024
-char log_tx_buffer[LOG_TX_BUFFER_SIZE];
+u8 log_tx_buffer[LOG_TX_BUFFER_SIZE];
 uint32_t log_tx_idx = 0;
-uint32_t log_rx_idx = 0;
 
 /**** DATA FORMAT ****/
 #define PREAMBLE_COMMAND     0x6000
@@ -96,8 +89,6 @@ uint32_t log_rx_idx = 0;
 #define COMMAND_READ_RAW          0x0013
 #define COMMAND_WRITE_BEGIN       0x0014
 #define COMMAND_READ_WRITE_END    0x0015
-
-#define REGISTER_ADDR        0x2000
 
 void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data, u16 len) {
 	flash_t flash;
@@ -176,14 +167,8 @@ exit:
 }
 
 /* AT cmd V2 API */
-void spi_at_send_string(char *str) {
-    spi_at_send_buf(str, strlen(str));
-}
-
-/* AT cmd V2 API */
 void spi_at_send_buf(u8 *buf, u32 len) {
     int i;
-    int spi_tx_tail_next;
 
 	if( !len || (!buf) ){
 		return;
@@ -192,7 +177,7 @@ void spi_at_send_buf(u8 *buf, u32 len) {
     if (buf == log_tx_buffer) {
         log_tx_idx = len;
     } else {
-        for (i=0; i<len; i++) {
+        for (i=0; i<(int)len; i++) {
             if (log_tx_idx == LOG_TX_BUFFER_SIZE) {
                 // overflow!
                 break;
@@ -202,17 +187,18 @@ void spi_at_send_buf(u8 *buf, u32 len) {
     }
 
     if (__get_IPSR() != 0) {
-        RtlUpSema(&spi_check_trx_sema);
+        rtw_up_sema(&spi_check_trx_sema);
     } else {
-        RtlUpSemaFromISR(&spi_check_trx_sema);
+        rtw_up_sema_from_isr(&spi_check_trx_sema);
     }
 }
 
 /* IRQ handler called when SPI TX/RX finish */
 void master_trx_done_callback(void *pdata, SpiIrq event) {
+    (void) pdata;
     switch(event){
         case SpiRxIrq:
-            RtlUpSemaFromISR(&master_rx_done_sema);
+            rtw_up_sema_from_isr(&master_rx_done_sema);
             //DBG_8195A("Master RX done!\n");
             break;
         case SpiTxIrq:
@@ -225,11 +211,13 @@ void master_trx_done_callback(void *pdata, SpiIrq event) {
 
 /* IRQ handler called when SPI TX finish */
 static void master_tx_done_callback(uint32_t id) {
-	RtlUpSemaFromISR(&master_tx_done_sema);
+	(void) id;
+	rtw_up_sema_from_isr(&master_tx_done_sema);
 }
 
 /* IRQ handler as gpio hrdy hit rising edge */
 void slave_hrdy_change_callback(uint32_t id) {
+    (void) id;
     gpio_irq_disable(&gpio_hrdy);
 
     if (spi_slave_status == SPI_SLAVE_BUSY) {
@@ -247,12 +235,13 @@ void slave_hrdy_change_callback(uint32_t id) {
         gpio_irq_enable(&gpio_hrdy);
     }
 
-    RtlUpSemaFromISR(&spi_check_hrdy_sema);
+    rtw_up_sema_from_isr(&spi_check_hrdy_sema);
 }
 
 /* IRQ Handler as gpio sync state change */
 void slave_sync_chagne_callback(uint32_t id)
 {
+    (void) id;
     gpio_irq_disable(&gpio_sync);
 
     if (spi_state == SPI_STATE_MISO) {
@@ -269,7 +258,7 @@ void slave_sync_chagne_callback(uint32_t id)
         gpio_irq_enable(&gpio_sync);
     }
 
-    RtlUpSemaFromISR(&spi_check_trx_sema);
+    rtw_up_sema_from_isr(&spi_check_trx_sema);
 }
 
 void spi_atcmd_main(void)
@@ -287,8 +276,8 @@ void spi_atcmd_main(void)
     spi_frequency(&spi_obj, spiconf.frequency);
     spi_format(&spi_obj, spiconf.bits, spiconf.mode, 0);
 
-    spi_bus_tx_done_irq_hook(&spi_obj, master_tx_done_callback, (uint32_t)&spi_obj);
-    spi_irq_hook(&spi_obj, master_trx_done_callback, (uint32_t)&spi_obj);
+    spi_bus_tx_done_irq_hook(&spi_obj, (spi_irq_handler)master_tx_done_callback, (uint32_t)&spi_obj);
+    spi_irq_hook(&spi_obj, (spi_irq_handler)master_trx_done_callback, (uint32_t)&spi_obj);
 
     // init simulated spi cs
     gpio_init(&gpio_cs, GPIO_CS);
@@ -301,61 +290,63 @@ void spi_atcmd_main(void)
     gpio_dir(&gpio_hrdy, PIN_INPUT);
     gpio_mode(&gpio_hrdy, PullDown);
 
-    gpio_irq_init(&gpio_hrdy, GPIO_HRDY, slave_hrdy_change_callback, (uint32_t)&gpio_hrdy);
+    gpio_irq_init(&gpio_hrdy, GPIO_HRDY, (gpio_irq_handler)slave_hrdy_change_callback, (uint32_t)&gpio_hrdy);
     gpio_irq_set(&gpio_hrdy, IRQ_HIGH, 1);
     gpio_irq_enable(&gpio_hrdy); 
 
     // init gpio for check if spi slave want to send data
-    gpio_irq_init(&gpio_sync, GPIO_SYNC, slave_sync_chagne_callback,(uint32_t)&gpio_sync);
+    gpio_irq_init(&gpio_sync, GPIO_SYNC, (gpio_irq_handler)slave_sync_chagne_callback,(uint32_t)&gpio_sync);
     gpio_irq_set(&gpio_sync, IRQ_HIGH, 1);
     gpio_irq_enable(&gpio_sync);
 
     // init semaphore for check hardware ready
-    RtlInitSema(&spi_check_hrdy_sema, 1);
-    RtlDownSema(&spi_check_hrdy_sema);
+    rtw_init_sema(&spi_check_hrdy_sema, 1);
+    rtw_down_sema(&spi_check_hrdy_sema);
 
     // init semaphore that makes spi tx/rx thread to check something
-    RtlInitSema(&spi_check_trx_sema, 1);
-    RtlDownSema(&spi_check_trx_sema);
+    rtw_init_sema(&spi_check_trx_sema, 1);
+    rtw_down_sema(&spi_check_trx_sema);
 
     // init semaphore for master tx
-	RtlInitSema(&master_tx_done_sema, 1);
-	RtlDownSema(&master_tx_done_sema);
+    rtw_init_sema(&master_tx_done_sema, 1);
+    rtw_down_sema(&master_tx_done_sema);
 
     // init semaphore for master rx
-    RtlInitSema(&master_rx_done_sema, 1);
-    RtlDownSema(&master_rx_done_sema);
+    rtw_init_sema(&master_rx_done_sema, 1);
+    rtw_down_sema(&master_rx_done_sema);
 }
 
 int32_t spi_master_send(spi_t *obj, char *tx_buffer, uint32_t length) {
     hrdy_pull_down_counter = 0;
     spi_master_write_stream_dma(obj, tx_buffer, length);
-    RtlDownSema(&master_tx_done_sema);
+    rtw_down_sema(&master_tx_done_sema);
 
     if (spi_slave_status == SPI_SLAVE_BUSY) {
         while (hrdy_pull_down_counter == 0);
         hrdy_pull_down_counter = 0;
     }
+    return 0;
 }
 
 int32_t spi_master_recv(spi_t *obj, char *rx_buffer, uint32_t length) {
     hrdy_pull_down_counter = 0;
     spi_flush_rx_fifo(obj);
     spi_master_read_stream_dma(obj, rx_buffer, length);
-    RtlDownSema(&master_rx_done_sema);
-    RtlDownSema(&master_tx_done_sema);
+    rtw_down_sema(&master_rx_done_sema);
+    rtw_down_sema(&master_tx_done_sema);
 
     if (spi_slave_status == SPI_SLAVE_BUSY) {
         while (hrdy_pull_down_counter == 0);
         hrdy_pull_down_counter = 0;
     }
+    return 0;
 }
 
 void atcmd_check_special_case(char *buf) {
     int i;
     if (strlen(buf) > 4) {
         if (strncmp(buf, "ATPT", 4) == 0) {
-            for (i=0; i<strlen(buf); i++) {
+            for (i=0; i<(int)strlen(buf); i++) {
                 if (buf[i] == ':') {
                     buf[i] = '\0';
                     break;
@@ -367,11 +358,12 @@ void atcmd_check_special_case(char *buf) {
 
 static void spi_trx_thread(void *param)
 {
-    uint32_t i;
     uint32_t rxlen, txlen;
-    uint32_t recv_len, recv_remain, send_len;
+    uint32_t recv_len, send_len;
 
     uint16_t dummy, L_address, H_address, L_size, H_size;
+    (void)dummy;
+    (void)param;
 
     int slave_ready = 0;
     do {
@@ -380,7 +372,7 @@ static void spi_trx_thread(void *param)
     } while(slave_ready == 0);
 
     while(1) {
-        RtlDownSema(&spi_check_trx_sema);
+        rtw_down_sema(&spi_check_trx_sema);
 
         if (spi_state == SPI_STATE_MOSI) {
             if (log_tx_idx > 0) {
@@ -392,21 +384,21 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_BEGIN;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 gpio_write(&gpio_cs, 0);
                 spi_chunk_buffer[0] = PREAMBLE_DATA_READ;
-                spi_master_send(&spi_obj, spi_chunk_buffer, 1 * 2);
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 dummy     = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 L_address = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 H_address = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 L_size    = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 H_size    = spi_chunk_buffer[0];
                 gpio_write(&gpio_cs, 1);
 
@@ -416,7 +408,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_WRITE_BEGIN;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 if (log_tx_idx % 2 != 0) {
@@ -429,23 +421,23 @@ static void spi_trx_thread(void *param)
                 gpio_write(&gpio_cs, 0);
                 txlen = 1;
                 spi_chunk_buffer[0] = PREAMBLE_DATA_WRITE;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = L_address;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = H_address;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = L_size;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = H_size;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 gpio_write(&gpio_cs, 0);
                 txlen = 0;
                 spi_chunk_buffer[txlen++] = PREAMBLE_DATA_WRITE;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 txlen = log_tx_idx/2;
-                spi_master_send(&spi_obj, log_tx_buffer, txlen * 2); // sending raw data
+                spi_master_send(&spi_obj, (char*)log_tx_buffer, txlen * 2); // sending raw data
                 gpio_write(&gpio_cs, 1);
 
                 // stage C, write data end
@@ -454,7 +446,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_READ_WRITE_END;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 // stage final
@@ -463,7 +455,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_END;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 L_size = log_tx_idx & 0x0000FFFF;
@@ -474,7 +466,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = L_size;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 txlen = 0;
@@ -482,7 +474,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = H_size;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 // finalize
@@ -498,23 +490,23 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_BEGIN;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 txlen = 0;
                 spi_chunk_buffer[txlen++] = PREAMBLE_DATA_READ;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 dummy     = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 L_address = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 H_address = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 L_size    = spi_chunk_buffer[0];
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2);
                 H_size    = spi_chunk_buffer[0];
                 gpio_write(&gpio_cs, 1);
 
@@ -530,22 +522,22 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_READ_BEGIN;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 gpio_write(&gpio_cs, 0);
                 txlen = 1;
 
                 spi_chunk_buffer[0] = PREAMBLE_DATA_WRITE;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = L_address;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = H_address;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = L_size;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 spi_chunk_buffer[0] = H_size;
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 // Stage C, begin to read
@@ -554,15 +546,15 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_READ_RAW;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 txlen = 0;
                 spi_chunk_buffer[txlen++] = PREAMBLE_DATA_READ;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
-                spi_master_recv(&spi_obj, spi_chunk_buffer, 1 * 2); // recv dummy
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
+                spi_master_recv(&spi_obj, (char*)spi_chunk_buffer, 1 * 2); // recv dummy
                 rxlen = recv_len;
                 spi_master_recv(&spi_obj, log_buf, rxlen * 2);
                 log_buf[rxlen*2]= '\0';
@@ -574,7 +566,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_READ_WRITE_END;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 // stage final
@@ -583,7 +575,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = COMMAND_END;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 L_size = (recv_len) & 0x0000FFFF;
@@ -594,7 +586,7 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = L_size;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 txlen = 0;
@@ -602,13 +594,13 @@ static void spi_trx_thread(void *param)
                 spi_chunk_buffer[txlen++] = H_size;
 
                 gpio_write(&gpio_cs, 0);
-                spi_master_send(&spi_obj, spi_chunk_buffer, txlen * 2);
+                spi_master_send(&spi_obj, (char*)spi_chunk_buffer, txlen * 2);
                 gpio_write(&gpio_cs, 1);
 
                 // finalize
                 //printf("%s", log_buf);
                 atcmd_check_special_case(log_buf);
-                RtlUpSema(&log_rx_interrupt_sema);
+                rtw_up_sema(&log_rx_interrupt_sema);
                 taskYIELD();
             } while (0);
         }
@@ -619,6 +611,7 @@ static void spi_trx_thread(void *param)
 
 static void spi_atcmd_thread(void *param)
 {
+    (void)param;
     p_wlan_init_done_callback = NULL;
     atcmd_wifi_restore_from_flash();
     atcmd_lwip_restore_from_flash();

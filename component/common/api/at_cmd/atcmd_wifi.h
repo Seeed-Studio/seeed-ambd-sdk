@@ -145,18 +145,17 @@ extern char at_string[ATSTRING_LEN];
 extern unsigned char gAT_Echo; // default echo on
 //extern void uart_at_lock(void);
 //extern void uart_at_unlock(void);
-extern void uart_at_send_string(char *str);
 extern void uart_at_send_buf(u8 *buf, u32 len);
 
 #define at_printf(fmt, args...)  do{\
 			/*uart_at_lock();*/\
 			snprintf(at_string, ATSTRING_LEN, fmt, ##args); \
-			uart_at_send_string(at_string);\
+			uart_at_send_buf((u8*)at_string);\
 			/*uart_at_unlock();*/\
 	}while(0)
 #define at_print_data(data, size)  do{\
 			/*uart_at_lock();*/\
-			uart_at_send_buf(data, size);\
+			uart_at_send_buf((u8*)data, size);\
 			/*uart_at_unlock();*/\
 	}while(0)
 
@@ -229,20 +228,21 @@ extern void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8
 #define ATSTRING_LEN 	(LOG_SERVICE_BUFLEN)
 extern char at_string[ATSTRING_LEN];
 
-extern void spi_at_send_string(char *str);
 extern void spi_at_send_buf(u8 *buf, u32 len);
 
 #define at_printf(fmt, args...)  do{\
 			/*spi_at_lock();*/\
 			snprintf(at_string, ATSTRING_LEN, fmt, ##args); \
-			spi_at_send_string(at_string);\
+			spi_at_send_buf((u8*)at_string, strlen(at_string));\
 			/*spi_at_unlock();*/\
 	}while(0)
 #define at_print_data(data, size)  do{\
 			/*spi_at_lock();*/\
-			spi_at_send_buf(data, size);\
+			spi_at_send_buf((u8*)data, size);\
 			/*spi_at_unlock();*/\
 	}while(0)
+
+int atcmd_wifi_restore_from_flash(void);
 
 #else // #elif CONFIG_EXAMPLE_SPI_ATCMD
           
@@ -250,4 +250,5 @@ extern void spi_at_send_buf(u8 *buf, u32 len);
 #define at_print_data(data, size) do{__rtl_memDump(data, size, NULL);}while(0)
 #endif//#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 
-#endif
+#endif//__ATCMD_WIFI_H__
+

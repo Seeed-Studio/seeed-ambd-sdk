@@ -114,6 +114,7 @@ typedef struct _at_command_item_{
 
 void log_service_add_table(log_item_t *tbl, int len);
 int parse_param(char *buf, char **argv);
+void at_set_debug_mask(unsigned int newDbgFlag);
 #if CONFIG_LOG_SERVICE_LOCK
 void log_service_lock_init(void);
 void log_service_lock(void);
@@ -127,4 +128,5 @@ void log_service_unlock(void);
 #define STR_END_OF_ATDATA_RET	"\r\n\n> " //data transparent transmission indicator
 #define STR_RESP_OK		"OK\r\n"
 #define STR_RESP_FAIL		"ERROR\r\n"
-#endif
+#endif//LOG_SERVICE_H
+

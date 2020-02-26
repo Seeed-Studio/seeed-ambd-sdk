@@ -47,6 +47,7 @@ CSRC += $(DIR)/ssl_download/example_ssl_download.c
 CSRC += $(DIR)/ssl_server/example_ssl_server.c
 CSRC += $(DIR)/tcp_keepalive/example_tcp_keepalive.c
 CSRC += $(DIR)/uart_atcmd/example_uart_atcmd.c
+CSRC += $(DIR)/spi_atcmd/example_spi_atcmd.c
 CSRC += $(DIR)/wifi_mac_monitor/example_wifi_mac_monitor.c
 CSRC += $(DIR)/wlan_fast_connect/example_wlan_fast_connect.c
 CSRC += $(DIR)/wlan_scenario/example_wlan_scenario.c

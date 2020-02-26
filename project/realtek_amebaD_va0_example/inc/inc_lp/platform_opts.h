@@ -426,6 +426,7 @@ in lwip_opt.h for support uart adapter*/
 #define CONFIG_INTERACTIVE_MODE		0
 #define CONFIG_INTERACTIVE_EXT			0
 #define CONFIG_OTA_UPDATE				0
-#endif
+#endif//CONFIG_INIC_EN
 
-#endif
+#endif//__PLATFORM_OPTS_H__
+
