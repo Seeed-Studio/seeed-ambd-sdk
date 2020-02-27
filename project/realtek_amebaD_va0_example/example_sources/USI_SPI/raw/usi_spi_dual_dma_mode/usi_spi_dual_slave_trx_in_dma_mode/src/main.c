@@ -141,8 +141,8 @@ void USISsiSlaveWriteStreamDma(P_USISSI_OBJ pUSISsiObj, char *tx_buffer, u32 len
 	assert_param(length != 0);
 	assert_param(tx_buffer != NULL);
 	
-	pUSISsiObj->RxLength = length;
-	pUSISsiObj->RxData = (void*)tx_buffer;
+	pUSISsiObj->TxLength = length;
+	pUSISsiObj->TxData = (void*)tx_buffer;
 
 	USI_SSI_TXGDMA_Init(0, &pUSISsiObj->USISsiTxGdmaInitStruct, pUSISsiObj, (IRQ_FUN)USISsiDmaTxIrqHandle, tx_buffer, length);
 	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_TX_DMA_ENABLE);
