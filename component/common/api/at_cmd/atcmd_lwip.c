@@ -1211,6 +1211,7 @@ exit:
 #endif
 #if ATCMD_VER == ATVER_2
 void fATP0(void *arg){
+	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
@@ -1921,6 +1922,7 @@ exit:
 void fATPI(void *arg){
 	node* n = mainlist->next;
 	struct in_addr addr;
+	(void) arg;
 
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
@@ -4216,6 +4218,7 @@ exit:
 #endif
 #if ATCMD_VER == ATVER_2
 void fATP0(void *arg){
+	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
@@ -4927,6 +4930,7 @@ void fATPI(void *arg){
 	node* n = mainlist->next;
 	struct in_addr addr;
 
+	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
 	
@@ -5387,6 +5391,7 @@ static void atcmd_lwip_receive_task(void *param)
 
 	int i;
 	int packet_size = ETH_MAX_MTU;
+	(void) param;
 
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 			"Enter auto receive mode");
@@ -5951,6 +5956,7 @@ log_item_t at_transport_items[ ] = {
 void print_tcpip_at(void *arg){
 	int index;
 	int cmd_len = 0;
+	(void)arg;
 
 	cmd_len = sizeof(at_transport_items)/sizeof(at_transport_items[0]);
 	for(index = 0; index < cmd_len; index++)

@@ -18,6 +18,7 @@
 #include "main.h"
 #include "atcmd_wifi.h"
 #include "device_lock.h"
+#include "update.h"
 
 #if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
 #include "freertos_pmu.h"
@@ -131,6 +132,7 @@ void fATXX(void *arg)
 
 void fATSD(void *arg)
 {
+	(void)arg;
 #if !defined(CONFIG_PLATFORM_8195BHP)
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -148,6 +150,7 @@ void fATSD(void *arg)
 
 void fATSE(void *arg)
 {
+	(void)arg;
 #if !defined(CONFIG_PLATFORM_8195BHP)
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -303,6 +306,7 @@ void fATSK(void *arg)
 #if defined(SUPPORT_MP_MODE) && SUPPORT_MP_MODE
 void fATSA(void *arg)
 {
+	(void)arg;
 #if !defined(CONFIG_PLATFORM_8195BHP) && !defined(CONFIG_PLATFORM_8710C) && !defined(CONFIG_PLATFORM_8721D)
 	u32 tConfigDebugInfo = ConfigDebugInfo;
 	int argc = 0, channel;
@@ -386,6 +390,7 @@ void fATSA(void *arg)
 
 void fATSG(void *arg)
 {
+	(void)arg;
 #if defined(CONFIG_PLATFORM_8195A)
     gpio_t gpio_test;
     int argc = 0, val;
@@ -676,6 +681,7 @@ void fATSG(void *arg)
 
 void fATSP(void *arg)
 {
+	(void)arg;
 #if defined(CONFIG_PLATFORM_8195A)
 	int   argc           = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -786,6 +792,7 @@ int write_otu_to_system_data(flash_t *flash, uint32_t otu_addr)
 
 void fATSB(void *arg)
 {
+	(void)arg;
 #if !defined(CONFIG_PLATFORM_8195BHP) && !defined(CONFIG_PLATFORM_8710C)
 	int   argc           = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -895,6 +902,7 @@ void fATSs(void *arg)
 
 void fATSc(void *arg)
 {
+	(void)arg;
 #if defined (CONFIG_PLATFORM_8721D)
 	int argc = 0, config = 0;
 	char *argv[MAX_ARGC] = {0};
@@ -1114,6 +1122,7 @@ extern void print_tcpip_at(void *arg);
 
 
 void fATSh(void *arg){
+	(void)arg;
 	// print common AT command
 	at_printf("\r\n[ATS?] ");
 	at_printf("\r\nCommon AT Command:");
@@ -1132,6 +1141,7 @@ void fATSh(void *arg){
 }
 
 void fATSR(void *arg){
+	(void)arg;
 	at_printf("\r\n[ATSR] OK");
 	sys_reset();
 }
@@ -1140,6 +1150,7 @@ void fATSV(void *arg){
 	char at_buf[32];
 	char fw_buf[32];
 
+	(void)arg;
 	// get at version
 	strcpy(at_buf, ATCMD_VERSION"."ATCMD_SUBVERSION"."ATCMD_REVISION);
 
@@ -1159,7 +1170,6 @@ void fATSP(void *arg){
 	int argc = 0;
 	char *argv[MAX_ARGC] = {0};
 
-	uint32_t lock_id;
 	uint32_t bitmap;
 	
 	if (!arg) {
@@ -1203,7 +1213,7 @@ void fATSP(void *arg){
 
 void fATSE(void *arg){
 	int argc = 0;
-	int echo = 0, mask = gDbgFlag, dbg_lv = gDbgLevel;
+	int mask = gDbgFlag, dbg_lv = gDbgLevel;
 	char *argv[MAX_ARGC] = {0};
 	int err_no = 0;
 
@@ -1223,6 +1233,7 @@ void fATSE(void *arg){
 
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 	if(argv[1] != NULL){
+		int echo = 0;
 		echo = atoi(argv[1]);
 		if(echo>1 || echo <0){
 			err_no = 3;
@@ -1250,10 +1261,11 @@ exit:
 	return;
 }
 #if CONFIG_WLAN
-extern int EraseApinfo();
-extern int Erase_Fastconnect_data();
+extern int EraseApinfo(void);
+extern int Erase_Fastconnect_data(void);
 
 void fATSY(void *arg){
+	(void)arg;
 #if CONFIG_EXAMPLE_WLAN_FAST_CONNECT
 	Erase_Fastconnect_data();
 #endif
@@ -1638,6 +1650,7 @@ void print_system_at(void *arg){
 	int index;
 	int cmd_len = 0;
 
+	(void)arg;
 	cmd_len = sizeof(at_sys_items)/sizeof(at_sys_items[0]);
 	for(index = 0; index < cmd_len; index++)
 		at_printf("\r\n%s", at_sys_items[index].log_cmd);
