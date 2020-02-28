@@ -10,8 +10,8 @@ project/realtek_amebaD_va0_example/inc/inc_lp/build_info.h
 project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/lib/application/lib_user.a
 project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/build
 project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp/asdk/build
-!project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/gnu_utility
-!project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp/asdk/gnu_utility
+project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/asdk/gnu_utility
+project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp/asdk/gnu_utility
 *.i
 *.o
 *.s
