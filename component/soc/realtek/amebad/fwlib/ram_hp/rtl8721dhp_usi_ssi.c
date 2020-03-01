@@ -113,7 +113,7 @@ void USI_SSI_Init(USI_TypeDef *usi_dev, USI_SSI_InitTypeDef *USI_SSI_InitStruct)
 	usi_dev->USI_MODE_CTRL = TempValue1;
 
 	/* Disable SPI and Tx/Rx Path, for some bits in SPI_CTRL are writeable only when Tx/Rx path are both disable.*/	
-	USI_SSI_Cmd(usi_dev, DISABLE);
+	USI_SSI_Reset(usi_dev, ENABLE);
 	USI_SSI_TRxPath_Cmd(usi_dev, USI_SPI_RX_ENABLE | USI_SPI_TX_ENABLE, DISABLE);
 
 	/* Set SPI Control Register */
@@ -160,7 +160,7 @@ void USI_SSI_Init(USI_TypeDef *usi_dev, USI_SSI_InitTypeDef *USI_SSI_InitStruct)
 	usi_dev->SPI_TRANS_EN  = TempValue2;
 
 	/* Enable SPI. SPI can work normally when Tx/Rx Path and all logic are released.*/
-	USI_SSI_Cmd(usi_dev, ENABLE);
+	USI_SSI_Reset(usi_dev, DISABLE);
 }
 
 /**
@@ -174,7 +174,20 @@ void USI_SSI_Init(USI_TypeDef *usi_dev, USI_SSI_InitTypeDef *USI_SSI_InitStruct)
 
 void USI_SSI_Cmd(USI_TypeDef *usi_dev, u32 NewStatus)
 {
-	if (NewStatus != DISABLE) {
+	USI_SSI_TRxPath_Cmd(usi_dev, USI_SPI_RX_ENABLE | USI_SPI_TX_ENABLE, NewStatus);
+}
+
+/**
+  * @brief  Reset or release USI-SPI peripheral.
+  * @param  usi_dev: where usi_dev can be USI0_DEV.
+  * @param  NewStatus: This parameter can be one of the following values:
+  *            @arg ENABLE reset the device
+  *            @arg DISABLE
+  * @retval None
+  */
+void USI_SSI_Reset(USI_TypeDef *usi_dev, u32 NewStatus)
+{
+	if (NewStatus == DISABLE) {
 		usi_dev->SW_RESET |= USI_SW_RESET_RSTB | USI_SW_RESET_RXFIFO_RSTB |
 			USI_SW_RESET_TXFIFO_RSTB | USI_SW_RESET_RX_RSTB | USI_SW_RESET_TX_RSTB;
 	} else {
@@ -758,7 +771,7 @@ void USI_SSI_SetIsrClean(USI_TypeDef *usi_dev, u32 InterruptStatus)
 
 void USI_SSI_WriteData(USI_TypeDef *usi_dev, u32 value)
 {
-	usi_dev->TX_FIFO_WRITE = (value & USI_TX_FIFO_WRITE_DATA);
+	*(u8*)&usi_dev->TX_FIFO_WRITE = (value & USI_TX_FIFO_WRITE_DATA);
 }
 
 /**

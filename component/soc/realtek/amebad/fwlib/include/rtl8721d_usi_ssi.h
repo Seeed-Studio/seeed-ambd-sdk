@@ -161,7 +161,7 @@ typedef struct
 							     triggers an interrupt.When the number of transmit FIFO entries is less than or equal to this
 							     value,the transmit FIFO empty interrupt is triggered.
 							      @note For AmebaD, the value range of this parameter should be 0 to 63,because of the depth 
-							      of Rx FIFO is 64. */   
+							      of Tx FIFO is 64. */
 							     
 	u32  USI_SPI_ClockDivider;		    /*!< Specifies the SPI Baud Rate.
 							     The value of sclk_out equals to ssi_clk devides the value of this parameter
@@ -375,7 +375,7 @@ _LONG_CALL_ void USI_SSI_WriteData(USI_TypeDef *usi_dev, u32 value);
 _LONG_CALL_ void USI_SSI_SetRxFifoLevel(USI_TypeDef *usi_dev, u32 RxThresholdLevel);
 _LONG_CALL_ void USI_SSI_SetTxFifoLevel(USI_TypeDef *usi_dev, u32 TxThresholdLevel);
 _LONG_CALL_ u32 USI_SSI_Writeable(USI_TypeDef *usi_dev);
-_LONG_CALL_ u32 USI_SSI_Writeable(USI_TypeDef *usi_dev);
+_LONG_CALL_ u32 USI_SSI_Readable(USI_TypeDef *usi_dev);
 _LONG_CALL_ u32 USI_SSI_ReadData(USI_TypeDef *usi_dev);
 _LONG_CALL_ u32 USI_SSI_ReceiveData(USI_TypeDef *usi_dev, void* RxData, u32 Length);
 _LONG_CALL_ u32 USI_SSI_SendData(USI_TypeDef *usi_dev, void* TxData, u32 Length, u32 Role);
