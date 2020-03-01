@@ -310,6 +310,34 @@ static inline void PAD_ResistorCtrl(u8 PinName, u8 RType)
 	PINMUX->PADCTR[PinName] = Temp;
 }
 
+/**
+  *  @brief Update the Internal pad Control Register.
+  *  @param PinName : value of @ref PINMUX_Pin_Name_definitions.
+  *  @param Mask : the control type for the pin.
+  *                value of @ref PINMUX_PAD_Control_definitions
+  *  @param Val : the control type for the pin.
+  *                value of @ref PINMUX_PAD_Control_definitions
+  *  @retval None
+  *  @note Just for PAD C/F/G:
+  *  @note PA[12]/PA[13]/PA[14]/PA[15]/PA[16]/PA[17]/PA[18]/PA[19]/PA[20]/PA[21]/PA[25]/PA[26] 4.7K/50K
+  *  @note PA[29]/PA[30]/PA[31] 4.7K/10K
+  */
+static inline void PAD_UpdateCtrl(u8 PinName, u32 Mask, u32 Val)
+{
+	u32 Temp = 0;
+
+	/* get PADCTR */
+	Temp = PINMUX->PADCTR[PinName];
+
+	/* Reserve original value */
+	Temp &= ~Mask;
+
+	/* Set the new bits */
+	Temp |= Val & Mask;
+
+	/* set PADCTR register */
+	PINMUX->PADCTR[PinName] = Temp;
+}
 
 /**
   *  @brief Turn off pinmux SWD function.
