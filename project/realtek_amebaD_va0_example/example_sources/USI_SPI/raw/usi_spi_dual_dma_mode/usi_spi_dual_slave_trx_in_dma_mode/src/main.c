@@ -180,6 +180,7 @@ void usi_spi_dma_task(void* param)
 	u32 SclkPolarity = USI_SPI_SCPOL_INACTIVE_IS_LOW;
 	int i = 0;
 	int result = 1;
+	int k;
 
 
 	/* init USI_SPI as Slave*/
@@ -212,6 +213,9 @@ void usi_spi_dma_task(void* param)
 	pUSISsiObj->usi_dev = USI0_DEV;
 
 
+	LOG_MASK(LEVEL_ERROR, -1UL);
+
+	for (k = 0; k < 2; k++) {
 	_memset(SlaveTxBuf, 0, TEST_BUF_SIZE);
 	_memset(SlaveRxBuf, 0, TEST_BUF_SIZE);
 
@@ -219,7 +223,6 @@ void usi_spi_dma_task(void* param)
 		*((u8*)SlaveTxBuf + i) = i;
 		}
 
-	LOG_MASK(LEVEL_ERROR, -1UL);
 	/**
 	* Slave write/read
 	*/
@@ -264,12 +267,14 @@ void usi_spi_dma_task(void* param)
 			}
 		}
 
-
+	DBG_8195A("\r\nSlave Result is %s\r\n", result ? "success" : "fail");
 	/* free USI_SPI */
 	USISsiFree(pUSISsiObj);
+	}
 
 	DBG_8195A("USI SPI Slave Demo Finished.\n");
-	DBG_8195A("\r\nSlave Result is %s\r\n", result ? "success" : "fail");
+
+	for(;;);
 
 	vTaskDelete(NULL);
 
