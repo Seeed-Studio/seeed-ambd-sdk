@@ -1062,3 +1062,15 @@ const struct osdep_service_ops osdep_service = {
 	_freertos_get_scheduler_state,	//rtw_get_scheduler_state
 	_freertos_create_secure_context,	// rtw_create_secure_context	
 };
+
+int debug_buf(const char* head, char* buf, int len) {
+	int i;
+
+	printf("DBG:%s[%d] = \r\n\t", head, len);
+	for (i = 0; i < len; i++) {
+		printf("%02X ", buf[i]);
+	}
+	printf("\r\n");
+	return len;
+}
+

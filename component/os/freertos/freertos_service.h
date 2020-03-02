@@ -243,6 +243,8 @@ extern void	rtw_list_delete(_list *plist);
 
 extern int rtw_if_wifi_thread(char *name);
 
+extern int debug_buf(const char* head, char* buf, int len);
+
 #if (defined CONFIG_PLATFORM_8711B) || (defined CONFIG_PLATFORM_8721D)
 extern u32 random_seed;
 #endif
