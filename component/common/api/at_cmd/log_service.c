@@ -359,7 +359,7 @@ void legency_interactive_handler(unsigned char argc, unsigned char **argv)
   #define WLAN1_NAME		"wlan1"
 #endif
 extern int wext_private_command(const char *ifname, char *cmd, int show_msg);
-int mp_commnad_handler(char *cmd)
+int mp_command_handler(char *cmd)
 {
 	char buf[64];
 	char *token = NULL;
@@ -431,7 +431,7 @@ void log_service(void *param)
 #endif
 		if(log_handler((char *)log_buf) == NULL){
 #if CONFIG_WLAN
-			if(mp_commnad_handler((char *)log_buf) < 0)
+			if(mp_command_handler((char *)log_buf) < 0)
 #endif                        
 			{
 			#if SUPPORT_INTERACTIVE_MODE
@@ -498,7 +498,7 @@ void start_log_service(void)
 			&CreatedTask,
 			stack_addr,
 			NULL);
-#else		
+#else
 	result = xTaskCreate( log_service, ( const portCHAR * ) "log_service", STACKSIZE, NULL, tskIDLE_PRIORITY + 5, &CreatedTask );
 #endif
    
