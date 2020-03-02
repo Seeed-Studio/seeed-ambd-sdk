@@ -1,8 +1,7 @@
 /******************************************************************************
  *
  * Copyright(c) 2007 - 2015 Realtek Corporation. All rights reserved.
- * Copyright(c) 2019 - 2020 Seeed Technology. All rights reserved.
- *
+ * Copyright(c) 2019 - 2020 Seeed Technology.    All rights reserved.
  *
  ******************************************************************************/
 
@@ -34,6 +33,13 @@
 #include "wifi_conf.h"
 #include "atcmd_wifi.h"
 #include "atcmd_lwip.h"
+
+#if defined(IS_USI_SPI) && IS_USI_SPI
+	#define USE_USI_SPI_SLAVE  1
+	#include "rtl8721d_usi_ssi.h"
+#else
+	#define USE_USI_SPI_SLAVE  0
+#endif
 
 /**** SPI FUNCTIONS ****/
 spi_t spi_obj;
@@ -71,11 +77,12 @@ _sema spi_check_trx_sema;
 char at_string[ATSTRING_LEN];
 
 extern char log_buf[LOG_SERVICE_BUFLEN];
-extern xSemaphoreHandle log_rx_interrupt_sema;
+extern _sema log_rx_interrupt_sema;
 
-#define LOG_TX_BUFFER_SIZE 16*1024
+#define LOG_TX_BUFFER_SIZE 8*1024
 u8 log_tx_buffer[LOG_TX_BUFFER_SIZE];
-uint32_t log_tx_idx = 0;
+volatile uint32_t log_tx_tail = 0;
+volatile uint32_t log_tx_hdr = 0;
 
 /**** DATA FORMAT ****/
 #define PREAMBLE_COMMAND     0x6000
@@ -174,15 +181,17 @@ void spi_at_send_buf(u8 * buf, u32 len)
 		return;
 	}
 
+	debug_buf("F", buf, len);
+
 	if (buf == log_tx_buffer) {
-		log_tx_idx = len;
+		log_tx_tail = len;
 	} else {
 		for (i = 0; i < (int) len; i++) {
-			if (log_tx_idx == LOG_TX_BUFFER_SIZE) {
+			if (log_tx_tail == LOG_TX_BUFFER_SIZE) {
 				// overflow!
 				break;
 			}
-			log_tx_buffer[log_tx_idx++] = buf[i];
+			log_tx_buffer[log_tx_tail++] = buf[i];
 		}
 	}
 
@@ -193,6 +202,7 @@ void spi_at_send_buf(u8 * buf, u32 len)
 	}
 }
 
+#if ! USE_USI_SPI_SLAVE
 /* IRQ handler called when SPI TX/RX finish */
 void master_trx_done_callback(void *pdata, SpiIrq event)
 {
@@ -264,7 +274,7 @@ void slave_sync_chagne_callback(uint32_t id)
 	rtw_up_sema_from_isr(&spi_check_trx_sema);
 }
 
-void spi_atcmd_main(void)
+static void spi_atcmd_initial(void)
 {
 	wifi_disable_powersave();
 
@@ -288,7 +298,7 @@ void spi_atcmd_main(void)
 	gpio_mode(&gpio_cs, PullNone);
 	gpio_write(&gpio_cs, 1);
 
-	// init gpio for check if spi slave hw ready 
+	// init gpio for check if spi slave hw ready
 	gpio_init(&gpio_hrdy, GPIO_HRDY);
 	gpio_dir(&gpio_hrdy, PIN_INPUT);
 	gpio_mode(&gpio_hrdy, PullDown);
@@ -346,28 +356,37 @@ int32_t spi_master_recv(spi_t * obj, char *rx_buffer, uint32_t length)
 	}
 	return 0;
 }
+#endif//!USE_USI_SPI_SLAVE
 
 void atcmd_check_special_case(char *buf)
 {
 	int i;
-	if (strlen(buf) > 4) {
-		if (strncmp(buf, "ATPT", 4) == 0) {
-			for (i = 0; i < (int) strlen(buf); i++) {
-				if (buf[i] == ':') {
-					buf[i] = '\0';
-					break;
-				}
+
+	if (strncmp(buf, "ATPT", 4) == 0) {
+		for (i = 0; i < (int) strlen(buf); i++) {
+			if (buf[i] == ':') {
+				buf[i] = '\0';
+				break;
 			}
+		}
+	} else {
+		/* Remove tail \r or \n */
+		for (i = strlen(buf) - 1;
+		     i >= 0 && (buf[i] == '\r' || buf[i] == '\n');
+		     i--
+		) {
+			buf[i] = '\0';
 		}
 	}
 }
 
+#if !USE_USI_SPI_SLAVE
 static void spi_trx_thread(void *param)
 {
 	uint32_t rxlen, txlen;
 	uint32_t recv_len, send_len;
-
 	uint16_t dummy, L_address, H_address, L_size, H_size;
+
 	(void) dummy;
 	(void) param;
 
@@ -381,7 +400,7 @@ static void spi_trx_thread(void *param)
 		rtw_down_sema(&spi_check_trx_sema);
 
 		if (spi_state == SPI_STATE_MOSI) {
-			if (log_tx_idx > 0) {
+			if (log_tx_tail > 0) {
 				/* Slave hw is ready, and Master has something to send. */
 
 				// stage A, read target address
@@ -417,10 +436,10 @@ static void spi_trx_thread(void *param)
 				spi_master_send(&spi_obj, (char *) spi_chunk_buffer, txlen * 2);
 				gpio_write(&gpio_cs, 1);
 
-				if (log_tx_idx % 2 != 0) {
-					log_tx_buffer[log_tx_idx++] = 0;
+				if (log_tx_tail % 2 != 0) {
+					log_tx_buffer[log_tx_tail++] = 0;
 				}
-				send_len = log_tx_idx / 2;
+				send_len = log_tx_tail / 2;
 				L_size = send_len & 0x0000FFFF;
 				H_size = (send_len & 0xFFFF0000) >> 16;
 
@@ -442,7 +461,7 @@ static void spi_trx_thread(void *param)
 				txlen = 0;
 				spi_chunk_buffer[txlen++] = PREAMBLE_DATA_WRITE;
 				spi_master_send(&spi_obj, (char *) spi_chunk_buffer, txlen * 2);
-				txlen = log_tx_idx / 2;
+				txlen = log_tx_tail / 2;
 				spi_master_send(&spi_obj, (char *) log_tx_buffer, txlen * 2);	// sending raw data
 				gpio_write(&gpio_cs, 1);
 
@@ -464,8 +483,8 @@ static void spi_trx_thread(void *param)
 				spi_master_send(&spi_obj, (char *) spi_chunk_buffer, txlen * 2);
 				gpio_write(&gpio_cs, 1);
 
-				L_size = log_tx_idx & 0x0000FFFF;
-				H_size = (log_tx_idx & 0xFFFF0000) >> 16;
+				L_size = log_tx_tail & 0x0000FFFF;
+				H_size = (log_tx_tail & 0xFFFF0000) >> 16;
 
 				txlen = 0;
 				spi_chunk_buffer[txlen++] = PREAMBLE_DATA_WRITE;
@@ -484,7 +503,7 @@ static void spi_trx_thread(void *param)
 				gpio_write(&gpio_cs, 1);
 
 				// finalize
-				log_tx_idx = 0;
+				log_tx_tail = 0;
 			}
 
 		} else if (spi_state == SPI_STATE_MISO) {
@@ -613,6 +632,541 @@ static void spi_trx_thread(void *param)
 
 	vTaskDelete(NULL);
 }
+#else
+
+
+
+
+// SPI transfer tags, commonly used by target SPI AT device
+enum {
+	SPT_TAG_PRE = 0x55,
+	SPT_TAG_ACK = 0xBE,
+	SPT_TAG_WR  = 0x80,
+	SPT_TAG_RD  = 0x00,
+	SPT_TAG_DMY = 0xFF, /* dummy */
+};
+
+enum {
+	SPT_ERR_OK  = 0x00,
+	SPT_ERR_DEC_SPC = 0x01,
+};
+
+typedef struct {
+	USI_TypeDef *usi_dev;
+
+	void *RxData;
+	void *TxData;
+	u32  RxLength;
+	u32  TxLength;
+
+	GDMA_InitTypeDef USISsiTxGdmaInitStruct;
+	GDMA_InitTypeDef USISsiRxGdmaInitStruct;
+
+	u32   Role;
+}USISSI_OBJ, *P_USISSI_OBJ;
+
+
+USISSI_OBJ USISsiObj;
+
+/* Complete Flag of TRx */
+volatile int RxCompleteFlag;
+volatile int TxCompleteFlag;
+static const u32 SclkPhase = USI_SPI_SCPH_TOGGLES_IN_MIDDLE;
+static const u32 SclkPolarity = USI_SPI_SCPOL_INACTIVE_IS_LOW;
+
+static SRAM_NOCACHE_DATA_SECTION u8 SlaveTxBuf[LOG_TX_BUFFER_SIZE];
+static SRAM_NOCACHE_DATA_SECTION u8 SlaveRxBuf[LOG_TX_BUFFER_SIZE];
+
+/* GDMA Tx IRQ Handler */
+static uint32_t USISsiDmaTxIrqHandle (void* arg)
+{
+	PGDMA_InitTypeDef GDMA_InitStruct;
+	P_USISSI_OBJ pUSISsiObj = (P_USISSI_OBJ)arg;
+
+	GDMA_InitStruct = &pUSISsiObj->USISsiTxGdmaInitStruct;
+
+	/* Clear Pending ISR */
+	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
+
+	/*  TX complete callback */
+	TxCompleteFlag = 1;
+
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_TX_DMA_ENABLE);
+
+	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+
+	rtw_up_sema_from_isr(&spi_check_trx_sema);
+	return 0;
+}
+
+
+/* GDMA Rx IRQ Handler */
+static uint32_t USISsiDmaRxIrqHandle (void * arg)
+{
+	PGDMA_InitTypeDef GDMA_InitStruct;
+	P_USISSI_OBJ pUSISsiObj = (P_USISSI_OBJ)arg;
+
+	GDMA_InitStruct = &pUSISsiObj->USISsiRxGdmaInitStruct;
+
+	/* Clear Pending ISR */
+	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
+
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_RX_DMA_ENABLE);
+
+	/*  RX complete callback */
+	RxCompleteFlag = 1;
+
+	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
+
+	rtw_up_sema_from_isr(&spi_check_trx_sema);
+	return 0;
+}
+
+void USISsiSlaveReadStreamDma(P_USISSI_OBJ pUSISsiObj, u8 *rx_buffer, u32 length)
+{
+	assert_param(length != 0);
+	assert_param(rx_buffer != NULL);
+
+	pUSISsiObj->RxLength = length;
+	pUSISsiObj->RxData = (void*)rx_buffer;
+
+	USI_SSI_RXGDMA_Init(0, &pUSISsiObj->USISsiRxGdmaInitStruct, pUSISsiObj, USISsiDmaRxIrqHandle, rx_buffer, length);
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_RX_DMA_ENABLE);
+}
+
+
+void USISsiSlaveWriteStreamDma(P_USISSI_OBJ pUSISsiObj, u8 *tx_buffer, u32 length)
+{
+	assert_param(length != 0);
+	assert_param(tx_buffer != NULL);
+
+	pUSISsiObj->TxLength = length;
+	pUSISsiObj->TxData = (void*)tx_buffer;
+
+	USI_SSI_TXGDMA_Init(0, &pUSISsiObj->USISsiTxGdmaInitStruct, pUSISsiObj, USISsiDmaTxIrqHandle, tx_buffer, length);
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_TX_DMA_ENABLE);
+}
+
+
+void USISsiFree(P_USISSI_OBJ pUSISsiObj)
+{
+	PGDMA_InitTypeDef GDMA_Tx;
+
+	GDMA_Tx = &pUSISsiObj->USISsiTxGdmaInitStruct;
+	/* Set USI_SSI Tx DMA Disable */
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_TX_DMA_ENABLE);
+	/* Clear Pending ISR */
+	GDMA_ClearINT(GDMA_Tx->GDMA_Index, GDMA_Tx->GDMA_ChNum);
+	GDMA_ChCleanAutoReload(GDMA_Tx->GDMA_Index, GDMA_Tx->GDMA_ChNum, CLEAN_RELOAD_SRC_DST);
+	GDMA_Cmd(GDMA_Tx->GDMA_Index, GDMA_Tx->GDMA_ChNum, DISABLE);
+	GDMA_ChnlFree(GDMA_Tx->GDMA_Index, GDMA_Tx->GDMA_ChNum);
+
+	PGDMA_InitTypeDef GDMA_Rx;
+	GDMA_Rx = &pUSISsiObj->USISsiRxGdmaInitStruct;
+	/* Set USI_SSI Rx DMA Disable */
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_RX_DMA_ENABLE);
+	/* Clear Pending ISR */
+	GDMA_ClearINT(GDMA_Rx->GDMA_Index, GDMA_Rx->GDMA_ChNum);
+	GDMA_ChCleanAutoReload(GDMA_Rx->GDMA_Index, GDMA_Rx->GDMA_ChNum, CLEAN_RELOAD_SRC_DST);
+	GDMA_Cmd(GDMA_Rx->GDMA_Index, GDMA_Rx->GDMA_ChNum, DISABLE);
+	GDMA_ChnlFree(GDMA_Rx->GDMA_Index, GDMA_Rx->GDMA_ChNum);
+}
+
+static void spi_atcmd_initial(void)
+{
+	wifi_disable_powersave();
+
+	/* init USI_SPI as Slave*/
+	USI_SSI_InitTypeDef usi_i_obj;
+
+	RCC_PeriphClockCmd(APBPeriph_USI_REG, APBPeriph_USI_CLOCK, ENABLE);
+	Pinmux_Config(USI_SPI_MOSI, PINMUX_FUNCTION_SPIS);
+	Pinmux_Config(USI_SPI_MISO, PINMUX_FUNCTION_SPIS);
+	Pinmux_Config(USI_SPI_CS, PINMUX_FUNCTION_SPIS);
+	Pinmux_Config(USI_SPI_SCLK, PINMUX_FUNCTION_SPIS);
+
+	/* Schmitt input make input more stable */
+	PAD_UpdateCtrl(USI_SPI_MOSI, PAD_BIT_SCHMITT_TRIGGER_EN, PAD_BIT_SCHMITT_TRIGGER_EN);
+	PAD_UpdateCtrl(USI_SPI_CS, PAD_BIT_SCHMITT_TRIGGER_EN, PAD_BIT_SCHMITT_TRIGGER_EN);
+
+	if (SclkPolarity == USI_SPI_SCPOL_INACTIVE_IS_LOW) {
+		/* CS pull high, CLK pull low */
+		PAD_PullCtrl(USI_SPI_CS, GPIO_PuPd_UP);
+		PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_DOWN);
+	} else {
+		/* CS pull high, CLK pull high */
+		PAD_PullCtrl(USI_SPI_CS, GPIO_PuPd_UP);
+		PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_UP);
+	}
+
+	USI_SSI_StructInit(&usi_i_obj);
+	usi_i_obj.USI_SPI_Role = USI_SPI_SLAVE;
+	usi_i_obj.USI_SPI_SclkPhase = SclkPhase;
+	usi_i_obj.USI_SPI_SclkPolarity = SclkPolarity;
+	usi_i_obj.USI_SPI_DataFrameSize = USI_SPI_DFS_8_BITS;
+	USI_SSI_Init(USI0_DEV, &usi_i_obj);
+
+	USISsiObj.usi_dev = USI0_DEV;
+
+	// init semaphore that makes spi tx/rx thread to check something
+	rtw_init_sema(&spi_check_trx_sema, 1);
+	// rtw_down_sema(&spi_check_trx_sema);
+
+	return;
+}
+
+static int spi_slave_clear_intr(void) {
+	u32 InterruptStatus = USI_SSI_GetRawIsr(USISsiObj.usi_dev);
+
+	USI_SSI_SetIsrClean(USISsiObj.usi_dev, InterruptStatus);
+	return 0;
+}
+
+#define SPI_TIMEOUT 1000 /* milli seconds */
+#if 1
+#define SPI_LOOP_WAIT 100000 /* loops */
+int spi_slave_recv(u8* buf, uint16_t len, int wait_loops) {
+	uint16_t i;
+
+	spi_slave_clear_intr();
+
+	/* Prevent TX FIFO underflow */
+	#if 1
+	USI_SSI_TRxPath_Cmd(USISsiObj.usi_dev, USI_SPI_TX_ENABLE, DISABLE);
+	#else
+	for (i = 0; i < len; i++) {
+		/* How many reads, how many writes,
+		 * or else the TX FIFO will underflow
+		 */
+		USI_SSI_WriteData(USISsiObj.usi_dev, -1UL);
+	}
+	#endif
+
+	for (i = 0; i < len;) {
+		/* slave read */
+		while (!USI_SSI_Readable(USISsiObj.usi_dev)) {
+			if (wait_loops-- <= 0) {
+				goto __ret;
+			}
+		}
+		buf[i++] = (int)USI_SSI_ReadData(USISsiObj.usi_dev);
+	}
+__ret:
+	USI_SSI_TRxPath_Cmd(USISsiObj.usi_dev, USI_SPI_TX_ENABLE, ENABLE);
+	if (i != 0) {
+		return i;
+	}
+	// DBG_8195A("\n@");
+	return -2;
+}
+
+int spi_slave_send(const u8* buf, uint16_t len, int wait_loops) {
+	int i;
+
+	spi_slave_clear_intr();
+
+	USI_SSI_TRxPath_Cmd(USISsiObj.usi_dev, USI_SPI_RX_ENABLE, DISABLE);
+
+	#if 0
+	/*
+	 * Silicon Bug, FIFO length less or equal than 4 bytes will not send out
+	 * Fill 4 bytes here.
+	 */
+	for (i = 0; i < 4; i++) {
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0xD0 + i);
+	}
+	#endif
+	for (i = 0; i < len; i++) {
+		/* Access FIFO level register is dangerous */
+		while (!USI_SSI_Writeable(USISsiObj.usi_dev)) {
+			if (wait_loops-- <= 0) {
+				goto __ret;
+			}
+		}
+		/* slave write */
+		USI_SSI_WriteData(USISsiObj.usi_dev, buf[i]);
+		/* FIFO Word Width 16BIT, not relevant to DataFrameSize */
+		#if 0
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0xC0 + i);
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0xD0 + i);
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0xE0 + i);
+
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0x0);
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0x0);
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0x0);
+		#endif
+		// printf("S%02X", buf[i]);
+	}
+
+	#if 0
+	for (i = 0; i < 12; i++) {
+		USI_SSI_WriteData(USISsiObj.usi_dev, 0xC0 + i);
+	}
+	#endif
+
+__ret:
+	if (i > 0) {
+		if (i != len) DBG_8195A("%");
+		return i;
+	}
+	DBG_8195A("$");
+	return 0;
+}
+#else
+#define SPI_LOOP_WAIT SPI_TIMEOUT
+#define spi_slave_recv spi_slave_dma_recv
+#define spi_slave_send spi_slave_dma_send
+#endif
+
+int spi_slave_wait_tx_end(int wait_us) {
+	u32 us;
+
+	wait_us /= 100;
+
+	/* Clear RX FIFO */
+	while (USI_SSI_Readable(USISsiObj.usi_dev)) {
+		USI_SSI_ReadData(USISsiObj.usi_dev);
+	}
+
+	/* Wait Tx FIFO empty */
+	while (0 != (us = USI_SSI_GetTxCount(USISsiObj.usi_dev))) {
+		if (wait_us-- <= 0) {
+			goto __ret;
+		}
+		DelayUs(100);
+	}
+	while (USI_SSI_Busy(USISsiObj.usi_dev));
+
+__ret:
+	USI_SSI_TRxPath_Cmd(USISsiObj.usi_dev, USI_SPI_RX_ENABLE, ENABLE);
+	if (wait_us < 0) {
+		printf("U%d", us);
+		return -1;
+	}
+	return 0;
+}
+
+static int spi_slave_tx_fifo_clear(void) {
+	/* Disable the spi controller */
+	USI_SSI_Cmd(USISsiObj.usi_dev, DISABLE);
+	USISsiObj.usi_dev->SW_RESET &= ~(USI_SW_RESET_TXFIFO_RSTB | USI_SW_RESET_TX_RSTB);
+	USISsiObj.usi_dev->SW_RESET |=   USI_SW_RESET_TXFIFO_RSTB | USI_SW_RESET_TX_RSTB;
+	USI_SSI_Cmd(USISsiObj.usi_dev, ENABLE);
+	return 0;
+}
+
+static int spi_slave_dma_recv(u8* buf, uint16_t len, int wait_ms) {
+	RxCompleteFlag = 0;
+	// TxCompleteFlag = 0;
+
+	if (len > sizeof SlaveRxBuf) {
+		DBG_8195A("USI SPI slave recv too many bytes\n");
+		return -1;
+	}
+
+	spi_slave_clear_intr();
+
+	USISsiFree(&USISsiObj);
+	USI_SSI_Cmd(USISsiObj.usi_dev, DISABLE);
+	USI_SSI_Cmd(USISsiObj.usi_dev, ENABLE);
+	USISsiSlaveReadStreamDma(&USISsiObj, SlaveRxBuf, len);
+	// USISsiSlaveWriteStreamDma(&USISsiObj, SlaveTxBuf, len);
+
+	while (RxCompleteFlag == 0) {
+		if (wait_ms-- <= 0) {
+			break;
+		}
+		rtw_msleep_os(1);
+	}
+
+	if (RxCompleteFlag) {
+		memcpy(buf, SlaveRxBuf, len);
+		return len;
+	}
+
+	DBG_8195A("USI SPI Slave dma recv wait timeout\n");
+	return -2;
+}
+
+static int spi_slave_dma_send(const u8* buf, uint16_t len, int wait_ms) {
+	TxCompleteFlag = 0;
+
+	if (len > sizeof SlaveTxBuf) {
+		DBG_8195A("USI SPI slave send too many bytes\n");
+		return -1;
+	}
+
+	spi_slave_clear_intr();
+
+	memcpy(SlaveTxBuf, buf, len);
+	USISsiFree(&USISsiObj);
+	USI_SSI_Cmd(USISsiObj.usi_dev, DISABLE);
+	USI_SSI_Cmd(USISsiObj.usi_dev, ENABLE);
+	USISsiSlaveWriteStreamDma(&USISsiObj, SlaveTxBuf, len);
+
+	while (TxCompleteFlag == 0) {
+		if (wait_ms-- <= 0) {
+			break;
+		}
+		rtw_msleep_os(1);
+	}
+
+	if (TxCompleteFlag) {
+		return len;
+	}
+
+	DBG_8195A("USI SPI Slave dma send timeout\n");
+	return -2;
+}
+
+static int spi_get_fifo_intr_status(u32* status) {
+	status[0]  = USI_SSI_GetRawIsr(USISsiObj.usi_dev);
+	status[0] |= USI_SSI_GetTxCount(USISsiObj.usi_dev) << 16;
+	status[0] |= USI_SSI_GetRxCount(USISsiObj.usi_dev) << 24;
+	return 0;
+}
+
+static void spi_trx_thread(void *param)
+{
+	union {
+		uint8_t v8[4];
+		uint16_t v16[2];
+		uint32_t v32;
+	} u;
+	uint8_t cmd;
+	uint16_t len;
+	int r;
+	u32 status[4];
+
+	(void) param;
+
+	for (;;) {
+		rtw_down_sema(&spi_check_trx_sema);
+
+_repeat:
+		rtw_msleep_os(1);
+		spi_slave_tx_fifo_clear();
+
+		spi_get_fifo_intr_status(status + 0);
+
+		/* wait SPT_TAG_PRE */
+		while (spi_slave_recv(u.v8, 1, SPI_LOOP_WAIT) < 0) {
+			rtw_msleep_os(1);
+		}
+
+		if (u.v8[0] != SPT_TAG_PRE) {
+			printf("*R%02X\n", u.v8[0]);
+			goto _repeat;
+		}
+		// printf("L%d\n", __LINE__);
+		printf("P\n");
+
+		/* wait SPT_TAG_WR/SPT_TAG_RD */
+		while (spi_slave_recv(u.v8, 1, SPI_LOOP_WAIT) < 0) {
+			rtw_msleep_os(1);
+		}
+
+		if (u.v8[0] != SPT_TAG_RD && u.v8[0] != SPT_TAG_WR) {
+			printf("#R%02X\n", u.v8[0]);
+			goto _repeat;
+		}
+		cmd = u.v8[0];
+
+		// printf("L%d\n", __LINE__);
+
+		/* recv len (2B) */
+		r = spi_slave_recv(u.v8, 2, SPI_LOOP_WAIT);
+		if (r < 0) {
+			printf("X\n");
+		}
+		len = ntohs(u.v16[0]);
+
+		// printf("L%d req %dB\n",  __LINE__, len);
+		spi_get_fifo_intr_status(status + 1);
+
+		/* Reset the spi controller */
+		USI_SSI_Cmd(USISsiObj.usi_dev, DISABLE);
+		USI_SSI_Cmd(USISsiObj.usi_dev, ENABLE);
+
+		/* TODO, check len */
+		if (cmd == SPT_TAG_WR) { /* The master write to this slave */
+			u.v8[0] = SPT_TAG_ACK;
+			u.v8[1] = SPT_ERR_OK;
+			u.v16[1] = htons(len);
+			spi_slave_send(u.v8, 4, SPI_LOOP_WAIT);
+			r = spi_slave_wait_tx_end(200000);
+			spi_get_fifo_intr_status(status + 2);
+
+			r = spi_slave_recv((uint8_t*)log_buf, len, SPI_LOOP_WAIT * 10);
+			if (r < 0) {
+				printf("T");
+			}
+			spi_get_fifo_intr_status(status + 3);
+
+			printf("L%dI=%08X\n", __LINE__, status[0]);
+			printf("L%dI=%08X\n", __LINE__, status[1]);
+			printf("L%dI=%08X\n", __LINE__, status[2]);
+			printf("L%dI=%08X\n", __LINE__, status[3]);
+
+			log_buf[len] = 0;
+			for (r = 0; r < strlen(log_buf); r++) {
+				printf("[%02X\n", log_buf[r]);
+			}
+			atcmd_check_special_case(log_buf);
+			rtw_up_sema(&log_rx_interrupt_sema);
+			printf("L%d\n", __LINE__);
+
+		} else
+		if (cmd == SPT_TAG_RD) { /* The master read from this slave */
+			if (len > log_tx_tail - log_tx_hdr) {
+				len = log_tx_tail - log_tx_hdr;
+			}
+
+			u.v8[0] = SPT_TAG_ACK;
+			u.v8[1] = SPT_ERR_OK;
+			u.v16[1] = htons(len);
+			spi_slave_send(u.v8, 4, SPI_LOOP_WAIT);
+			spi_get_fifo_intr_status(status + 2);
+			r = spi_slave_wait_tx_end(200000);
+			spi_get_fifo_intr_status(status + 3);
+
+			printf("L%dI=%08X\n", __LINE__, status[0]);
+			printf("L%dI=%08X\n", __LINE__, status[1]);
+			printf("L%dI=%08X\n", __LINE__, status[2]);
+			printf("L%dI=%08X\n", __LINE__, status[3]);
+
+			if (r < 0) {
+				printf("T");
+			}
+
+			if (len > 0) {
+				r = spi_slave_send(log_tx_buffer + log_tx_hdr, len, SPI_LOOP_WAIT * 10);
+				r = spi_slave_wait_tx_end(200000);
+			} else {
+				r = -1;
+			}
+			if (r >= 0) {
+				log_tx_hdr += len;
+				if (log_tx_hdr >= log_tx_tail) {
+					/* clear log_tx_buffer */
+					log_tx_hdr = log_tx_tail = 0;
+				}
+			}
+		}
+		rtw_up_sema(&spi_check_trx_sema);
+	}
+
+	// taskYIELD();
+
+	/* free USI_SPI */
+	USISsiFree(&USISsiObj);
+
+	vTaskDelete(NULL);
+}
+
+#endif//!USE_USI_SPI_SLAVE
 
 static void spi_atcmd_thread(void *param)
 {
@@ -621,15 +1175,14 @@ static void spi_atcmd_thread(void *param)
 	atcmd_wifi_restore_from_flash();
 	atcmd_lwip_restore_from_flash();
 	rtw_msleep_os(20);
-	spi_atcmd_main();
+	spi_atcmd_initial();
 
 	// the rx_buffer of atcmd is to receive and sending out to log_tx
 	atcmd_lwip_set_rx_buffer(log_tx_buffer, sizeof(log_tx_buffer));
 
-	at_set_debug_mask(0x0);
+	at_set_debug_mask(-1UL);
 
-	if (xTaskCreate(spi_trx_thread, ((const char *) "spi_trx_thread"), 4096, NULL, tskIDLE_PRIORITY + 1, NULL) !=
-	    pdPASS)
+	if (xTaskCreate(spi_trx_thread, ((const char *) "spi_trx_thread"), 4096, NULL, tskIDLE_PRIORITY + 6, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(spi_trx_thread) failed", __FUNCTION__);
 
 	vTaskDelete(NULL);
@@ -637,8 +1190,7 @@ static void spi_atcmd_thread(void *param)
 
 int spi_atcmd_module_init(void)
 {
-	if (xTaskCreate(spi_atcmd_thread, ((const char *) "spi_atcmd_thread"), 1024, NULL, tskIDLE_PRIORITY + 1, NULL)
-	    != pdPASS)
+	if (xTaskCreate(spi_atcmd_thread, ((const char *) "spi_atcmd_thread"), 1024, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(spi_atcmd_thread) failed", __FUNCTION__);
 	return 0;
 }
