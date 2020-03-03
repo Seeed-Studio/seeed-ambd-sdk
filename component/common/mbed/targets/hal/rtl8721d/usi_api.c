@@ -1,6 +1,6 @@
 /** mbed Microcontroller Library
   ******************************************************************************
-  * @file    spi_api.c
+  * @file    usi_api.c
   * @author 
   * @version V1.0.0
   * @date    2016-08-01
@@ -12,11 +12,12 @@
   * possession or use of this module requires written permission of RealTek.
   *
   * Copyright(c) 2016, Realtek Semiconductor Corporation. All rights reserved.
+  * Copyright(c) 2020, Seeed Technology Co.,Ltd. All rights reserved.
   ****************************************************************************** 
   */
 #include "objects.h"
-#include "spi_api.h"
-#include "spi_ex_api.h"
+#include "usi_api.h"
+#include "usi_ex_api.h"
 #include "PinNames.h"
 #include "pinmap.h"
 
@@ -36,7 +37,7 @@ typedef struct {
 	GDMA_InitTypeDef SSITxGdmaInitStruct;
 	GDMA_InitTypeDef SSIRxGdmaInitStruct;
 	IRQn_Type   IrqNum;
-	SPI_TypeDef *spi_dev;
+	USI_TypeDef *spi_dev;
 
 	void (*RxCompCallback)(void *Para);
 	void *RxCompCbPara;
@@ -55,9 +56,9 @@ typedef struct {
 
 	/* mbed var */
 	u32 dma_en;
-}HAL_SSI_ADAPTOR, *PHAL_SSI_ADAPTOR;
+} HAL_SSI_ADAPTOR, *PHAL_SSI_ADAPTOR;
 
-HAL_SSI_ADAPTOR ssi_adapter_g[2];
+HAL_SSI_ADAPTOR ssi_adapter_g[1];
 
 /** 
   * @}
@@ -66,9 +67,9 @@ HAL_SSI_ADAPTOR ssi_adapter_g[2];
 /** @defgroup MBED_SPI_Exported_Functions MBED_SPI Exported Functions
   * @{
   */
-void spi_flush_rx_fifo (spi_t *obj);
+void uspi_flush_rx_fifo (spi_t *obj);
 
-static void spi_tx_done_callback(VOID *spi_obj)
+static void uspi_tx_done_callback(VOID *spi_obj)
 {
 	spi_t *obj = (spi_t *)spi_obj;
 	spi_irq_handler handler;
@@ -82,7 +83,7 @@ static void spi_tx_done_callback(VOID *spi_obj)
 	}
 }
 
-static void spi_rx_done_callback(VOID *spi_obj)
+static void uspi_rx_done_callback(VOID *spi_obj)
 {
 	spi_t *obj = (spi_t *)spi_obj;
 	spi_irq_handler handler;
@@ -95,7 +96,7 @@ static void spi_rx_done_callback(VOID *spi_obj)
 }
 
 // Bus Idle: Real TX done, TX FIFO empty and bus shift all data out already
-void spi_bus_tx_done_callback(VOID *spi_obj)
+void uspi_bus_tx_done_callback(VOID *spi_obj)
 {
 	spi_t *obj = (spi_t *)spi_obj;
 	spi_irq_handler handler;
@@ -113,19 +114,19 @@ void spi_bus_tx_done_callback(VOID *spi_obj)
   * @param  id: interrupt callback parameter
   * @retval none  
   */
-void spi_bus_tx_done_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id) 
+void uspi_bus_tx_done_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id) 
 {
 	obj->bus_tx_done_handler = (u32)handler;
 	obj->bus_tx_done_irq_id = (u32)id;
 }
 
-static u32 ssi_interrupt(void *Adaptor)
+static u32 uspi_interrupt(void *Adaptor)
 {
 	PHAL_SSI_ADAPTOR ssi_adapter = (PHAL_SSI_ADAPTOR) Adaptor;
-	u32 InterruptStatus = SSI_GetIsr(ssi_adapter->spi_dev);
-	u32 DataFrameSize = SSI_GetDataFrameSize(ssi_adapter->spi_dev);
+	u32 InterruptStatus = USI_SSI_GetIsr(ssi_adapter->spi_dev);
+	u32 DataFrameSize = USI_SSI_GetDataFrameSize(ssi_adapter->spi_dev);
 
-	SSI_SetIsrClean(ssi_adapter->spi_dev, InterruptStatus);
+	USI_SSI_SetIsrClean(ssi_adapter->spi_dev, InterruptStatus);
 
 	if (InterruptStatus & (BIT_ISR_TXOIS | BIT_ISR_RXUIS | BIT_ISR_RXOIS | BIT_ISR_MSTIS)) {
 		DBG_PRINTF(MODULE_SPI, LEVEL_INFO, "[INT] Tx/Rx Warning %x \n", InterruptStatus);
@@ -134,7 +135,7 @@ static u32 ssi_interrupt(void *Adaptor)
 	if ((InterruptStatus & BIT_ISR_RXFIS) ) {
 		u32 TransLen = 0;
 
-		TransLen = SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
+		TransLen = USI_SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
 		ssi_adapter->RxLength -= TransLen;
 		if (DataFrameSize > 8) {
 			// 16~9 bits mode
@@ -145,7 +146,7 @@ static u32 ssi_interrupt(void *Adaptor)
 		}
 		
 		if (ssi_adapter->RxLength == 0) {
-			SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
 			if (ssi_adapter->RxCompCallback != NULL) {
 				ssi_adapter->RxCompCallback(ssi_adapter->RxCompCbPara);
 			}
@@ -159,9 +160,9 @@ static u32 ssi_interrupt(void *Adaptor)
 
 		/* all data complete */
 		if (ssi_adapter->TxLength == 0) {
-			SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), DISABLE);
 			for (i=0;i<1000000;i++) {
-				bus_busy = SSI_Busy(ssi_adapter->spi_dev);
+				bus_busy = USI_SSI_Busy(ssi_adapter->spi_dev);
 				if (!bus_busy) {
 					break;  // break the for loop
 				}
@@ -177,7 +178,7 @@ static u32 ssi_interrupt(void *Adaptor)
 			return 0;
 		}
 
-		TransLen = SSI_SendData(ssi_adapter->spi_dev, ssi_adapter->TxData,
+		TransLen = USI_SSI_SendData(ssi_adapter->spi_dev, ssi_adapter->TxData,
 			ssi_adapter->TxLength, ssi_adapter->Role);
 
 		ssi_adapter->TxLength -= TransLen;
@@ -192,7 +193,7 @@ static u32 ssi_interrupt(void *Adaptor)
 		}
 		/* all data write into fifo */
 		if (ssi_adapter->TxLength == 0) {
-			SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM), DISABLE);
 			// If it's not a dummy TX for master read SPI, then call the TX_done callback
 			if (ssi_adapter->TxData != NULL) {
 				if (ssi_adapter->TxCompCallback != NULL) {
@@ -205,16 +206,16 @@ static u32 ssi_interrupt(void *Adaptor)
 	return 0;
 }
 
-static u32 ssi_int_read(void *Adapter, void *RxData, u32 Length)
+static u32 uspi_int_read(void *Adapter, void *RxData, u32 Length)
 {
 	PHAL_SSI_ADAPTOR ssi_adapter = (PHAL_SSI_ADAPTOR) Adapter;
-	u32 DataFrameSize = SSI_GetDataFrameSize(ssi_adapter->spi_dev);
+	u32 DataFrameSize = USI_SSI_GetDataFrameSize(ssi_adapter->spi_dev);
 
 	assert_param(Length != 0);
 
 	/*  As a Slave mode, if the peer(Master) side is power off, the BUSY flag is always on */
-	if (SSI_Busy(ssi_adapter->spi_dev)) {		
-		DBG_PRINTF(MODULE_SPI, LEVEL_WARN, "ssi_int_read: SSI is busy\n");
+	if (USI_SSI_Busy(ssi_adapter->spi_dev)) {
+		DBG_PRINTF(MODULE_SPI, LEVEL_WARN, "uspi_int_read: SSI is busy\n");
 		return _FALSE;
 	}
 
@@ -228,7 +229,7 @@ static u32 ssi_int_read(void *Adapter, void *RxData, u32 Length)
 
 	ssi_adapter->RxData = RxData;
 
-	SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), ENABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), ENABLE);
 
 	return _TRUE;
 }
@@ -237,7 +238,7 @@ static u32 ssi_int_read(void *Adapter, void *RxData, u32 Length)
 static u32 ssi_int_write(void *Adapter, u8 *pTxData, u32 Length)
 {
 	PHAL_SSI_ADAPTOR ssi_adapter = (PHAL_SSI_ADAPTOR) Adapter;
-	u32 DataFrameSize = SSI_GetDataFrameSize(ssi_adapter->spi_dev);
+	u32 DataFrameSize = USI_SSI_GetDataFrameSize(ssi_adapter->spi_dev);
 
 	assert_param(Length != 0);
 	
@@ -250,7 +251,7 @@ static u32 ssi_int_write(void *Adapter, u8 *pTxData, u32 Length)
 	}
 
 	ssi_adapter->TxData = (void*)pTxData;
-	SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), ENABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), ENABLE);
 
 	return _TRUE;
 }
@@ -272,7 +273,7 @@ static void ssi_dma_tx_irq(void *Data)
 		ssi_adapter->TxCompCallback(ssi_adapter->TxCompCbPara);
 	}
 
-	SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_TDMAE);
+	USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_TDMAE);
 
 	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
 
@@ -291,7 +292,7 @@ static void ssi_dma_rx_irq(void *Data)
 	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
 
 	/* Set SSI DMA Disable */
-	SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
+	USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
 	
 	/*  Call user RX complete callback */
 	if (NULL != ssi_adapter->RxCompCallback) {
@@ -319,9 +320,9 @@ static u32 ssi_dma_send(void *Adapter, u8 *pTxData, u32 Length)
 	ssi_adapter->TxLength = Length;
 	ssi_adapter->TxData = (void*)pTxData;
 	
-	SSI_SetDmaEnable(ssi_adapter->spi_dev, ENABLE, BIT_SHIFT_DMACR_TDMAE);
+	USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, ENABLE, BIT_SHIFT_DMACR_TDMAE);
 
-	ret = SSI_TXGDMA_Init(ssi_adapter->Index, &ssi_adapter->SSITxGdmaInitStruct,
+	ret = USI_SSI_TXGDMA_Init(ssi_adapter->Index, &ssi_adapter->SSITxGdmaInitStruct,
 		ssi_adapter, (IRQ_FUN) ssi_dma_tx_irq,
 		pTxData, Length);
 
@@ -346,14 +347,14 @@ static u32 ssi_dma_recv(void *Adapter, u8  *pRxData, u32 Length)
 	ssi_adapter->RxLength = Length;
 	ssi_adapter->RxData = (void*)pRxData;
 
-	ret = SSI_RXGDMA_Init(ssi_adapter->Index, &ssi_adapter->SSIRxGdmaInitStruct,
+	ret = USI_SSI_RXGDMA_Init(ssi_adapter->Index, &ssi_adapter->SSIRxGdmaInitStruct,
 		ssi_adapter, (IRQ_FUN) ssi_dma_rx_irq,
 		pRxData, Length);
 
 	NVIC_SetPriority(GDMA_GetIrqNum(0, ssi_adapter->SSIRxGdmaInitStruct.GDMA_ChNum), 11);	
 	
 	/* Set SSI DMA Enable */
-	SSI_SetDmaEnable(ssi_adapter->spi_dev, ENABLE, BIT_SHIFT_DMACR_RDMAE);
+	USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, ENABLE, BIT_SHIFT_DMACR_RDMAE);
 
 	return ret;
 }
@@ -367,12 +368,12 @@ static u32 spi_stop_recv(spi_t *obj)
 	u32 ReceivedCnt;
 	u8 DmaMode = 0;
 
-	SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
 
 	if (ssi_adapter->dma_en & SPI_DMA_RX_EN) {
 		DmaMode=1;
 		/* Set SSI DMA Disable */
-		SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
+		USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
 		
 		/* Clear Pending ISR */
 		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -389,14 +390,14 @@ static u32 spi_stop_recv(spi_t *obj)
 	}
 
 	if (ssi_adapter->RxLength > 0) {
-		ReceivedCnt = SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
-		if (DmaMode && (SSI_GetDataFrameSize(ssi_adapter->spi_dev) > 8))
+		ReceivedCnt = USI_SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
+		if (DmaMode && (USI_SSI_GetDataFrameSize(ssi_adapter->spi_dev) > 8))
 			ReceivedCnt=ReceivedCnt*2;
 		ssi_adapter->RxLength -= ReceivedCnt;
 	}
 
 	if (ssi_adapter->RxLength == 0) {
-		spi_flush_rx_fifo(obj);
+		uspi_flush_rx_fifo(obj);
 	}
 
 	obj->state &= ~ SPI_STATE_RX_BUSY;
@@ -414,22 +415,22 @@ static u32 spi_stop_recv(spi_t *obj)
   * @retval none  
   * @note must set obj->spi_index to MBED_SPI0 or MBED_SPI1 before using spi_init
   */
-void spi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel)
+void uspi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
-	SSI_InitTypeDef SSI_InitStruct;
+	USI_SSI_InitTypeDef us_is;
 
-	if ((obj->spi_idx != MBED_SPI0) && (obj->spi_idx != MBED_SPI1)) {
-		DBG_PRINTF(MODULE_SPI, LEVEL_ERROR, "spi_init: you should set spi_idx MBED_SPI0 or MBED_SPI1");
+	if (obj->spi_idx != MBED_USI0_SPI) {
+		DBG_PRINTF(MODULE_SPI, LEVEL_ERROR, "spi_init: you should set spi_idx MBED_USI0_SPI");
 		assert_param(0);
 	}
 	
 	ssi_adapter->Index = spi_idx;
-	ssi_adapter->spi_dev = SPI_DEV_TABLE[ssi_adapter->Index].SPIx;
+	ssi_adapter->spi_dev = USI_DEV_TABLE[ssi_adapter->Index].USIx;
 	obj->sclk = (u8)sclk;
 
-	SSI_StructInit(&SSI_InitStruct);
+	USI_SSI_StructInit(&us_is);
 
 	if (spi_idx == 1) {
 		RCC_PeriphClockCmd(APBPeriph_SPI1, APBPeriph_SPI1_CLOCK, ENABLE);
@@ -438,8 +439,8 @@ void spi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName sse
 		Pinmux_Config(sclk, PINMUX_FUNCTION_SPIM);
 		Pinmux_Config(ssel, PINMUX_FUNCTION_SPIM);
 		
-		SSI_InitStruct.SPI_Role=SSI_MASTER;
-		ssi_adapter->Role = SSI_MASTER;
+		us_is.USI_SPI_Role = USI_SPI_MASTER;
+		ssi_adapter->Role = USI_SPI_MASTER;
 	} else {
 		RCC_PeriphClockCmd(APBPeriph_SPI0, APBPeriph_SPI0_CLOCK, ENABLE);
 		Pinmux_Config(mosi, PINMUX_FUNCTION_SPIS);
@@ -447,22 +448,22 @@ void spi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName sse
 		Pinmux_Config(sclk, PINMUX_FUNCTION_SPIS);
 		Pinmux_Config(ssel, PINMUX_FUNCTION_SPIS);
 
-		SSI_SetRole(ssi_adapter->spi_dev, SSI_MASTER);
-		SSI_InitStruct.SPI_Role=SSI_MASTER;
-		ssi_adapter->Role=SSI_MASTER;
+		USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_MASTER);
+		us_is.USI_SPI_Role = USI_SPI_MASTER;
+		ssi_adapter->Role = USI_SPI_MASTER;
 	}
 
-	SSI_Init(ssi_adapter->spi_dev, &SSI_InitStruct);
+	USI_SSI_Init(ssi_adapter->spi_dev, &us_is);
 
-	ssi_adapter->IrqNum = SPI_DEV_TABLE[ssi_adapter->Index].IrqNum;
-	InterruptRegister((IRQ_FUN)ssi_interrupt, ssi_adapter->IrqNum, (u32)ssi_adapter, 5);
+	ssi_adapter->IrqNum = USI_DEV_TABLE[ssi_adapter->Index].IrqNum;
+	InterruptRegister((IRQ_FUN)uspi_interrupt, ssi_adapter->IrqNum, (u32)ssi_adapter, 5);
 	InterruptEn(ssi_adapter->IrqNum, 5);
 
-	ssi_adapter->TxCompCallback = spi_tx_done_callback;
+	ssi_adapter->TxCompCallback = uspi_tx_done_callback;
 	ssi_adapter->TxCompCbPara = (void*)obj;
-	ssi_adapter->RxCompCallback = spi_rx_done_callback;
+	ssi_adapter->RxCompCallback = uspi_rx_done_callback;
 	ssi_adapter->RxCompCbPara = (void*)obj;
-	ssi_adapter->TxIdleCallback = spi_bus_tx_done_callback;
+	ssi_adapter->TxIdleCallback = uspi_bus_tx_done_callback;
 	ssi_adapter->TxIdleCbPara = (void*)obj;
 	obj->state = SPI_STATE_READY;
 
@@ -476,7 +477,7 @@ void spi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName sse
   * @param  obj: spi object define in application software.
   * @retval none  
   */
-void spi_free (spi_t *obj)
+void uspi_free (spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -484,13 +485,13 @@ void spi_free (spi_t *obj)
 	InterruptDis(ssi_adapter->IrqNum);
 	InterruptUnRegister(ssi_adapter->IrqNum);
 
-	SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
 
 	if (ssi_adapter->dma_en & SPI_DMA_RX_EN) {
 		PGDMA_InitTypeDef GDMA_InitStruct = &ssi_adapter->SSIRxGdmaInitStruct;	
 		
 		/* Set SSI DMA Disable */
-		SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
+		USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_RDMAE);
 		
 		/* Clear Pending ISR */
 		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -503,7 +504,7 @@ void spi_free (spi_t *obj)
 		PGDMA_InitTypeDef GDMA_InitStruct = &ssi_adapter->SSITxGdmaInitStruct;	
 		
 		/* Set SSI DMA Disable */
-		SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_TDMAE);
+		USI_SSI_SetDmaEnable(ssi_adapter->spi_dev, DISABLE, BIT_SHIFT_DMACR_TDMAE);
 		
 		/* Clear Pending ISR */
 		GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
@@ -514,7 +515,7 @@ void spi_free (spi_t *obj)
 	
 	obj->state = 0;
 	
-	SSI_Cmd(ssi_adapter->spi_dev, DISABLE);
+	USI_SSI_Cmd(ssi_adapter->spi_dev, DISABLE);
 }
 
 /**
@@ -531,14 +532,14 @@ void spi_free (spi_t *obj)
   *		@arg 1 : indicates role-slave
   * @retval none  
   */
-void spi_format (spi_t *obj, int bits, int mode, int slave)
+void uspi_format (spi_t *obj, int bits, int mode, int slave)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	u32   SclkPhase;
 	u32   SclkPolarity;
 	u32 DataFrameSize = (bits - 1);
-	SSI_InitTypeDef SSI_InitStruct;
+	USI_SSI_InitTypeDef us_is;
 
 	/*
 	* mode | POL PHA
@@ -580,28 +581,28 @@ void spi_format (spi_t *obj, int bits, int mode, int slave)
 
 	if (slave == 1) {
 		if (spi_idx == 0) {
-			SSI_SetRole(ssi_adapter->spi_dev, SSI_SLAVE);
-			ssi_adapter->Role = SSI_SLAVE;
+			USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_SLAVE);
+			ssi_adapter->Role = USI_SPI_SLAVE;
 
 			// Re-init after setting role
-			SSI_StructInit(&SSI_InitStruct);
-			SSI_InitStruct.SPI_Role=SSI_SLAVE;
-			SSI_Init(ssi_adapter->spi_dev, &SSI_InitStruct);
+			USI_SSI_StructInit(&us_is);
+			us_is.USI_SPI_Role = USI_SPI_SLAVE;
+			USI_SSI_Init(ssi_adapter->spi_dev, &us_is);
 		} else {
 			assert_param(0);
 		}
 	} else {
 		if (spi_idx == 0) {
-			SSI_SetRole(ssi_adapter->spi_dev, SSI_MASTER);
-			ssi_adapter->Role = SSI_MASTER;
+			USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_MASTER);
+			ssi_adapter->Role = USI_SPI_MASTER;
 		} else {
-			ssi_adapter->Role = SSI_MASTER;
+			ssi_adapter->Role = USI_SPI_MASTER;
 		}
 	}
 
-	SSI_SetSclkPhase(ssi_adapter->spi_dev, SclkPhase);
-	SSI_SetSclkPolarity(ssi_adapter->spi_dev, SclkPolarity);
-	SSI_SetDataFrameSize(ssi_adapter->spi_dev, DataFrameSize);
+	USI_SSI_SetSclkPhase(ssi_adapter->spi_dev, SclkPhase);
+	USI_SSI_SetSclkPolarity(ssi_adapter->spi_dev, SclkPolarity);
+	USI_SSI_SetDataFrameSize(ssi_adapter->spi_dev, DataFrameSize);
 
 	if (slave == 1) {
 		if (SclkPolarity == SCPOL_INACTIVE_IS_LOW) {
@@ -622,7 +623,7 @@ void spi_format (spi_t *obj, int bits, int mode, int slave)
   * 	- "hz" should be less or equal to half of the SPI IpClk.
   * 	- IpClk for SPI1 is 50MHz and IpClk for SPI0 is 100MHz
   */
-void spi_frequency (spi_t *obj, int hz)
+void uspi_frequency (spi_t *obj, int hz)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	u32 IpClk;
@@ -645,16 +646,16 @@ void spi_frequency (spi_t *obj, int hz)
 	}
 	ClockDivider &= 0xFFFE;     // bit 0 always is 0
 	
-	SSI_SetBaudDiv(ssi_adapter->spi_dev, ClockDivider);
+	USI_SSI_SetBaudDiv(ssi_adapter->spi_dev, ClockDivider);
 }
 
-void spi_slave_select(spi_t *obj, ChipSelect slaveindex)
+void uspi_slave_select(spi_t *obj, ChipSelect slaveindex)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	
-	if(ssi_adapter->Role == SSI_MASTER){
-		SSI_SetSlaveEnable(ssi_adapter->spi_dev,slaveindex);
+	if(ssi_adapter->Role == USI_SPI_MASTER){
+		USI_SSI_SetSlaveEnable(ssi_adapter->spi_dev,slaveindex);
 	} else {
 		assert_param(0);
 	}
@@ -665,17 +666,17 @@ static inline void ssi_write (spi_t *obj, int value)
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
-	while (!SSI_Writeable(ssi_adapter->spi_dev));
-		SSI_WriteData(ssi_adapter->spi_dev, value);
+	while (!USI_SSI_Writeable(ssi_adapter->spi_dev));
+		USI_SSI_WriteData(ssi_adapter->spi_dev, value);
 }
 
-static inline int ssi_read(spi_t *obj)
+static inline int uspi_read(spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
-	while (!SSI_Readable(ssi_adapter->spi_dev));
-		return (int)SSI_ReadData(ssi_adapter->spi_dev);
+	while (!USI_SSI_Readable(ssi_adapter->spi_dev));
+		return (int)USI_SSI_ReadData(ssi_adapter->spi_dev);
 }
 
 /**
@@ -684,10 +685,10 @@ static inline int ssi_read(spi_t *obj)
   * @param  value: the data to transmit.
   * @retval : data received from slave
   */
-int spi_master_write (spi_t *obj, int value)
+int uspi_master_write (spi_t *obj, int value)
 {
 	ssi_write(obj, value);
-	return ssi_read(obj);
+	return uspi_read(obj);
 }
 
 /**
@@ -695,15 +696,15 @@ int spi_master_write (spi_t *obj, int value)
   * @param  obj: spi slave object define in application software.
   * @retval : slave Readable && Busy State
   */
-int spi_slave_receive (spi_t *obj)
+int uspi_slave_receive (spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int Readable;
 	int Busy;
 
-	Readable = SSI_Readable(ssi_adapter->spi_dev);
-	Busy     = (int)SSI_Busy(ssi_adapter->spi_dev);
+	Readable = USI_SSI_Readable(ssi_adapter->spi_dev);
+	Busy     = (int) USI_SSI_Busy(ssi_adapter->spi_dev);
 	return ((Readable && !Busy) ? 1 : 0);
 }
 
@@ -712,9 +713,9 @@ int spi_slave_receive (spi_t *obj)
   * @param  obj: spi slave object define in application software.
   * @retval : data received from master
   */
-int spi_slave_read (spi_t *obj)
+int uspi_slave_read (spi_t *obj)
 {
-	return ssi_read(obj);
+	return uspi_read(obj);
 }
 
 /**
@@ -723,7 +724,7 @@ int spi_slave_read (spi_t *obj)
   * @param  value: the data to transmit.
   * @retval none
   */
-void spi_slave_write (spi_t *obj, int value)
+void uspi_slave_write (spi_t *obj, int value)
 {
 	ssi_write(obj, value);
 }
@@ -733,12 +734,12 @@ void spi_slave_write (spi_t *obj, int value)
   * @param  obj: spi object define in application software.
   * @retval : current busy state
   */
-int spi_busy (spi_t *obj)
+int uspi_busy (spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
-	return (int)SSI_Busy(ssi_adapter->spi_dev);
+	return (int) USI_SSI_Busy(ssi_adapter->spi_dev);
 }
 
 /**
@@ -746,17 +747,17 @@ int spi_busy (spi_t *obj)
   * @param  obj: spi  object define in application software.
   * @retval  none
   */
-void spi_flush_rx_fifo (spi_t *obj)
+void uspi_flush_rx_fifo (spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	u32 rx_fifo_level;
 	u32 i;
 
-	while(SSI_Readable(ssi_adapter->spi_dev)){
-		rx_fifo_level = SSI_GetRxCount(ssi_adapter->spi_dev);
+	while (USI_SSI_Readable(ssi_adapter->spi_dev)){
+		rx_fifo_level = USI_SSI_GetRxCount(ssi_adapter->spi_dev);
 		for(i=0;i<rx_fifo_level;i++) {
-			SSI_ReadData(ssi_adapter->spi_dev);
+			USI_SSI_ReadData(ssi_adapter->spi_dev);
 		}
 	}
 }
@@ -768,7 +769,7 @@ void spi_flush_rx_fifo (spi_t *obj)
   * @param  length: number of data bytes to be read.
   * @retval  : stream init status
   */
-int32_t spi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -782,7 +783,7 @@ int32_t spi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 
 	//DBG_PRINTF(MODULE_SPI, LEVEL_INFO, "rx_buffer addr: %X, length: %d\n", rx_buffer, length);
 	obj->state |= SPI_STATE_RX_BUSY;
-	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) != _TRUE) {
+	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 	}
 
@@ -796,7 +797,7 @@ int32_t spi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
   * @param  length: number of data bytes to be send.
   * @retval  : stream init status
   */
-int32_t spi_slave_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
+int32_t uspi_slave_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -822,7 +823,7 @@ int32_t spi_slave_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
   * @param  length: number of data bytes to be read.
   * @retval  : stream init status
   */
-int32_t spi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -836,10 +837,10 @@ int32_t spi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 	}
 
 	// wait bus idle
-	while(SSI_Busy(ssi_adapter->spi_dev));
+	while (USI_SSI_Busy(ssi_adapter->spi_dev));
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
+	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
 		/* as Master mode, it need to push data to TX FIFO to generate clock out
 		then the slave can transmit data out */
 		// send some dummy data out
@@ -861,7 +862,7 @@ int32_t spi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
   * @param  length: number of data bytes to be send.
   * @retval  : stream init status
   */
-int32_t spi_master_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
+int32_t uspi_master_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -890,7 +891,7 @@ int32_t spi_master_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
   * @param  length: number of data bytes to be send & recv.
   * @retval  : stream init status
   */
-int32_t spi_master_write_read_stream(spi_t *obj, char *tx_buffer,
+int32_t uspi_master_write_read_stream(spi_t *obj, char *tx_buffer,
         char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
@@ -904,16 +905,16 @@ int32_t spi_master_write_read_stream(spi_t *obj, char *tx_buffer,
 	}
 
 	// wait bus idle
-	while(SSI_Busy(ssi_adapter->spi_dev));
+	while (USI_SSI_Busy(ssi_adapter->spi_dev));
 
 	obj->state |= SPI_STATE_RX_BUSY;
 	/* as Master mode, sending data will receive data at sametime */
-	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
+	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
 		obj->state |= SPI_STATE_TX_BUSY;
 		if ((ret=ssi_int_write(ssi_adapter, (u8 *) tx_buffer, length)) != _TRUE) {
 			obj->state &= ~(SPI_STATE_RX_BUSY|SPI_STATE_TX_BUSY);
 			// Disable RX IRQ
-			SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
 		}
 	}
 	else {
@@ -930,7 +931,7 @@ int32_t spi_master_write_read_stream(spi_t *obj, char *tx_buffer,
   * @param  id: interrupt callback parameter
   * @retval none  
   */
-void spi_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id)
+void uspi_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id)
 {
 	obj->irq_handler = (u32)handler;
 	obj->irq_id = (u32)id;
@@ -943,7 +944,7 @@ void spi_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id)
   * @param  length: number of data bytes to be read.
   * @retval  : stream init status
   */
-int32_t spi_slave_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_slave_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -970,7 +971,7 @@ int32_t spi_slave_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
   * @param  length: number of data bytes to be send.
   * @retval  : stream init status
   */
-int32_t spi_slave_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
+int32_t uspi_slave_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -999,7 +1000,7 @@ int32_t spi_slave_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
   * @retval  : stream init status
   * @note : DMA or Interrupt mode can be used to TX dummy data
   */
-int32_t spi_master_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_master_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -1042,7 +1043,7 @@ int32_t spi_master_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
   * @param  length: number of data bytes to be send.
   * @retval  : stream init status
   */
-int32_t spi_master_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
+int32_t uspi_master_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -1071,7 +1072,7 @@ int32_t spi_master_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length
   * @param  length: number of data bytes to be send & recv.
   * @retval  : stream init status
   */
-int32_t spi_master_write_read_stream_dma(spi_t *obj, char *tx_buffer, 
+int32_t uspi_master_write_read_stream_dma(spi_t *obj, char *tx_buffer, 
 	char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
@@ -1108,7 +1109,7 @@ int32_t spi_master_write_read_stream_dma(spi_t *obj, char *tx_buffer,
   * @param  timeout_ms: timeout waiting time.
   * @retval  : number of bytes read already
   */
-int32_t spi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
+int32_t uspi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -1148,7 +1149,7 @@ int32_t spi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t 
 		}
 	}
 			
-	//if (SSI_GetDataFrameSize(SPIx) > 8){
+	//if (USI_SSI_GetDataFrameSize(SPIx) > 8){
 	//	ssi_adapter->RxLength <<= 1;
 	//}
 
@@ -1165,11 +1166,11 @@ int32_t spi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t 
   * @param  length: number of data bytes to be read.
   * @retval  : number of bytes read already
   */
-int32_t spi_slave_read_stream_dma_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_slave_read_stream_dma_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
-	SPI_TypeDef *SPIx = SPI_DEV_TABLE[spi_idx].SPIx;
+	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	int ret;
 
 	if (obj->state & SPI_STATE_RX_BUSY) {
@@ -1184,8 +1185,8 @@ int32_t spi_slave_read_stream_dma_terminate(spi_t *obj, char *rx_buffer, uint32_
 		return -HAL_BUSY;
 	}
 
-	while(obj->state & SPI_STATE_RX_BUSY){
-		if(SSI_Busy(SPIx) == 0){
+	while (obj->state & SPI_STATE_RX_BUSY){
+		if (USI_SSI_Busy(SPIx) == 0){
 			ret = spi_stop_recv(obj); 
 			goto EndOfDMACS;
 		}
@@ -1196,7 +1197,7 @@ EndOfDMACS:
 		obj->state &= ~ SPI_STATE_RX_BUSY;
 	}
 
-	//if (SSI_GetDataFrameSize(SPIx) > 8) {
+	//if (USI_SSI_GetDataFrameSize(SPIx) > 8) {
 	//	ssi_adapter->RxLength <<= 1;
 	//}    
 	
@@ -1208,13 +1209,13 @@ EndOfDMACS:
   * @param  obj: spi slave object define in application software.
   * @note : It will discard all data in both tx fifo and rx fifo
   */
-void spi_slave_flush_fifo(spi_t *obj)
+void uspi_slave_flush_fifo(spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
-	SPI_TypeDef *SPIx = SPI_DEV_TABLE[spi_idx].SPIx;
+	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	
-	SSI_Cmd(SPIx, DISABLE);
-	SSI_Cmd(SPIx, ENABLE);
+	USI_SSI_Cmd(SPIx, DISABLE);
+	USI_SSI_Cmd(SPIx, ENABLE);
 
 	obj->state &= ~SPI_STATE_TX_BUSY;
 }
@@ -1227,11 +1228,11 @@ void spi_slave_flush_fifo(spi_t *obj)
   * @param  timeout_ms: timeout waiting time.
   * @retval  : number of bytes read already
   */
-int32_t spi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
+int32_t uspi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
-	SPI_TypeDef *SPIx = SPI_DEV_TABLE[spi_idx].SPIx;
+	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	uint32_t timeout = 0;
 	uint32_t StartCount = 0;
 
@@ -1243,7 +1244,7 @@ int32_t spi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t leng
 	}
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if (ssi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
+	if (uspi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 		return -HAL_BUSY;
 	}
@@ -1267,7 +1268,7 @@ int32_t spi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t leng
 		}
 	}
 		
-	if (SSI_GetDataFrameSize(SPIx) > 8){
+	if (USI_SSI_GetDataFrameSize(SPIx) > 8){
 		ssi_adapter->RxLength <<= 1;
 	}
 
@@ -1284,11 +1285,11 @@ int32_t spi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t leng
   * @param  length: number of data bytes to be read.
   * @retval  : number of bytes read already
   */
-int32_t spi_slave_read_stream_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
+int32_t uspi_slave_read_stream_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
-	SPI_TypeDef *SPIx = SPI_DEV_TABLE[spi_idx].SPIx;
+	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 
 	if (obj->state & SPI_STATE_RX_BUSY) {
 		DBG_PRINTF(MODULE_SPI, LEVEL_WARN, "spi_slave_read_stream_dma: state(0x%x) is not ready\r\n", obj->state);
@@ -1296,14 +1297,14 @@ int32_t spi_slave_read_stream_terminate(spi_t *obj, char *rx_buffer, uint32_t le
 	}
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if (ssi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
+	if (uspi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 		return -HAL_BUSY;
 	}
 
 
 	while(obj->state & SPI_STATE_RX_BUSY) {
-		if(SSI_Busy(SPIx) == 0){
+		if (USI_SSI_Busy(SPIx) == 0){
 			spi_stop_recv(obj); 
 			goto EndOfCS;
 		}
@@ -1314,7 +1315,7 @@ EndOfCS:
 		obj->state &= ~ SPI_STATE_RX_BUSY;
 	}
 
-	if (SSI_GetDataFrameSize(SPIx) > 8) {
+	if (USI_SSI_GetDataFrameSize(SPIx) > 8) {
 		ssi_adapter->RxLength <<= 1;
 	}
 
@@ -1326,7 +1327,7 @@ EndOfCS:
   * @param  obj: spi object define in application software.
   * @retval none
   */
-void spi_enable(spi_t *obj)
+void uspi_enable(spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	
@@ -1342,7 +1343,7 @@ void spi_enable(spi_t *obj)
   * @param  obj: spi object define in application software.
   * @retval none
   */
-void spi_disable(spi_t *obj)
+void uspi_disable(spi_t *obj)
 {
 	uint8_t  spi_idx = obj->spi_idx &0x0F;
 	

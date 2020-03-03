@@ -26,6 +26,7 @@ CSRC += $(DIR)/gpio_irq_api.c
 CSRC += $(DIR)/pinmap.c
 CSRC += $(DIR)/port_api.c
 CSRC += $(DIR)/spi_api.c
+CSRC += $(DIR)/usi_api.c
 CSRC += $(DIR)/serial_api.c
 CSRC += $(DIR)/i2c_api.c
 CSRC += $(DIR)/i2s_api.c

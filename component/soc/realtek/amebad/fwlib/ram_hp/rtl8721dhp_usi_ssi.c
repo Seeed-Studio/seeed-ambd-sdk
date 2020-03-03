@@ -261,6 +261,18 @@ void USI_SSI_SetRole(USI_TypeDef *usi_dev, u32 role)
 	USI_SSI_TRxPath_Cmd(usi_dev, trxpath, ENABLE);
 }
 
+/**
+  * @brief  Enables or disables slave .
+  * @note  Valid only when the device is configured as a master.
+  * @param  spi_dev: where spi_dev can be USI0_DEV.
+  * @param  SlaveIndex: the index of slave to be selected.
+  * @retval None
+  */
+void USI_SSI_SetSlaveEnable(USI_TypeDef *spi_dev, u32 SlaveIndex)
+{
+	/* empty implementation */
+	return;
+}
 
 /**
   * @brief  Enable or Disable USI-SPI interrupt.

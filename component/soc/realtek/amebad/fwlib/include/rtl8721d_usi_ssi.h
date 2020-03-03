@@ -370,6 +370,8 @@ _LONG_CALL_ void USI_SSI_SetSampleDelay(USI_TypeDef *usi_dev, u32 SampleDelay);
 _LONG_CALL_ void USI_SSI_SetReadLen(USI_TypeDef *usi_dev, u32 DataFrameNumber);
 _LONG_CALL_ void USI_SSI_SetBaudDiv(USI_TypeDef *usi_dev, u32 ClockDivider);
 _LONG_CALL_ void USI_SSI_SetBaud(USI_TypeDef *USIx, u32 BaudRate, u32 IpClk);
+_LONG_CALL_ void USI_SSI_SetRole(USI_TypeDef *usi_dev, u32 role);
+_LONG_CALL_ void USI_SSI_SetSlaveEnable(USI_TypeDef *spi_dev, u32 SlaveIndex);
 _LONG_CALL_ void USI_SSI_SetIsrClean(USI_TypeDef *usi_dev, u32 InterruptStatus);
 _LONG_CALL_ void USI_SSI_WriteData(USI_TypeDef *usi_dev, u32 value);
 _LONG_CALL_ void USI_SSI_SetRxFifoLevel(USI_TypeDef *usi_dev, u32 RxThresholdLevel);
