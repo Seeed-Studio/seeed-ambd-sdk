@@ -783,7 +783,7 @@ void USI_SSI_SetIsrClean(USI_TypeDef *usi_dev, u32 InterruptStatus)
 
 void USI_SSI_WriteData(USI_TypeDef *usi_dev, u32 value)
 {
-	*(u8*)&usi_dev->TX_FIFO_WRITE = (value & USI_TX_FIFO_WRITE_DATA);
+	usi_dev->TX_FIFO_WRITE = (value & USI_TX_FIFO_WRITE_DATA);
 }
 
 /**
