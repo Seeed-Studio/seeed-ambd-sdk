@@ -128,11 +128,15 @@ static u32 uspi_interrupt(void *Adaptor)
 
 	USI_SSI_SetIsrClean(ssi_adapter->spi_dev, InterruptStatus);
 
-	if (InterruptStatus & (BIT_ISR_TXOIS | BIT_ISR_RXUIS | BIT_ISR_RXOIS | BIT_ISR_MSTIS)) {
+	if (InterruptStatus &
+	(USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_UNDERFLOW_INTS |
+	 USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS |
+	 USI_SPI_RX_DATA_FRM_ERR_INTS)
+	) {
 		DBG_PRINTF(MODULE_SPI, LEVEL_INFO, "[INT] Tx/Rx Warning %x \n", InterruptStatus);
 	}
 
-	if ((InterruptStatus & BIT_ISR_RXFIS) ) {
+	if ((InterruptStatus & USI_RXFIFO_ALMOST_FULL_INTS) ) {
 		u32 TransLen = 0;
 
 		TransLen = USI_SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
@@ -146,22 +150,28 @@ static u32 uspi_interrupt(void *Adaptor)
 		}
 		
 		if (ssi_adapter->RxLength == 0) {
-			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev,
+					( USI_RXFIFO_ALMOST_FULL_INTS |
+					  USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS ),
+					DISABLE);
 			if (ssi_adapter->RxCompCallback != NULL) {
 				ssi_adapter->RxCompCallback(ssi_adapter->RxCompCbPara);
 			}
 		}
 	}
 
-	if (InterruptStatus & BIT_ISR_TXEIS) {
+	if (InterruptStatus & USI_TXFIFO_ALMOST_EMTY_INTS) {
 		u32 TransLen = 0;
-		volatile u32 bus_busy;
-		u32 i;
 
 		/* all data complete */
 		if (ssi_adapter->TxLength == 0) {
-			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), DISABLE);
-			for (i=0;i<1000000;i++) {
+			volatile u32 bus_busy;
+			u32 i;
+
+			USI_SSI_INTConfig(ssi_adapter->spi_dev,
+					  (USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_ALMOST_EMTY_INTS),
+					  DISABLE);
+			for (i = 0; i < 1000000; i++) {
 				bus_busy = USI_SSI_Busy(ssi_adapter->spi_dev);
 				if (!bus_busy) {
 					break;  // break the for loop
@@ -193,7 +203,7 @@ static u32 uspi_interrupt(void *Adaptor)
 		}
 		/* all data write into fifo */
 		if (ssi_adapter->TxLength == 0) {
-			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, USI_TXFIFO_OVERFLOW_INTS, DISABLE);
 			// If it's not a dummy TX for master read SPI, then call the TX_done callback
 			if (ssi_adapter->TxData != NULL) {
 				if (ssi_adapter->TxCompCallback != NULL) {
@@ -206,7 +216,7 @@ static u32 uspi_interrupt(void *Adaptor)
 	return 0;
 }
 
-static u32 uspi_int_read(void *Adapter, void *RxData, u32 Length)
+static u32 ssi_int_read(void *Adapter, void *RxData, u32 Length)
 {
 	PHAL_SSI_ADAPTOR ssi_adapter = (PHAL_SSI_ADAPTOR) Adapter;
 	u32 DataFrameSize = USI_SSI_GetDataFrameSize(ssi_adapter->spi_dev);
@@ -215,7 +225,7 @@ static u32 uspi_int_read(void *Adapter, void *RxData, u32 Length)
 
 	/*  As a Slave mode, if the peer(Master) side is power off, the BUSY flag is always on */
 	if (USI_SSI_Busy(ssi_adapter->spi_dev)) {
-		DBG_PRINTF(MODULE_SPI, LEVEL_WARN, "uspi_int_read: SSI is busy\n");
+		DBG_PRINTF(MODULE_SPI, LEVEL_WARN, "ssi_int_read: SSI is busy\n");
 		return _FALSE;
 	}
 
@@ -229,7 +239,9 @@ static u32 uspi_int_read(void *Adapter, void *RxData, u32 Length)
 
 	ssi_adapter->RxData = RxData;
 
-	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), ENABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev,
+		(USI_RXFIFO_ALMOST_FULL_INTS | USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS),
+		ENABLE);
 
 	return _TRUE;
 }
@@ -251,7 +263,7 @@ static u32 ssi_int_write(void *Adapter, u8 *pTxData, u32 Length)
 	}
 
 	ssi_adapter->TxData = (void*)pTxData;
-	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_TXOIM | BIT_IMR_TXEIM), ENABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_ALMOST_EMTY_INTS), ENABLE);
 
 	return _TRUE;
 }
@@ -361,14 +373,16 @@ static u32 ssi_dma_recv(void *Adapter, u8  *pRxData, u32 Length)
 
 static u32 spi_stop_recv(spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	PGDMA_InitTypeDef GDMA_InitStruct = &ssi_adapter->SSIRxGdmaInitStruct;	
 	u32 DMAStopAddr = 0;
 	u32 ReceivedCnt;
 	u8 DmaMode = 0;
 
-	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev,
+		(USI_RXFIFO_ALMOST_FULL_INTS | USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS),
+		DISABLE);
 
 	if (ssi_adapter->dma_en & SPI_DMA_RX_EN) {
 		DmaMode=1;
@@ -413,11 +427,11 @@ static u32 spi_stop_recv(spi_t *obj)
   * @param  sclk: SCLK PinName according to pinmux spec.
   * @param  ssel: CS PinName according to pinmux spec.
   * @retval none  
-  * @note must set obj->spi_index to MBED_SPI0 or MBED_SPI1 before using spi_init
+  * @note must set obj->spi_index to MBED_USI0_SPI before using uspi_init
   */
 void uspi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ssel)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	USI_SSI_InitTypeDef us_is;
 
@@ -432,25 +446,16 @@ void uspi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ss
 
 	USI_SSI_StructInit(&us_is);
 
-	if (spi_idx == 1) {
-		RCC_PeriphClockCmd(APBPeriph_SPI1, APBPeriph_SPI1_CLOCK, ENABLE);
-		Pinmux_Config(mosi, PINMUX_FUNCTION_SPIM);
-		Pinmux_Config(miso, PINMUX_FUNCTION_SPIM);
-		Pinmux_Config(sclk, PINMUX_FUNCTION_SPIM);
-		Pinmux_Config(ssel, PINMUX_FUNCTION_SPIM);
-		
-		us_is.USI_SPI_Role = USI_SPI_MASTER;
-		ssi_adapter->Role = USI_SPI_MASTER;
-	} else {
-		RCC_PeriphClockCmd(APBPeriph_SPI0, APBPeriph_SPI0_CLOCK, ENABLE);
+	if (spi_idx == 0) {
+		RCC_PeriphClockCmd(APBPeriph_USI_REG, APBPeriph_USI_CLOCK, ENABLE);
+		/* the pinmux should be changed between calls of uspi_init/spi_format */
 		Pinmux_Config(mosi, PINMUX_FUNCTION_SPIS);
 		Pinmux_Config(miso, PINMUX_FUNCTION_SPIS);
 		Pinmux_Config(sclk, PINMUX_FUNCTION_SPIS);
 		Pinmux_Config(ssel, PINMUX_FUNCTION_SPIS);
 
-		USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_MASTER);
-		us_is.USI_SPI_Role = USI_SPI_MASTER;
-		ssi_adapter->Role = USI_SPI_MASTER;
+		us_is.USI_SPI_Role = USI_SPI_SLAVE;
+		ssi_adapter->Role = USI_SPI_SLAVE;
 	}
 
 	USI_SSI_Init(ssi_adapter->spi_dev, &us_is);
@@ -470,6 +475,7 @@ void uspi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ss
 #ifdef CONFIG_GDMA_EN    
 	ssi_adapter->dma_en = 0;
 #endif
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, USI_TXFIFO_UNDERFLOW_INTS, ENABLE);
 }
 
 /**
@@ -479,13 +485,15 @@ void uspi_init (spi_t *obj, PinName mosi, PinName miso, PinName sclk, PinName ss
   */
 void uspi_free (spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
 	InterruptDis(ssi_adapter->IrqNum);
 	InterruptUnRegister(ssi_adapter->IrqNum);
 
-	USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev,
+		(USI_RXFIFO_ALMOST_FULL_INTS | USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS),
+		DISABLE);
 
 	if (ssi_adapter->dma_en & SPI_DMA_RX_EN) {
 		PGDMA_InitTypeDef GDMA_InitStruct = &ssi_adapter->SSIRxGdmaInitStruct;	
@@ -534,7 +542,7 @@ void uspi_free (spi_t *obj)
   */
 void uspi_format (spi_t *obj, int bits, int mode, int slave)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	u32   SclkPhase;
 	u32   SclkPolarity;
@@ -580,24 +588,16 @@ void uspi_format (spi_t *obj, int bits, int mode, int slave)
 	}
 
 	if (slave == 1) {
-		if (spi_idx == 0) {
-			USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_SLAVE);
-			ssi_adapter->Role = USI_SPI_SLAVE;
+		USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_SLAVE);
+		ssi_adapter->Role = USI_SPI_SLAVE;
 
-			// Re-init after setting role
-			USI_SSI_StructInit(&us_is);
-			us_is.USI_SPI_Role = USI_SPI_SLAVE;
-			USI_SSI_Init(ssi_adapter->spi_dev, &us_is);
-		} else {
-			assert_param(0);
-		}
+		// Re-init after setting role
+		USI_SSI_StructInit(&us_is);
+		us_is.USI_SPI_Role = USI_SPI_SLAVE;
+		USI_SSI_Init(ssi_adapter->spi_dev, &us_is);
 	} else {
-		if (spi_idx == 0) {
-			USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_MASTER);
-			ssi_adapter->Role = USI_SPI_MASTER;
-		} else {
-			ssi_adapter->Role = USI_SPI_MASTER;
-		}
+		USI_SSI_SetRole(ssi_adapter->spi_dev, USI_SPI_MASTER);
+		ssi_adapter->Role = USI_SPI_MASTER;
 	}
 
 	USI_SSI_SetSclkPhase(ssi_adapter->spi_dev, SclkPhase);
@@ -625,7 +625,7 @@ void uspi_format (spi_t *obj, int bits, int mode, int slave)
   */
 void uspi_frequency (spi_t *obj, int hz)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	u32 IpClk;
 	u32 ClockDivider;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
@@ -651,7 +651,7 @@ void uspi_frequency (spi_t *obj, int hz)
 
 void uspi_slave_select(spi_t *obj, ChipSelect slaveindex)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	
 	if(ssi_adapter->Role == USI_SPI_MASTER){
@@ -661,33 +661,35 @@ void uspi_slave_select(spi_t *obj, ChipSelect slaveindex)
 	}
 }
 
-static inline void ssi_write (spi_t *obj, int value)
+static inline void uspi_write (spi_t *obj, int value)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
 	while (!USI_SSI_Writeable(ssi_adapter->spi_dev));
-		USI_SSI_WriteData(ssi_adapter->spi_dev, value);
+
+	USI_SSI_WriteData(ssi_adapter->spi_dev, value);
 }
 
 static inline int uspi_read(spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
 	while (!USI_SSI_Readable(ssi_adapter->spi_dev));
-		return (int)USI_SSI_ReadData(ssi_adapter->spi_dev);
+
+	return (int)USI_SSI_ReadData(ssi_adapter->spi_dev);
 }
 
 /**
-  * @brief  Master send one frame use SPI.
+  * @brief  Master send one frame use query mode.
   * @param  obj: spi master object define in application software.
   * @param  value: the data to transmit.
   * @retval : data received from slave
   */
 int uspi_master_write (spi_t *obj, int value)
 {
-	ssi_write(obj, value);
+	uspi_write(obj, value);
 	return uspi_read(obj);
 }
 
@@ -698,7 +700,7 @@ int uspi_master_write (spi_t *obj, int value)
   */
 int uspi_slave_receive (spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int Readable;
 	int Busy;
@@ -709,7 +711,7 @@ int uspi_slave_receive (spi_t *obj)
 }
 
 /**
-  * @brief  Slave receive one frame use SPI.
+  * @brief  Slave receive one frame use query mode.
   * @param  obj: spi slave object define in application software.
   * @retval : data received from master
   */
@@ -719,14 +721,14 @@ int uspi_slave_read (spi_t *obj)
 }
 
 /**
-  * @brief  Slave send one frame use SPI.
+  * @brief  Slave send one frame use query mode.
   * @param  obj: spi slave object define in application software.
   * @param  value: the data to transmit.
   * @retval none
   */
 void uspi_slave_write (spi_t *obj, int value)
 {
-	ssi_write(obj, value);
+	uspi_write(obj, value);
 }
 
 /**
@@ -736,7 +738,7 @@ void uspi_slave_write (spi_t *obj, int value)
   */
 int uspi_busy (spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
 	return (int) USI_SSI_Busy(ssi_adapter->spi_dev);
@@ -749,7 +751,7 @@ int uspi_busy (spi_t *obj)
   */
 void uspi_flush_rx_fifo (spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	u32 rx_fifo_level;
 	u32 i;
@@ -771,7 +773,7 @@ void uspi_flush_rx_fifo (spi_t *obj)
   */
 int32_t uspi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -783,7 +785,7 @@ int32_t uspi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 
 	//DBG_PRINTF(MODULE_SPI, LEVEL_INFO, "rx_buffer addr: %X, length: %d\n", rx_buffer, length);
 	obj->state |= SPI_STATE_RX_BUSY;
-	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) != _TRUE) {
+	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 	}
 
@@ -799,7 +801,7 @@ int32_t uspi_slave_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
   */
 int32_t uspi_slave_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -825,7 +827,7 @@ int32_t uspi_slave_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
   */
 int32_t uspi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 
 	int32_t ret;
@@ -840,7 +842,7 @@ int32_t uspi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
 	while (USI_SSI_Busy(ssi_adapter->spi_dev));
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
+	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
 		/* as Master mode, it need to push data to TX FIFO to generate clock out
 		then the slave can transmit data out */
 		// send some dummy data out
@@ -864,7 +866,7 @@ int32_t uspi_master_read_stream(spi_t *obj, char *rx_buffer, uint32_t length)
   */
 int32_t uspi_master_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -894,7 +896,7 @@ int32_t uspi_master_write_stream(spi_t *obj, char *tx_buffer, uint32_t length)
 int32_t uspi_master_write_read_stream(spi_t *obj, char *tx_buffer,
         char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -909,12 +911,14 @@ int32_t uspi_master_write_read_stream(spi_t *obj, char *tx_buffer,
 
 	obj->state |= SPI_STATE_RX_BUSY;
 	/* as Master mode, sending data will receive data at sametime */
-	if ((ret = uspi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
+	if ((ret = ssi_int_read(ssi_adapter, rx_buffer, length)) == _TRUE) {
 		obj->state |= SPI_STATE_TX_BUSY;
 		if ((ret=ssi_int_write(ssi_adapter, (u8 *) tx_buffer, length)) != _TRUE) {
-			obj->state &= ~(SPI_STATE_RX_BUSY|SPI_STATE_TX_BUSY);
+			obj->state &= ~(SPI_STATE_RX_BUSY | SPI_STATE_TX_BUSY);
 			// Disable RX IRQ
-			USI_SSI_INTConfig(ssi_adapter->spi_dev, (BIT_IMR_RXFIM | BIT_IMR_RXOIM | BIT_IMR_RXUIM), DISABLE);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev,
+				(USI_RXFIFO_ALMOST_FULL_INTS | USI_RXFIFO_OVERFLOW_INTS | USI_RXFIFO_UNDERFLOW_INTS),
+				DISABLE);
 		}
 	}
 	else {
@@ -946,7 +950,7 @@ void uspi_irq_hook(spi_t *obj, spi_irq_handler handler, uint32_t id)
   */
 int32_t uspi_slave_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -973,7 +977,7 @@ int32_t uspi_slave_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
   */
 int32_t uspi_slave_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -1002,7 +1006,7 @@ int32_t uspi_slave_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length
   */
 int32_t uspi_master_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -1045,7 +1049,7 @@ int32_t uspi_master_read_stream_dma(spi_t *obj, char *rx_buffer, uint32_t length
   */
 int32_t uspi_master_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -1075,7 +1079,7 @@ int32_t uspi_master_write_stream_dma(spi_t *obj, char *tx_buffer, uint32_t lengt
 int32_t uspi_master_write_read_stream_dma(spi_t *obj, char *tx_buffer, 
 	char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int32_t ret;
 
@@ -1111,7 +1115,7 @@ int32_t uspi_master_write_read_stream_dma(spi_t *obj, char *tx_buffer,
   */
 int32_t uspi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	int ret, timeout = 0;
 	uint32_t StartCount = 0;
@@ -1168,7 +1172,7 @@ int32_t uspi_slave_read_stream_dma_timeout(spi_t *obj, char *rx_buffer, uint32_t
   */
 int32_t uspi_slave_read_stream_dma_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	int ret;
@@ -1211,7 +1215,7 @@ EndOfDMACS:
   */
 void uspi_slave_flush_fifo(spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	
 	USI_SSI_Cmd(SPIx, DISABLE);
@@ -1230,7 +1234,7 @@ void uspi_slave_flush_fifo(spi_t *obj)
   */
 int32_t uspi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t length, uint32_t timeout_ms)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 	uint32_t timeout = 0;
@@ -1244,7 +1248,7 @@ int32_t uspi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t len
 	}
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if (uspi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
+	if (ssi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 		return -HAL_BUSY;
 	}
@@ -1287,7 +1291,7 @@ int32_t uspi_slave_read_stream_timeout(spi_t *obj, char *rx_buffer, uint32_t len
   */
 int32_t uspi_slave_read_stream_terminate(spi_t *obj, char *rx_buffer, uint32_t length)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
+	uint8_t  spi_idx = obj->spi_idx & 0x0F;
 	PHAL_SSI_ADAPTOR ssi_adapter = &ssi_adapter_g[spi_idx];
 	USI_TypeDef *SPIx = USI_DEV_TABLE[spi_idx].USIx;
 
@@ -1297,7 +1301,7 @@ int32_t uspi_slave_read_stream_terminate(spi_t *obj, char *rx_buffer, uint32_t l
 	}
 
 	obj->state |= SPI_STATE_RX_BUSY;
-	if (uspi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
+	if (ssi_int_read(ssi_adapter, rx_buffer, length) != _TRUE) {
 		obj->state &= ~SPI_STATE_RX_BUSY;
 		return -HAL_BUSY;
 	}
@@ -1329,13 +1333,8 @@ EndOfCS:
   */
 void uspi_enable(spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
-	
-	if (spi_idx == 1) {
-		RCC_PeriphClockCmd(APBPeriph_SPI1, APBPeriph_SPI1_CLOCK, ENABLE);
-	} else {
-		RCC_PeriphClockCmd(APBPeriph_SPI0, APBPeriph_SPI0_CLOCK, ENABLE);
-	}
+	(void) obj;
+	RCC_PeriphClockCmd(APBPeriph_USI_REG, APBPeriph_USI_CLOCK, ENABLE);
 }
 
 /**
@@ -1345,13 +1344,8 @@ void uspi_enable(spi_t *obj)
   */
 void uspi_disable(spi_t *obj)
 {
-	uint8_t  spi_idx = obj->spi_idx &0x0F;
-	
-	if (spi_idx == 1) {
-		RCC_PeriphClockCmd(APBPeriph_SPI1, APBPeriph_SPI1_CLOCK, DISABLE);
-	} else {
-		RCC_PeriphClockCmd(APBPeriph_SPI0, APBPeriph_SPI0_CLOCK, DISABLE);
-	}
+	(void) obj;
+	RCC_PeriphClockCmd(APBPeriph_USI_REG, APBPeriph_USI_CLOCK, DISABLE);
 }
 /** 
   * @}
