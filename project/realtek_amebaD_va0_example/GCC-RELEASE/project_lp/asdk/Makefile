@@ -3,8 +3,8 @@
 #                            Basic Configurations                             #
 #*****************************************************************************#
 
-ABS_ROOTDIR		= $(shell pwd)
-MAKE_INCLUDE_GEN	= $(ABS_ROOTDIR)/Makefile.include.gen
+ABS_ROOTDIR		:= $(shell pwd)
+MAKE_INCLUDE_GEN	:= $(ABS_ROOTDIR)/Makefile.include.gen
 
 CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
           else if [ -x /bin/bash ]; then echo /bin/bash; \

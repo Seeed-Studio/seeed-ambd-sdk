@@ -1,4 +1,3 @@
-
 #*****************************************************************************#
 #                                Variable Definition                          #
 #*****************************************************************************#
@@ -15,12 +14,12 @@ ROOTDIR		:= $(shell realpath --relative-to=$(CURRENT_PATH) $(ABS_ROOTDIR))
 endif
 
 #gcc release
-SRCDIR		=$(ROOTDIR)/../../../src/src_hp
+SRCDIR		= $(shell realpath $(ROOTDIR)/../../../src/src_hp)
 #SRCDIR		=$(ROOTDIR)/../../../example_sources/USI_SPI/raw/usi_spi_dual_dma_mode/usi_spi_dual_slave_trx_in_dma_mode/src/
-INCDIR		=$(ROOTDIR)/../../../inc/inc_hp
-BASEDIR		= $(ROOTDIR)/../../../../..
+INCDIR		= $(shell realpath $(ROOTDIR)/../../../inc/inc_hp)
+BASEDIR		= $(shell realpath $(ROOTDIR)/../../../../..)
 KM0_BUILDDIR	= $(ROOTDIR)/../../project_lp
-KM4_BUILDDIR	= $(ROOTDIR)/../../project_hp
+KM4_BUILDDIR	= $(shell realpath $(ROOTDIR)/../../project_hp)
 
 TARGETDIR	=$(BASEDIR)/component/soc/realtek/amebad
 BOOTLOADER	=$(BASEDIR)/component/soc/realtek/amebad/bootloader
@@ -30,7 +29,7 @@ GNU_SCRIPT	= $(UTILITYDIR)/gnu_script
 FLASHDLIMGDIR	= $(GNU_SCRIPT)/acut_loader
 FLASHDLIMGDIR_KM0	= $(KM0_BUILDDIR)/asdk/gnu_utility/gnu_script/acut_loader
 
-TOOLCHAINDIR	= $(ROOTDIR)/../toolchain
+TOOLCHAINDIR	= $(shell realpath $(ROOTDIR)/../toolchain)
 
 OSDIR		= $(BASEDIR)/component/os
 FREERTOSDIR	= $(BASEDIR)/component/os/freertos/freertos_v10.2.0/Source
@@ -48,8 +47,8 @@ LXDIALOG_CYGWIN_STATIC 	= $(UTILITYDIR)/lxdialog_prebuilt/lxdialog_cygwin_x86_st
 COMPILEOS		= $(shell uname -o)
 COMPILEOS_CYGWIN	= $(shell uname -o | cut -c 1-6)
 LINUX_OS		= GNU/Linux
-HOSTCC			= cc
-MAKE			= make
+HOSTCC            = cc
+MAKE            = make
 
 #*****************************************************************************#
 #                              Compile Flag                                #
@@ -123,32 +122,30 @@ MOVE      = mv
 #*****************************************************************************#
 
 IFLAGS               = -I.
-IFLAGS               += -I$(OSDIR)/
+#IFLAGS               += -I$(OSDIR)/
 IFLAGS               += -I$(OSDIR)/freertos
-IFLAGS               += -I$(FREERTOSDIR)/include/
+IFLAGS               += -I$(FREERTOSDIR)/include
 IFLAGS               += -I$(FREERTOSDIR)/portable/GCC/RTL8721D_HP/non_secure
 IFLAGS               += -I$(FREERTOSDIR)/portable/GCC/RTL8721D_HP/secure
 
-IFLAGS               += -I$(TARGETDIR)/cmsis/
-IFLAGS               += -I$(TARGETDIR)/cmsis/device
-IFLAGS               += -I$(TARGETDIR)/cmsis-dsp/Source
+IFLAGS               += -I$(TARGETDIR)/cmsis
+#IFLAGS               += -I$(TARGETDIR)/cmsis/device
+#IFLAGS               += -I$(TARGETDIR)/cmsis-dsp/Source
 IFLAGS               += -I$(TARGETDIR)/fwlib/include
-IFLAGS               += -I$(TARGETDIR)/fwlib/rom_map_hp
+#IFLAGS               += -I$(TARGETDIR)/fwlib/rom_map_hp
 IFLAGS               += -I$(TARGETDIR)/app/monitor/include
 IFLAGS               += -I$(TARGETDIR)/app/xmodem
 IFLAGS               += -I$(TARGETDIR)/swlib/include
 IFLAGS               += -I$(TARGETDIR)/swlib/string
 IFLAGS               += -I$(TARGETDIR)/misc
-IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/include/
-IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/../
-IFLAGS               += -I$(TARGETDIR)/swlib/string
+#IFLAGS               += -I$(TARGETDIR)/swlib/os_dep/include
+#IFLAGS               += -I$(TARGETDIR)/swlib
 
 ifeq ($(CONFIG_USB_DEVICE_EN),y)
 IFLAGS               += -I$(TARGETDIR)/fwlib/usb_otg/device/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/audio/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/cdc_acm/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/msc/inc
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/vendor/inc
 endif
 ifeq ($(CONFIG_USB_HOST_EN),y)
 IFLAGS               += -I$(TARGETDIR)/fwlib/usb_otg/host/inc
@@ -157,51 +154,51 @@ IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/host/vendor/in
 endif
 
 IFLAGS               += -I$(INCDIR)
-IFLAGS               += -I$(BASEDIR)/component/common/api
+#IFLAGS               += -I$(BASEDIR)/component/common/api
 IFLAGS               += -I$(BASEDIR)/component/common/api/platform
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi
-IFLAGS               += -I$(BASEDIR)/component/common/api/network
+#IFLAGS               += -I$(BASEDIR)/component/common/api/network
 IFLAGS               += -I$(BASEDIR)/component/common/api/network/include
-IFLAGS               += -I$(BASEDIR)/component/common/audio
+#IFLAGS               += -I$(BASEDIR)/component/common/audio
 IFLAGS               += -I$(BASEDIR)/component/common/test
 IFLAGS               += -I$(BASEDIR)/component/common/example
 IFLAGS               += -I$(BASEDIR)/component/common/utilities
-IFLAGS				 += -I$(BASEDIR)/component/common/drivers/si
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/si
 
 #AUDIO
-IFLAGS               += -I$(BASEDIR)/component/common/audio
-IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/include
-IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/libfaac
-IFLAGS               += -I$(BASEDIR)/component/common/audio/faac
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/haac
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/hmp3
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/g711
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/speex/speex
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac
-#IFLAGS				 += -I$(BASEDIR)/component/common/audio/libav
-IFLAGS				 += -I$(BASEDIR)/component/common/audio/fdk-aac/libSYS/include
+#IFLAGS               += -I$(BASEDIR)/component/common/audio
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/include
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/faac/libfaac
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/faac
+#IFLAGS	             += -I$(BASEDIR)/component/common/audio/haac
+#IFLAGS	             += -I$(BASEDIR)/component/common/audio/hmp3
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/g711
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/speex
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/speex/speex
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/fdk-aac
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/libav
+#IFLAGS               += -I$(BASEDIR)/component/common/audio/fdk-aac/libSYS/include
 
 #MMF
-IFLAGS               += -I$(BASEDIR)/component/common/example/media_framework
-IFLAGS               += -I$(BASEDIR)/component/common/media
-IFLAGS               += -I$(BASEDIR)/component/common/media/samples
-IFLAGS               += -I$(BASEDIR)/component/common/media/mmfv2
-IFLAGS               += -I$(BASEDIR)/component/common/media/rtp_codec
+#IFLAGS               += -I$(BASEDIR)/component/common/example/media_framework
+#IFLAGS               += -I$(BASEDIR)/component/common/media
+#IFLAGS               += -I$(BASEDIR)/component/common/media/samples
+#IFLAGS               += -I$(BASEDIR)/component/common/media/mmfv2
+#IFLAGS               += -I$(BASEDIR)/component/common/media/rtp_codec
 
 #WIFI
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/include
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hci
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hci
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/osdep
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal/phydm
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal/rtl8721d
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal/phydm
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/hal/rtl8721d
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/wlan_ram_map/rom
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/core/option
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/wlan/realtek/src/core/option
 IFLAGS               += -I$(BASEDIR)/component/common/network
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/lwip
-IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/netif
+#IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/netif
 #IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/src/include/ipv4
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/port/realtek
 IFLAGS               += -I$(BASEDIR)/component/common/network/lwip/lwip_v2.0.2/port/realtek/freertos
@@ -209,14 +206,13 @@ IFLAGS               += -I$(BASEDIR)/component/common/api
 IFLAGS               += -I$(BASEDIR)/component/common/api/at_cmd
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi/rtw_wpa_supplicant/src
 IFLAGS               += -I$(BASEDIR)/component/common/api/wifi/rtw_wpa_supplicant/src/crypto
-IFLAGS               += -I$(BASEDIR)/component/os/os_dep/include/
-#IFLAGS               += -I$(BASEDIR)/component/common/network/http2/nghttp2-1.31.0/includes
+IFLAGS               += -I$(BASEDIR)/component/os/os_dep/include
 
 #INIC
-IFLAGS               += -I$(BASEDIR)/component/common/drivers/inic/rtl8721d
+#IFLAGS               += -I$(BASEDIR)/component/common/drivers/inic/rtl8721d
 
 #RTSP
-IFLAGS               += -I$(BASEDIR)/component/common/network/rtsp
+#IFLAGS               += -I$(BASEDIR)/component/common/network/rtsp
 
 #SSL
 IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/polarssl-1.3.8/include
@@ -224,39 +220,47 @@ IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/ssl_ram_map/ro
 
 #MBEDTLS
 IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls-2.4.0/include
-IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls_ram_map/rom
+#IFLAGS               += -I$(BASEDIR)/component/common/network/ssl/mbedtls_ram_map/rom
 IFLAGS               += -I$(BASEDIR)/component/common/application/amazon/amazon-freertos/lib/include/private
 
 #temp for git server code
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d/
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d/include
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/api/
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/hal/
-IFLAGS               += -I$(BASEDIR)/component/common/mbed/hal_ext/
+IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d
+#IFLAGS               += -I$(BASEDIR)/component/common/mbed/targets/hal/rtl8721d/include
+IFLAGS               += -I$(BASEDIR)/component/common/mbed/api
+IFLAGS               += -I$(BASEDIR)/component/common/mbed/hal
+IFLAGS               += -I$(BASEDIR)/component/common/mbed/hal_ext
 
 #baidu
-IFLAGS               += -I$(BASEDIR)/component/common/application/baidu/libduer-device/external/mbedtls-port \
+#IFLAGS               += -I$(BASEDIR)/component/common/application/baidu/libduer-device/external/mbedtls-port \
+
+ifeq (0,)
 #apple
 IFLAGS               += -I$(BASEDIR)/component/common/application/apple/WACServer/External/Curve25519 \
-			-I$(BASEDIR)/component/common/application/apple/WACServer/External/GladmanAES \
-			-I$(BASEDIR)/component/common/application/apple/homekit/crypto/chacha \
-			-I$(BASEDIR)/component/common/application/apple/homekit/crypto/poly1305 \
-			-I$(BASEDIR)/component/common/application/apple/homekit/crypto/ed25519 \
-			-I$(BASEDIR)/component/common/application/apple/homekit/crypto/ed25519/core \
-			-I$(BASEDIR)/component/common/application/apple/homekit/crypto/sha512
+            -I$(BASEDIR)/component/common/application/apple/WACServer/External/GladmanAES \
+            -I$(BASEDIR)/component/common/application/apple/homekit/crypto/chacha \
+            -I$(BASEDIR)/component/common/application/apple/homekit/crypto/poly1305 \
+            -I$(BASEDIR)/component/common/application/apple/homekit/crypto/ed25519 \
+            -I$(BASEDIR)/component/common/application/apple/homekit/crypto/ed25519/core \
+            -I$(BASEDIR)/component/common/application/apple/homekit/crypto/sha512
+endif
+
 
 IFLAGS               += -I$(BASEDIR)/component/common/file_system/fatfs/r0.10c/include \
-			-I$(BASEDIR)/component/common/file_system/fatfs \
-			-I$(BASEDIR)/component/common/file_system/ftl \
-			-I$(BASEDIR)/component/common/file_system/dct
+            -I$(BASEDIR)/component/common/file_system/fatfs \
+            -I$(BASEDIR)/component/common/file_system/ftl \
+            -I$(BASEDIR)/component/common/file_system/dct
 
+ifeq (0,)
 IFLAGS               += -I$(BASEDIR)/component/common/application/baidu/libduer-device/framework/core \
-			-I$(BASEDIR)/component/common/application/baidu/libduer-device/framework/include \
-			-I$(BASEDIR)/component/common/application/baidu/duerapp/include
+            -I$(BASEDIR)/component/common/application/baidu/libduer-device/framework/include \
+            -I$(BASEDIR)/component/common/application/baidu/duerapp/include
 
 IFLAGS               += -I$(BASEDIR)/component/common/ui/emwin/emWinLibrary/include \
-			-I$(BASEDIR)/component/common/ui/emwin/Sample/rtl8721d/Config \
-			-I$(BASEDIR)/component/common/ui/emwin/Sample/rtl8721d/hal \
+            -I$(BASEDIR)/component/common/ui/emwin/Sample/rtl8721d/Config \
+            -I$(BASEDIR)/component/common/ui/emwin/Sample/rtl8721d/hal \
+
+endif
+
 #bluetooth
 ifeq ($(CONFIG_BT_EN), y) 
 include  $(ABS_ROOTDIR)/Makefile.include.bt.gen
@@ -317,9 +321,9 @@ endif
 #"-MMD"
 #],
 
-GLOBAL_CFLAGS += -march=armv8-m.main+dsp 
-GLOBAL_CFLAGS += -mthumb 
-GLOBAL_CFLAGS += -mcmse 
+GLOBAL_CFLAGS += -march=armv8-m.main+dsp
+GLOBAL_CFLAGS += -mthumb
+GLOBAL_CFLAGS += -mcmse
 GLOBAL_CFLAGS += -mfloat-abi=hard
 GLOBAL_CFLAGS += -mfpu=fpv5-sp-d16
 
@@ -521,3 +525,4 @@ NETWORK_RENAME_CODE2SRAM:
 
 %.o:%.S
 	$(CC) $(ASM_FLAGS) $< -o $@
+
