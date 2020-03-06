@@ -66,6 +66,10 @@
 #define AP_GW_ADDR3   1  
 #endif
 
+
+
+
+
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && (CONFIG_EXAMPLE_UART_ATCMD))
 #include "wifi_structures.h"
 #include <wlan_fast_connect/example_wlan_fast_connect.h>
@@ -159,6 +163,10 @@ extern void uart_at_send_buf(u8 *buf, u32 len);
 			/*uart_at_unlock();*/\
 	}while(0)
 
+
+
+
+
 #elif (defined(CONFIG_EXAMPLE_SPI_ATCMD) && (CONFIG_EXAMPLE_SPI_ATCMD))
 
 #include "wifi_structures.h"
@@ -243,6 +251,10 @@ extern void spi_at_send_buf(u8 *buf, u32 len);
 	}while(0)
 
 int atcmd_wifi_restore_from_flash(void);
+
+
+
+
 
 #else // #elif CONFIG_EXAMPLE_SPI_ATCMD
           
