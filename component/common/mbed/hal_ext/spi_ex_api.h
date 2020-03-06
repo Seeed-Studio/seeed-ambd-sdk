@@ -69,7 +69,8 @@ typedef enum {
 
 typedef enum {
     SpiRxIrq,
-    SpiTxIrq
+    SpiTxIrq,
+    SpiIdleIrq,
 } SpiIrq;
 
 typedef void (*spi_irq_handler)(uint32_t id, SpiIrq event);

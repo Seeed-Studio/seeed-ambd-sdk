@@ -111,14 +111,14 @@ int  uspi_master_write(spi_t *obj, int value);
 int  uspi_slave_receive(spi_t *obj);
 
 /**
-  * @brief  Slave receive one frame use SPI.
+  * @brief  Slave receive one frame use polling method.
   * @param  obj: spi slave object define in application software.
   * @retval : data received from master
   */
 int  uspi_slave_read(spi_t *obj);
 
 /**
-  * @brief  Slave send one frame use SPI.
+  * @brief  Slave send one frame use polling method.
   * @param  obj: spi slave object define in application software.
   * @param  value: the data to transmit.
   * @retval none

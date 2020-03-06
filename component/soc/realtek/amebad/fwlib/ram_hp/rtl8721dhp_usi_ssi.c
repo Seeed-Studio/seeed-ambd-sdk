@@ -270,6 +270,8 @@ void USI_SSI_SetRole(USI_TypeDef *usi_dev, u32 role)
   */
 void USI_SSI_SetSlaveEnable(USI_TypeDef *spi_dev, u32 SlaveIndex)
 {
+	(void) spi_dev;
+	(void) SlaveIndex;
 	/* empty implementation */
 	return;
 }

@@ -359,6 +359,7 @@ typedef struct
 _LONG_CALL_ void USI_SSI_StructInit(USI_SSI_InitTypeDef* USI_SSI_InitStruct);
 _LONG_CALL_ void USI_SSI_Init(USI_TypeDef *usi_dev, USI_SSI_InitTypeDef *USI_SSI_InitStruct);
 _LONG_CALL_ void USI_SSI_Cmd(USI_TypeDef *usi_dev, u32 NewStatus);
+_LONG_CALL_ void USI_SSI_Reset(USI_TypeDef *usi_dev, u32 NewStatus);
 _LONG_CALL_ void USI_SSI_TRxPath_Cmd(USI_TypeDef *usi_dev, u32 path, u32 NewStatus);
 _LONG_CALL_ u32 USI_SSI_GetTRxPath(USI_TypeDef *usi_dev);
 _LONG_CALL_ void USI_SSI_INTConfig(USI_TypeDef* usi_dev, u32 USI_SSI_IT, u32 newState);

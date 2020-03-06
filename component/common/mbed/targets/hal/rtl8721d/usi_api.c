@@ -58,6 +58,8 @@ typedef struct {
 	u32 dma_en;
 } HAL_SSI_ADAPTOR, *PHAL_SSI_ADAPTOR;
 
+#define _DEFAULT_TXFIFO_THRD (USI_SPI_TX_FIFO_DEPTH / 2)
+
 HAL_SSI_ADAPTOR ssi_adapter_g[1];
 
 /** 
@@ -96,14 +98,14 @@ static void uspi_rx_done_callback(VOID *spi_obj)
 }
 
 // Bus Idle: Real TX done, TX FIFO empty and bus shift all data out already
-void uspi_bus_tx_done_callback(VOID *spi_obj)
+static void uspi_bus_tx_done_callback(VOID *spi_obj)
 {
 	spi_t *obj = (spi_t *)spi_obj;
 	spi_irq_handler handler;
 
 	if (obj->bus_tx_done_handler) {
 		handler = (spi_irq_handler)obj->bus_tx_done_handler;
-		handler(obj->bus_tx_done_irq_id, SpiRxIrq);
+		handler(obj->bus_tx_done_irq_id, SpiIdleIrq);
 	}
 }
 
@@ -188,6 +190,15 @@ static u32 uspi_interrupt(void *Adaptor)
 			return 0;
 		}
 
+		#if 0 // no effect
+		TransLen = USI_SPI_TX_FIFO_DEPTH - USI_SSI_GetTxCount(ssi_adapter->spi_dev);
+		if (TransLen >= ssi_adapter->TxLength) {
+			// To generate interrupt USI_TXFIFO_ALMOST_EMTY_INTS
+			// when fifo empty or send complete
+			USI_SSI_SetTxFifoLevel(ssi_adapter->spi_dev, 0);
+		}
+		#endif
+
 		TransLen = USI_SSI_SendData(ssi_adapter->spi_dev, ssi_adapter->TxData,
 			ssi_adapter->TxLength, ssi_adapter->Role);
 
@@ -263,6 +274,7 @@ static u32 ssi_int_write(void *Adapter, u8 *pTxData, u32 Length)
 	}
 
 	ssi_adapter->TxData = (void*)pTxData;
+	// USI_SSI_SetTxFifoLevel(ssi_adapter->spi_dev, _DEFAULT_TXFIFO_THRD);
 	USI_SSI_INTConfig(ssi_adapter->spi_dev, (USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_ALMOST_EMTY_INTS), ENABLE);
 
 	return _TRUE;
