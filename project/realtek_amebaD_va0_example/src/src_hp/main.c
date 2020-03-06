@@ -31,6 +31,13 @@ void app_init_debug(void)
 
 	debug[LEVEL_ERROR] = 0xFFFFFFFF;
 
+	#if 0
+	/* enable debug SPI */
+	debug[LEVEL_WARN]  |= BIT(MODULE_SPI);
+	debug[LEVEL_INFO]  |= BIT(MODULE_SPI);
+	debug[LEVEL_TRACE] |= BIT(MODULE_SPI);
+	#endif
+
 	LOG_MASK(LEVEL_ERROR, debug[LEVEL_ERROR]);
 	LOG_MASK(LEVEL_WARN, debug[LEVEL_WARN]);
 	LOG_MASK(LEVEL_INFO, debug[LEVEL_INFO]);
