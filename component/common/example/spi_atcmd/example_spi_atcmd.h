@@ -16,16 +16,17 @@
 #define USI_SPI_MISO PA_26
 #define USI_SPI_SCLK PA_30
 #define USI_SPI_CS   PA_28
+#define GPIO_HRDY    PB_21
 #define IS_USI_SPI 1
 #else
 #define SPI0_MOSI  PC_2
 #define SPI0_MISO  PC_3
 #define SPI0_SCLK  PC_1
 #define SPI0_CS    PC_0
+#define GPIO_HRDY  PA_1
 #endif
 
 #define GPIO_CS    PA_3
-#define GPIO_HRDY  PA_1
 #define GPIO_SYNC  PB_3
 
 void example_spi_atcmd(void);
