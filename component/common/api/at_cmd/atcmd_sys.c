@@ -118,6 +118,15 @@ void fATGMR(void *arg)
 	return;
 }
 
+void fATRST(void *arg) {
+	(void) arg;
+	sys_reset();
+	return;
+}
+
+
+
+
 
 #if ATCMD_VER == ATVER_1
 
@@ -1574,6 +1583,13 @@ exit:
 
 log_item_t at_sys_items[] = {
 #ifndef CONFIG_INIC_NO_FLASH
+	{"ATE0", fATE0,{NULL,NULL}},	// disable echo
+	{"ATE1", fATE1,{NULL,NULL}},	// enable  echo
+	{"AT+RESTORE", fATRESTORE, {NULL,NULL}}, // restore all system saved setting
+	{"AT+SYSMSG", fATSYSMSG, {NULL,NULL}},
+	{"AT+SYSLOG", fATSYSLOG, {NULL,NULL}},
+	{"AT+GMR",    fATGMR,    {NULL,NULL}}, // show version info
+	{"AT+RST",    fATRST,    {NULL,NULL}}, // reset the system
 #if ATCMD_VER == ATVER_1
 #if defined(CONFIG_PLATFORM_8710C)
 	{"ATXX", fATXX,{NULL,NULL}},
@@ -1610,12 +1626,6 @@ log_item_t at_sys_items[] = {
 	{"ATS#", fATSt,{NULL,NULL}},	// test command
 	{"ATS?", fATSx,{NULL,NULL}},	// system version info
 	{"AT", 	 fATS0,{NULL,NULL}},	// test AT command ready
-	{"ATE0", fATE0,{NULL,NULL}},	// disable echo
-	{"ATE1", fATE1,{NULL,NULL}},	// enable  echo
-	{"AT+RESTORE", fATRESTORE, {NULL,NULL}}, // restore all system saved setting
-	{"AT+SYSMSG", fATSYSMSG, {NULL,NULL}},
-	{"AT+SYSLOG", fATSYSLOG, {NULL,NULL}},
-	{"AT+GMR",    fATGMR,    {NULL,NULL}}, // show version info
 #elif ATCMD_VER == ATVER_2 //#if ATCMD_VER == ATVER_1
 	{"AT", 	 fATS0,},	// test AT command ready
 	{"ATS?", fATSh,},	// list all AT command
