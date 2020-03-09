@@ -279,6 +279,7 @@ ifeq ($(CONFIG_TRUSTZONE), y)
 	$(CC_SIZE) -t --radix=10 $(IMAGE_TARGET_FOLDER)/target_img3.axf
 	@echo "========== Image Info DEC =========="
 
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker img3 secure end =========="
 
@@ -325,6 +326,7 @@ linker_image2:
 	$(CC_SIZE) -t --radix=10 $(IMAGE_TARGET_FOLDER)/target.axf
 	@echo "========== Image Info DEC =========="
 
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker img2 end =========="
 
@@ -377,6 +379,7 @@ endif
 	$(CC_SIZE) -t --radix=10 $(IMAGE_TARGET_FOLDER)/target_img2.axf
 	@echo "========== Image Info DEC =========="
 	
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker img2_ns end =========="
 
@@ -427,6 +430,7 @@ linker_loader:
 	$(CC_SIZE) -t --radix=10 $(IMAGE_TARGET_FOLDER)/target_loader.axf
 	@echo "========== Image Info DEC =========="
 
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker end =========="
 
@@ -656,6 +660,7 @@ rom_linker:
 	$(CC_SIZE) -t --radix=10 $(IMAGE_TARGET_FOLDER)/target_rom_ns.axf
 	@echo "========== Image Info DEC NSEC =========="
 
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker rom end =========="
 
@@ -686,6 +691,7 @@ rom_linker_ns:
 
 
 
+	ls $(RAM_OBJS_LIST)
 	$(RM) -f $(RAM_OBJS_LIST)
 	@echo "========== linker end =========="
 
