@@ -58,6 +58,8 @@ static _sema tx_done_sema;
 gpio_t gpio_hrdy;
 
 #define SPI_SLAVE_BUSY 0
+/* On slave side code, we haven't data to send, should named IDLE not BUSY. */
+#define SPI_SLAVE_IDLE  0
 #define SPI_SLAVE_READY 1
 
 volatile int spi_slave_status = SPI_SLAVE_BUSY;
@@ -695,13 +697,19 @@ static void spi_atcmd_initial(void)
 
 	/* Schmitt input make input more stable */
 	PAD_UpdateCtrl(USI_SPI_MOSI, PAD_BIT_SCHMITT_TRIGGER_EN, PAD_BIT_SCHMITT_TRIGGER_EN);
-	PAD_UpdateCtrl(USI_SPI_CS, PAD_BIT_SCHMITT_TRIGGER_EN, PAD_BIT_SCHMITT_TRIGGER_EN);
+	PAD_UpdateCtrl(USI_SPI_CS,   PAD_BIT_SCHMITT_TRIGGER_EN, PAD_BIT_SCHMITT_TRIGGER_EN);
 
-	// init gpio for output high level if this/slave hw ready
+	// gpio_hrdy output high level if this/slave has data to send
 	gpio_init(&gpio_hrdy, GPIO_HRDY);
-	gpio_write(&gpio_hrdy, SPI_SLAVE_BUSY);
+	gpio_write(&gpio_hrdy, SPI_SLAVE_IDLE);
 	gpio_mode(&gpio_hrdy, PullUp);
 	gpio_dir(&gpio_hrdy, PIN_OUTPUT);
+
+	// gpio_sync output low level if this/slave prepared well the TX FIFO
+	gpio_init(&gpio_sync, GPIO_SYNC);
+	gpio_write(&gpio_sync, SPI_STATE_MOSI);
+	gpio_mode(&gpio_sync, PullUp);
+	gpio_dir(&gpio_sync, PIN_OUTPUT);
 
 	/* USI0_DEV is as Slave */
 	usi_dev = USI0_DEV;
@@ -800,16 +808,16 @@ int uspi_slave_tx_wait(u8* buf, u16 len) {
 		rtw_msleep_os(1);
 	}
 
-	/* inform the master we have data ready to send. */
-	gpio_write(&gpio_hrdy, SPI_SLAVE_READY);
+	/* inform the master we have data ready to shift data out to MISO */
+	gpio_write(&gpio_sync, SPI_STATE_MISO);
 
 	rtw_down_sema(&tx_done_sema);
 	uspi_slave_wait_tx_end(100000); /* max wait 100 milli second */
 
 	USI_SSI_TRxPath_Cmd(usi_dev, USI_SPI_RX_ENABLE, ENABLE);
 
-	/* inform the master we are ready for receiving */
-	gpio_write(&gpio_hrdy, SPI_SLAVE_BUSY);
+	/* inform the master we are ready for shifting data in from MOSI */
+	gpio_write(&gpio_sync, SPI_STATE_MOSI);
 
 	return len;
 }
