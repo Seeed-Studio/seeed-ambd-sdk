@@ -1325,11 +1325,12 @@ struct usb_hcd {
 	 * this structure.
 	 */
 #ifdef __ICCARM__
-    #pragma pack(64)
+    #pragma pack(8)
     unsigned long hcd_priv[0];
+    #pragma pack()
 #elif defined (__GNUC__)
 	unsigned long hcd_priv[0] 
-	__attribute__ ((aligned(sizeof(s64))));
+	__attribute__ ((aligned(8)));
 #endif
 };
 
@@ -1902,11 +1903,12 @@ struct usb_device_id {
 
 	/* not matched against */
 #ifdef __ICCARM__
-        #pragma pack(64)
+        #pragma pack(8)
         kernel_ulong_t	driver_info;
+        #pragma pack()
 #elif defined (__GNUC__)
 	kernel_ulong_t	driver_info
-	__attribute__((aligned(sizeof(kernel_ulong_t))));
+	__attribute__((aligned(8)));
 #endif
 };
 

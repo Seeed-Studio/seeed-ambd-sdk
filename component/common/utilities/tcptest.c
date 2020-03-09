@@ -355,7 +355,8 @@ int udp_client_func(struct iperf_data_t iperf_data)
 	struct iperf_udp_client_hdr client_hdr = {0};
     	u32_t now; 
     	uint32_t id_cnt = 0; 
-
+	int tos_value = (int)iperf_data.tos_value;// fix optlen check fail issue in lwip_setsockopt_impl
+	
 	udp_client_buffer = pvPortMalloc(iperf_data.buf_size);
 	if(!udp_client_buffer){
 		printf("\n\r[ERROR] %s: Alloc buffer failed",__func__);
@@ -381,8 +382,11 @@ int udp_client_func(struct iperf_data_t iperf_data)
 	printf("\n\r%s: Server IP=%s, port=%d", __func__,iperf_data.server_ip, iperf_data.port);
 	printf("\n\r%s: Create socket fd = %d", __func__,iperf_data.client_fd);
 
-	lwip_setsockopt(iperf_data.client_fd,IPPROTO_IP,IP_TOS,&iperf_data.tos_value,sizeof(iperf_data.tos_value));
-
+	if(setsockopt(iperf_data.client_fd,IPPROTO_IP,IP_TOS,&tos_value,sizeof(tos_value)) != 0){
+		printf("\n\r[ERROR] %s: Set sockopt failed", __func__);
+		goto Exit1;
+	}
+	
 	client_hdr.numThreads = htonl(0x00000001);
 	client_hdr.mPort = htonl(iperf_data.port);
 	client_hdr.bufferlen = 0;
@@ -525,7 +529,7 @@ int udp_client_func(struct iperf_data_t iperf_data)
 			break; 
 		}
 	}
-//Exit1:
+Exit1:
 	close(iperf_data.client_fd);
 Exit2:
 	printf("\n\r%s: Close client socket",__func__);

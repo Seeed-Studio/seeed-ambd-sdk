@@ -292,12 +292,14 @@ if [ "$CONFIG_USB_DEVICE_EN" = "y" ]; then
 choice 'USB Device Type'         "USB_DEVICE_AUDIO      CONFIG_USBD_AUDIO \
                                   USB_DEVICE_MSC        CONFIG_USBD_MSC \
                                   USB_DEVICE_CDC_ACM    CONFIG_USBD_CDC_ACM \
+                                  USB_DEVICE_VENDOR     CONFIG_USBD_VENDOR \
                                  "
 fi
 
 if [ "$CONFIG_USB_HOST_EN" = "y" ]; then
-choice 'USB Host Type'           "USB_HOST_MSC          CONFIG_USBH_MSC
-                                 "CONFIG_USBH_MSC
+choice 'USB Host Type'           "USB_HOST_MSC          CONFIG_USBH_MSC \
+                                  USB_HOST_VENDOR       CONFIG_USBH_VENDOR \
+                                 "
 fi
 
 fi

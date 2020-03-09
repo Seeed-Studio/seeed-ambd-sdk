@@ -96,18 +96,21 @@ define block .ram_image2.bss with fixed order{section .bss*,
 
 define block .ram_image2.nocache.data with alignment = 32 {section .bdsram.data*};
 
+define block .ram_image2.bfsram.data with alignment = 32 {section .bfsram.data*};
 
-define block .ram_heap.data with fixed order { section .bfsram.data*,
+define block .ram_heap.data with fixed order { block .ram_image2.bfsram.data,
                                                section .heap.stdlib*,
                                              };
 
 place at start of BD_RAM_NS_region   { readwrite, 
                                     block IMAGE2,
+                                  };
+
+place in BD_RAM_NS_region {zeroinit,
                                     block .ram_image2.bss,
                                     block .ram_image2.nocache.data,
                                     block .ram_heap.data,
-                                    section .heap*
-                                  };
+                                    section .heap*};
 
 /****************************************
  * XIP Image2 Section config                *
@@ -137,15 +140,19 @@ place at start of BTRACE_region   {  readwrite,
 /****************************************
  * PSRAM Section config                *
  ****************************************/
+define block .psram_image2.data with alignment = 32 {section .psram.data};
 define block IMG2_PSRAM with fixed order { 	section .psram.text,
-						section .psram.data,
+						block .psram_image2.data,
 					 	section .psram.rodata };
 keep { block IMG2_PSRAM };
 
+define block .psram_ns.bss with alignment = 32 {section .psram.bss};
+define block .psram_heap.data with alignment = 32 {section .psram.heap};
+
 place at start of PSRAM_NS_region   {  readwrite,
 					block IMG2_PSRAM,
-					section .psram.bss,
-					section .psram.heap };
+					block .psram_ns.bss,
+					block .psram_heap.data };
 
 define exported symbol __flash_text_start__ = __ICFEDIT_region_HS_FLASH_IMG2_start__;
 define exported symbol __psram_image2_text_start__ = __ICFEDIT_region_HS_PSRAM_NS_start__; 

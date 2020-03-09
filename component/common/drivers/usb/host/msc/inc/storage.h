@@ -43,6 +43,9 @@
 * Bulk only data structures
 */
 
+#pragma pack(push)
+#pragma pack(1)
+
 /* command block wrapper */
 struct bulk_cb_wrap {
 	__le32	Signature;		/* contains 'USBC', denote bulk_cb_wrap */
@@ -52,7 +55,7 @@ struct bulk_cb_wrap {
 	__u8	Lun;			/* LUN normally 0, (which command block is sent) */
 	__u8	Length;			/* length of the CDB */
 	__u8	CDB[16];		/* max command */
-};
+} __attribute__((packed));
 
 #define US_BULK_CB_WRAP_LEN	31
 #define US_BULK_CB_SIGN		0x43425355	/*spells out USBC */
@@ -65,7 +68,9 @@ struct bulk_cs_wrap {
 	__u32	Tag;		/* same as original command, echoed by the device as received */
 	__le32	Residue;	/* amount not transferred */
 	__u8	Status;		/* execute command status */
-};
+} __attribute__((packed));
+
+#pragma pack(pop)
 
 #define US_BULK_CS_WRAP_LEN	13
 #define US_BULK_CS_SIGN		0x53425355      /* spells out 'USBS' */

@@ -617,6 +617,10 @@ extern _LONG_CALL_ void DWC_ENTER_CRITICAL(VOID);
 extern _LONG_CALL_ void DWC_EXIT_CRITICAL(VOID);
 extern _LONG_CALL_ uint8_t DWC_IN_CRITICAL(VOID);
 
+void dwc_cache_clean(u32 addr, u32 bytes);
+void dwc_cache_invalidate(u32 addr, u32 bytes);
+void dwc_cache_clean_invalidate(u32 addr, u32 bytes);
+
 #ifdef __cplusplus
 }
 #endif

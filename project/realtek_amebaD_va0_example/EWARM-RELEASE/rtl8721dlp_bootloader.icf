@@ -82,11 +82,13 @@ define block .ram_image1.bss with fixed order{section .boot.ram.bss*,
 					      };
 
 
-define block IMAGE1 with fixed order { block .ram_image1.entry, block .ram_image1.text, block .ram_image1.data, block .ram_image1.bss, };
+define block IMAGE1 with fixed order { block .ram_image1.entry, block .ram_image1.text, block .ram_image1.data};
 place at start of BOOT_RAM_region   { readwrite, 
                                     block IMAGE1,
                                   };
 
+place in BOOT_RAM_region {zeroinit,
+                                    block .ram_image1.bss};
 
 /****************************************
  * BD RAM Section config                *

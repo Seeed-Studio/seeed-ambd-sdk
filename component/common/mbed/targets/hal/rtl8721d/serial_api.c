@@ -223,6 +223,7 @@ uart_dmarecv_irqhandler(
 {
 	PMBED_UART_ADAPTER puart_adapter = (PMBED_UART_ADAPTER) Data;
 
+	DCache_Invalidate((u32)puart_adapter->pRxBuf, puart_adapter->RxCount);
 	puart_adapter->RxCount = 0;
 	uart_dmarecv_complete(puart_adapter);
 
@@ -990,6 +991,11 @@ int32_t serial_recv_stream_dma (serial_t *obj, char *prxbuf, uint32_t len)
 			return HAL_BUSY;
 		}
 	}
+	
+	#ifdef UART_USE_GTIMER_TO
+	uart_gtimer_init(puart_adapter, UART_TIMER_TO);
+	RTIM_Cmd(TIMx[UART_TIMER_ID], ENABLE);
+	#endif
 	
 	return (ret);
 }

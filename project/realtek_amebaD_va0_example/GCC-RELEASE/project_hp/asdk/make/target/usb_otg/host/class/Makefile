@@ -11,6 +11,9 @@ DIR_CLASS = $(BASEDIR)/component/common/drivers/usb/host
 ifeq ($(CONFIG_USBH_MSC),y)
 DIR = $(DIR_CLASS)/msc/src
 endif
+ifeq ($(CONFIG_USBH_VENDOR),y)
+DIR = $(DIR_CLASS)/vendor/src
+endif
 IFLAGS += -I$(DIR)/../inc
 IFLAGS += -I$(DIR_OTG)/inc
 
@@ -29,6 +32,10 @@ CSRC = $(DIR)/us.c \
     $(DIR)/usual_tables.c \
     $(DIR)/us_debug.c \
     $(DIR)/scsi/scsi_eh.c
+endif
+
+ifeq ($(CONFIG_USBH_VENDOR),y)
+CSRC = $(DIR)/usbh_vendor.c
 endif
 
 #*****************************************************************************#

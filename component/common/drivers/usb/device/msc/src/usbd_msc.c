@@ -282,10 +282,6 @@ next:
         }
         
         req = bufhd->reqout;
-        
-#if defined(CONFIG_PLATFORM_8721D)
-        DCache_Invalidate(((u32)(req->buf) & CACHE_LINE_ADDR_MSK), (req->actual + CACHE_LINE_SIZE));
-#endif
 
         // receive CBW
         if (bufhd->type == BUFHD_CBW) {

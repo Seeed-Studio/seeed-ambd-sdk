@@ -16,9 +16,9 @@
 #pragma section=".ram_image1.bss"
 #pragma section=".ram_image2.entry"
 
-BOOT_RAM_RODATA_SECTION u8* __image2_entry_func__;
-BOOT_RAM_RODATA_SECTION u8* __image1_bss_start__;
-BOOT_RAM_RODATA_SECTION u8* __image1_bss_end__;
+BOOT_RAM_RODATA_SECTION u8* __image2_entry_func__ = 0;
+BOOT_RAM_RODATA_SECTION u8* __image1_bss_start__ = 0;
+BOOT_RAM_RODATA_SECTION u8* __image1_bss_end__ = 0;
 #endif
 
 extern void BOOT_FLASH_RDP(u32 ImageAddr, 	u8 *key, u8  cnt, u8 *buf);

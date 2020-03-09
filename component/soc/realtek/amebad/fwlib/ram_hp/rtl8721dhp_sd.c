@@ -372,6 +372,8 @@ static u32 SD_GetCID(void)
 
 	/***** CMD2 *****/
 	_memset((void *)(pbuf), 0, SDIOH_C6R2_BUF_LEN);
+	DCache_CleanInvalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)(pbuf))/8;
 	dma_cfg.blk_cnt = 1;
@@ -392,7 +394,7 @@ static u32 SD_GetCID(void)
 		return ret;
 	}
 
-	//DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+	DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
 
 	ret = CmdRespError(SDIOH_RESP_R2, SD_CMD_AllSendCid);
 	if (ret != HAL_OK) {
@@ -463,6 +465,8 @@ static u32 SD_GetCSD(void)
 
 	/***** CMD9 *****/
 	_memset((void *)(pbuf), 0, SDIOH_C6R2_BUF_LEN);
+	DCache_CleanInvalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)(pbuf))/8;
 	dma_cfg.blk_cnt = 1;
@@ -483,7 +487,7 @@ static u32 SD_GetCSD(void)
 		return ret;
 	}
 
-	//DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+	DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
 
 	ret = CmdRespError(SDIOH_RESP_R2, SD_CMD_SendCsd);
 	if (ret != HAL_OK) {
@@ -662,7 +666,9 @@ static u32 SD_GetSCR(void)
 	}
 
 	/***** ACMD51 (CMD51) *****/
-	_memset((void *)(pbuf), 0, SDIOH_C6R2_BUF_LEN);    
+	_memset((void *)(pbuf), 0, SDIOH_C6R2_BUF_LEN);
+	DCache_CleanInvalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)(pbuf))/8;
 	dma_cfg.blk_cnt = 1;
@@ -688,7 +694,7 @@ static u32 SD_GetSCR(void)
 		return HAL_ERR_UNKNOWN;
 	}
 
-	//DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
+	DCache_Invalidate((u32)pbuf, SDIOH_C6R2_BUF_LEN);
 
 	ret = CmdRespError(SDIOH_RESP_R1, SD_CMD_SendScr);
 	if (ret != HAL_OK) {
@@ -742,7 +748,9 @@ static u32 SD_SwitchFunction(u8 mode, u8 speed, u8 *buf_32align)
 	}
 
 	/***** CMD6 *****/
-	_memset((void *)buf_32align, 0, SDIOH_C6R2_BUF_LEN);    
+	_memset((void *)buf_32align, 0, SDIOH_C6R2_BUF_LEN);
+	DCache_CleanInvalidate((u32)buf_32align, SDIOH_C6R2_BUF_LEN);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)buf_32align)/8;
 	dma_cfg.blk_cnt = 1;
@@ -825,6 +833,8 @@ SD_RESULT SD_GetEXTCSD(u8 *pbuf)
 	SDIOH_CmdTypeDef cmd_attr;	
  
 	/***** CMD8 *****/
+	DCache_CleanInvalidate((u32)pbuf, SD_BLOCK_SIZE);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)(pbuf))/8;
 	dma_cfg.blk_cnt = 1;
@@ -852,7 +862,7 @@ SD_RESULT SD_GetEXTCSD(u8 *pbuf)
 		return HAL_ERR_UNKNOWN;
 	}
 
-	//DCache_Invalidate((u32)card_info.ext_csd, SD_BLOCK_SIZE);
+	DCache_Invalidate((u32)pbuf, SD_BLOCK_SIZE);
 
 	ret = CmdRespError(SDIOH_RESP_R1, SD_CMD_SendIfCond);
 	
@@ -880,6 +890,8 @@ u32 SD_ReadBlock(uint8_t *readbuff, uint32_t BlockIdx)
 		start = (u32)(BlockIdx * SD_BLOCK_SIZE);
 
 	/***** CMD17 *****/
+	DCache_CleanInvalidate((u32)readbuff, SD_BLOCK_SIZE);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)readbuff)/8;
 	dma_cfg.blk_cnt = 1;
@@ -937,6 +949,8 @@ u32 SD_ReadMultiBlocks(uint8_t *readbuff, uint32_t BlockIdx, uint32_t NumberOfBl
 		start = (u32)(BlockIdx * SD_BLOCK_SIZE);
 
 	/***** CMD18 *****/
+	DCache_CleanInvalidate((u32)readbuff, NumberOfBlocks * SD_BLOCK_SIZE);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)readbuff)/8;
 	dma_cfg.blk_cnt = NumberOfBlocks;
@@ -985,7 +999,7 @@ u32 SD_WriteBlock(uint8_t *writebuff, uint32_t BlockIdx)
 		start = (u32)(BlockIdx * SD_BLOCK_SIZE);
 
 	/***** CMD24 *****/
-	DCache_Clean((u32)writebuff, SD_BLOCK_SIZE);
+	DCache_CleanInvalidate((u32)writebuff, SD_BLOCK_SIZE);
 
 	dma_cfg.op = SDIOH_DMA_WRITE;
 	dma_cfg.start_addr = ((u32)writebuff)/8;
@@ -1071,7 +1085,7 @@ u32 SD_WriteMultiBlocks(uint8_t *writebuff, uint32_t BlockIdx, uint32_t NumberOf
 		return ret;
 	}
 #endif
-	DCache_Clean((u32)writebuff, NumberOfBlocks * SD_BLOCK_SIZE);
+	DCache_CleanInvalidate((u32)writebuff, NumberOfBlocks * SD_BLOCK_SIZE);
 
 	/***** CMD25 *****/
 	dma_cfg.op = SDIOH_DMA_WRITE;
@@ -1244,6 +1258,8 @@ u32 SD_GetSDStatus(u8 *buf_32align)
 
 	/***** ACMD13 (CMD13) *****/
 	_memset((void *)buf_32align, 0, SDIOH_C6R2_BUF_LEN);
+	DCache_CleanInvalidate((u32)buf_32align, SDIOH_C6R2_BUF_LEN);
+
 	dma_cfg.op = SDIOH_DMA_READ;
 	dma_cfg.start_addr = ((u32)buf_32align)/8;
 	dma_cfg.blk_cnt = 1;
@@ -1548,10 +1564,12 @@ SD_RESULT SD_Init(void)
 {
 	u32 ret;
 	u8 voltage_mismatch = 0;
-
-	_memset(&card_info, 0, sizeof(SD_CardInfo));
-	card_info.sd_status = SD_NODISK;
-
+	
+	if(card_info.sd_status != SD_INSERT){
+		_memset(&card_info, 0, sizeof(SD_CardInfo));
+		card_info.sd_status = SD_NODISK;
+	}
+	
 	/* Configure pinmux */
 	SDIOH_Pinmux();
 

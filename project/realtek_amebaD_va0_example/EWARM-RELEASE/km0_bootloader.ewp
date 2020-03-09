@@ -830,7 +830,7 @@
                 </option>
                 <option>
                     <name>IlinkSuppressDiags</name>
-                    <state></state>
+                    <state>Lp006</state>
                 </option>
                 <option>
                     <name>IlinkTreatAsRem</name>

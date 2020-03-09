@@ -702,7 +702,7 @@ US_ENTER;
 //	if (us->fflags & US_FL_SCM_MULT_TARG)
 //		bcb->Lun |= srb->device->id << 4;
 	bcb->Length = srb->cmd_len;  // the length of command
-
+    
 	/* copy the command payload */
 	memset(bcb->CDB, 0, sizeof(bcb->CDB));
 	memcpy(bcb->CDB, srb->cmnd, bcb->Length);
@@ -759,6 +759,8 @@ US_EXIT;
 			fake_sense = 1;
 	}
 
+    memset(bcs, 0, sizeof(struct bulk_cs_wrap));
+
 	//2 STATUS STAGE
 	/* get CSW for device status */
 	US_INFO("Attempting to get CSW...\n");
@@ -771,6 +773,7 @@ US_EXIT;
 	 */
 	if (result == USB_STOR_XFER_SHORT && cswlen == 0) {
 		US_ERR("Received 0-length CSW; retrying...\n");
+        memset(bcs, 0, sizeof(struct bulk_cs_wrap));
 		result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
 				bcs, US_BULK_CS_WRAP_LEN, &cswlen);
 	}
@@ -780,6 +783,7 @@ US_EXIT;
 
 		/* get the status again */
 		US_WARN("Attempting to get CSW (2nd try)...\n");
+        memset(bcs, 0, sizeof(struct bulk_cs_wrap));
 		result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
 				bcs, US_BULK_CS_WRAP_LEN, NULL);
 	}
@@ -793,6 +797,7 @@ US_EXIT;
 
 		return USB_STOR_TRANSPORT_ERROR;
 	}
+
 	/* check bulk status */
 	residue = le32_to_cpu(bcs->Residue);
 	US_INFO("Bulk Status S 0x%x T 0x%x R %d Stat 0x%x\n",

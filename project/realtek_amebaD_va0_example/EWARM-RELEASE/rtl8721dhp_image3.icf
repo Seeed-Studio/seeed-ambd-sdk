@@ -95,9 +95,9 @@ define block .ram_image3.bss with alignment = 16 { section .bss*,
                                                 section COMMON,
                                               };
 
-place at start of BD_RAM_S_region {readwrite, block IMAGE3,
-                                              block .ram_image3.bss,
-                                  };
+place at start of BD_RAM_S_region {readwrite, block IMAGE3};
+
+place in BD_RAM_S_region {zeroinit,  block .ram_image3.bss};
 
 /****************************************
  * PSRAM Section config                *

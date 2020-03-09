@@ -6,14 +6,16 @@
 #include "wifi_conf.h"
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
+
+#if CONFIG_EXAMPLE_COAP_CLIENT
 #include <coap/coap.h>
 
-#if !defined(LWIP_TIMEVAL_PRIVATE)||!defined(SO_REUSE)||!defined(xchar)\
+#if !defined(LWIP_TIMEVAL_PRIVATE)||!defined(SO_REUSE)\
     ||!defined(MEMP_USE_CUSTOM_POOLS)||!defined(LWIP_IPV6)
 #error ("some define missing, please check example_coap_client.c")
 #endif
       
-#define SERVER_HOST     "coap://coap.me/hello"
+char SERVER_HOST[20] =  "coap://coap.me/hello";
 #define SERVER_PORT     "5683"
 
 /*4 method types: GET|PUT|POST|DELETE*/
@@ -66,7 +68,7 @@ If num is present, the request chain will start at block num*/
 static char response[256]= "";
 int flags = 0;
 
-static unsigned char _token_data[8];
+unsigned char _token_data[8];
 str the_token =
 { 0, _token_data };
 
@@ -82,10 +84,6 @@ static unsigned short proxy_port = COAP_DEFAULT_PORT;
 
 /* reading is done when this flag is set */
 static int ready = 0;
-
-static str output_file =
-{ 0, NULL }; /* output file name */
-static FILE *file = NULL; /* output file stream */
 
 static str payload =
 { 0, NULL }; /* optional payload to send */
@@ -115,6 +113,7 @@ static inline void set_timeout(coap_tick_t *timer, const unsigned int seconds)
 coap_pdu_t *
 new_ack(coap_context_t *ctx, coap_queue_t *node)
 {
+    (void )ctx;
     coap_pdu_t *pdu = coap_new_pdu();
 
     if (pdu)
@@ -306,7 +305,7 @@ inline int check_token(coap_pdu_t *received)
 void message_handler(struct coap_context_t *ctx, const coap_address_t *remote, coap_pdu_t *sent,
         coap_pdu_t *received, const coap_tid_t id)
 {
-
+    (void )id;
     coap_pdu_t *pdu = NULL;
     coap_opt_t *block_opt;
     coap_opt_iterator_t opt_iter;
@@ -461,13 +460,15 @@ void message_handler(struct coap_context_t *ctx, const coap_address_t *remote, c
       ready = 0;
 }
 
+extern err_t  mld6_joingroup(const ip6_addr_t *srcaddr, const ip6_addr_t *groupaddr);
 int join(coap_context_t *ctx, char *group_name)
 {
+    (void )ctx;
     //Register to multicast group membership
     ip6_addr_t mcast_addr;
     
     inet_pton(AF_INET6, group_name, &(mcast_addr.addr));
-    if(mld6_joingroup(IP6_ADDR_ANY , &mcast_addr) != 0){
+    if(mld6_joingroup((const ip6_addr_t *)IP6_ADDR_ANY , &mcast_addr) != 0){
         printf("\n\r[ERROR] Register to ipv6 multicast group failed\n");
         return -1;
     }
@@ -505,7 +506,7 @@ new_option_node(unsigned short key, unsigned int length, unsigned char *data)
     if (node)
         return node;
 
-    error: perror("new_option_node: malloc");
+    error: printf("new_option_node: malloc");
     coap_free( option);
     return NULL;
 }
@@ -674,7 +675,7 @@ int cmdline_blocksize(char *arg)
 
 /* Called after processing the options from the commandline to set
  * Block1 or Block2 depending on method. */
-void set_blocksize()
+void set_blocksize(void)
 {
     static unsigned char buf[4]; /* hack: temporarily take encoded bytes */
     unsigned short opt;
@@ -767,7 +768,7 @@ int cmdline_input(char *text, str *buf)
     int len;
     len = check_segment((unsigned char *) text, strlen(text));
 
-    if (len < 0)
+    if (len <= 0)
         return 0;
 
     buf->s = (unsigned char *) coap_malloc(len);
@@ -848,8 +849,6 @@ static void example_coap_client_thread(void *para){
     coap_queue_t *nextpdu;
     coap_pdu_t *pdu;
     static str server;
-    unsigned short port = COAP_DEFAULT_PORT;
-    char port_str[5] = "0";
     int res;
     char *group = NULL;
     coap_log_t log_level = LOG_WARNING;
@@ -906,12 +905,10 @@ static void example_coap_client_thread(void *para){
     if (proxy.length)
     {
         server = proxy;
-        port = proxy_port;
     }
     else
     {
         server = uri.host;
-         port = uri.port;
     }
 
     /* resolve destination address where server should be sent */
@@ -1006,14 +1003,12 @@ static void example_coap_client_thread(void *para){
             nextpdu = coap_peek_next(ctx);
         }
 
-        int read_len;
-        coap_read(ctx); /* read received data */
         /* read from socket */
         if(coap_read_len > 0)
         {
           coap_read_len = 0;
           printf("\n%d bytes read\n\r%s\n", ctx->recvqueue->pdu->length, ctx->recvqueue->pdu->data);
-          coap_dispatch(ctx,&response); /* and dispatch PDUs from receivequeue */
+          coap_dispatch(ctx,(const char*)&response); /* and dispatch PDUs from receivequeue */
         }
     }
     
@@ -1029,3 +1024,5 @@ void example_coap_client(void)
   if(xTaskCreate(example_coap_client_thread, ((const char*)"example_coap_client_thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
     printf("\n\r%s xTaskCreate(init_thread) failed", __FUNCTION__);
 }
+
+#endif

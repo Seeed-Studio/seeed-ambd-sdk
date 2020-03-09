@@ -214,6 +214,10 @@
 /* for CoAP example*/
 #define CONFIG_EXAMPLE_COAP		0
 
+/* for lib CoAP example*/ 
+#define CONFIG_EXAMPLE_COAP_SERVER        0
+#define CONFIG_EXAMPLE_COAP_CLIENT        0
+
 /* For WiGadget example */
 #define CONFIG_EXAMPLE_WIGADGET			0
 
@@ -250,11 +254,26 @@
 /* For https ota update example */
 #define CONFIG_EXAMPLE_OTA_HTTPS	0
 
-/* For tcp keepalive example */
-#define CONFIG_EXAMPLE_TCP_KEEPALIVE	0
-
 /* For sd card ota update example */
 #define CONFIG_EXAMPLE_OTA_SDCARD    0
+#if CONFIG_EXAMPLE_OTA_SDCARD
+#define FATFS_DISK_SD 	1
+#endif
+
+/* For sdcard upload web server example */
+#define CONFIG_SDCARD_UPLOAD_HTTPD  0
+#if CONFIG_SDCARD_UPLOAD_HTTPD
+// fatfs version
+//#define FATFS_R_10C
+#define FATFS_R_13C
+// fatfs disk interface
+#define FATFS_DISK_USB	0
+#define FATFS_DISK_SD 	1
+#define FATFS_DISK_FLASH 	0
+#endif
+
+/* For tcp keepalive example */
+#define CONFIG_EXAMPLE_TCP_KEEPALIVE	0
 
 /* For sntp show time example */
 #define CONFIG_EXAMPLE_SNTP_SHOWTIME	0
@@ -271,17 +290,20 @@
 /*For promisc softap mode example */
 #define CONFIG_EXAMPLE_PROMISC_SOFTAP_CONFIG 0
 
-/* For wifi roaming examples */
-#define CONFIG_EXAMPLE_WIFI_ROAMING 	0
-
-/* For wifi roaming plus examples */
-#define CONFIG_EXAMPLE_WIFI_ROAMING_PLUS		0
-
 /*For Audio example */
 #define CONFIG_EXAMPLE_AUDIO			0
 
+/*For wifi roaming example*/
+#define CONFIG_EXAMPLE_WIFI_ROAMING		0
+
+/*For wifi roaming plus example*/
+#define CONFIG_EXAMPLE_WIFI_ROAMING_PLUS		0
+
 /* For dct example */
 #define CONFIG_EXAMPLE_DCT			0
+
+/* For IPV6 example */
+#define CONFIG_EXAMPLE_IPV6			0
 
 #if CONFIG_EXAMPLE_AUDIO
 #define FATFS_DISK_SD 	1
@@ -351,6 +373,7 @@
 #if CONFIG_EXAMPLE_AUDIO_OPUS_ENCODE
 #define FATFS_DISK_SD	1
 #endif
+
 /* For UART Module AT command example */
 #define CONFIG_EXAMPLE_UART_ATCMD	0
 #if CONFIG_EXAMPLE_UART_ATCMD
@@ -555,6 +578,10 @@ in lwip_opt.h for support uart adapter*/
 #define CONFIG_EXAMPLE_USBD_CDC_ACM     1
 #endif
 
+#if defined(CONFIG_USBD_VENDOR)
+#define CONFIG_EXAMPLE_USBD_VENDOR      1
+#endif
+
 #if defined(CONFIG_USBH_MSC)
 #define CONFIG_EXAMPLE_USBH_MSC         1
 #if CONFIG_EXAMPLE_USBH_MSC
@@ -568,6 +595,10 @@ in lwip_opt.h for support uart adapter*/
 #define FATFS_DISK_FLASH 	            0
 #endif
 #endif
+#endif
+
+#if defined(CONFIG_USBH_VENDOR)
+#define CONFIG_EXAMPLE_USBH_VENDOR      1
 #endif
 
 //#define CONFIG_EXAMPLE_COMPETITIVE_HEADPHONES		1

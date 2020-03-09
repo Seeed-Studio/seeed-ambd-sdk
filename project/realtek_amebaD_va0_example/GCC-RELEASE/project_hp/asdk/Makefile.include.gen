@@ -147,10 +147,12 @@ IFLAGS               += -I$(TARGETDIR)/fwlib/usb_otg/device/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/audio/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/cdc_acm/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/msc/inc
+IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/device/vendor/inc
 endif
 ifeq ($(CONFIG_USB_HOST_EN),y)
 IFLAGS               += -I$(TARGETDIR)/fwlib/usb_otg/host/inc
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/host/msc/inc
+IFLAGS               += -I$(BASEDIR)/component/common/drivers/usb/host/vendor/inc
 endif
 
 IFLAGS               += -I$(INCDIR)

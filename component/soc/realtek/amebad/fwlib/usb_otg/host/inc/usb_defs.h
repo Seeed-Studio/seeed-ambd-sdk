@@ -140,7 +140,8 @@ enum usb_device_speed {
 #define USB_DT_CONFIG_SIZE      9
 #define USB_DT_INTERFACE_SIZE   9
 #define USB_DT_ENDPOINT_SIZE    7
-#define USB_DT_ENDPOINT_AUDIO_SIZE  9	/* Audio extension */
+#define USB_DT_ENDPOINT_AUDIO_SIZE   9	/* Audio extension */
+#define USB_DT_DEVICE_QUALIFIER_SIZE 10
 #define USB_DT_HUB_NONVAR_SIZE  7
 #define USB_DT_HID_SIZE         9
 

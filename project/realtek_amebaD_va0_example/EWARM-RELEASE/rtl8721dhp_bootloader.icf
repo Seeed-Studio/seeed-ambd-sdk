@@ -3,7 +3,7 @@
 /* IcfEditorFile="$TOOLKIT_DIR$\config\ide\IcfEditor\cortex_v1_0.xml" */
 /*-Specials-*/
 
-include "rtl8721dhp_rom_symbol_s.icf";
+include "rtl8721dhp_rom_symbol_boot.icf";
 include "rtl8721d_memory_layout_tz.icf";
 
 /*-Sizes-*/
@@ -97,11 +97,13 @@ define block .ram_image1.bss with fixed order{section .boot.ram.bss*,
 					      };
 
 
-define block IMAGE1 with fixed order { block .ram_image1.entry, block .ram_image1.text, block .ram_image1.data, block .ram_image1.bss, };
+define block IMAGE1 with fixed order { block .ram_image1.entry, block .ram_image1.text, block .ram_image1.data};
 place at start of BOOTLOADER_RAM_S_region   { readwrite, 
                                     block IMAGE1,
                                   };
-
+                                  
+place in BOOTLOADER_RAM_S_region {zeroinit,
+                                    block .ram_image1.bss};
 
 /****************************************
  * BD RAM NS Section config                *

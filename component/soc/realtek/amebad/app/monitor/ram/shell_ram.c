@@ -15,8 +15,8 @@
 #if defined ( __ICCARM__ )
 #pragma section=".cmd.table.data"
 
-SECTION(".data") u8* __cmd_table_start__;
-SECTION(".data") u8* __cmd_table_end__;
+SECTION(".data") u8* __cmd_table_start__ = 0;
+SECTION(".data") u8* __cmd_table_end__ = 0;
 #endif
 
 extern volatile UART_LOG_CTL		shell_ctl;

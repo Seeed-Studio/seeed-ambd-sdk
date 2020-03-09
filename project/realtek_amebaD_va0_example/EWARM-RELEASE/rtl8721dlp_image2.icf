@@ -87,11 +87,13 @@ define block .ram_heap.data with fixed order { section .bfsram.data*,
 
 place at start of BD_RAM_region   { readwrite, 
                                     block IMAGE2,
+                                  };
+                                  
+place in BD_RAM_region {zeroinit,
                                     block .ram_image2.bss,
                                     block .ram_image2.nocache.data,
                                     block .ram_heap.data,
-                                    section .heap*
-                                  };
+                                    section .heap*};
 
 /****************************************
  * XIP Image2 Section config                *

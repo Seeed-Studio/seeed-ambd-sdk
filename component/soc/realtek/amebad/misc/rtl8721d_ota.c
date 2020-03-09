@@ -938,7 +938,7 @@ void cmd_ota_image(bool cmd)
 {
 	/* To avoid gcc warnings */
 	( void ) cmd;
-#if 0
+#if 1
 	if (cmd == 1)
 		OTA_Change(OTA_INDEX_2);
 	else

@@ -9,15 +9,13 @@ typedef struct {
     int(* init)(void);
     int(* deinit)(void);
     int(* receive)(void *buf, u16 length);
+    void(*transmit_complete)(int status);
 } usbd_cdc_acm_usr_cb_t;
 
-//int usbd_cdc_acm_register(usbd_cdc_acm_usr_cb_t *cb);
+int usbd_cdc_acm_sync_transmit_data(void *buf, u16 length);
+int usbd_cdc_acm_async_transmit_data(void *buf, u32 length);
 
-void usbd_cdc_acm_set_bulk_transfer_buffer_size(u16 bulk_out_size, u16 bulk_in_size);
-
-int usbd_cdc_acm_transmit_data(void *buf, u16 length);
-
-int usbd_cdc_acm_init(usbd_cdc_acm_usr_cb_t *cb);
+int usbd_cdc_acm_init(u16 bulk_in_buf_size, u16 bulk_out_buf_size, usbd_cdc_acm_usr_cb_t *cb);
 void usbd_cdc_acm_deinit(void);
 
 #endif // CONFIG_USBD_CDC_ACM

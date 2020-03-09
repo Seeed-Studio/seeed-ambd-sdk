@@ -12,66 +12,96 @@
 #include "osdep_service.h"
 #include "usbd_cdc_acm_if.h"
 
-// Bulk transfer buffer length
-#define CDC_ACM_DEFAULT_BULK_IN_BUF_LEN     256
-#define CDC_ACM_DEFAULT_BULK_OUT_BUF_LEN    256
+// Use INT in endpoint
+#define USBD_CDC_ACM_USE_INT_IN_ENDPOINT         1
+
+// Use thread for bulk in transfer, turn it on when using usbd_cdc_acm_async_transmit_data API to transfer large data,
+// which can not be transfered via single bulk in transfer, i.e. the transfer size is larger than bulk_in_buf_size.
+#define USBD_CDC_ACM_USE_BULK_IN_THREAD          1
+
+// Allocate async bulk in buffer, turn it on to release bulk in transfer buffer in user application ASAP.
+#define USBD_CDC_ACM_ALLOC_ASYNC_BULK_IN_BUF     0
+
+// Bulk in request number
+#define USBD_CDC_ACM_BULK_IN_REQ_NUM             2
+
+// Bulk out request number
+#define USBD_CDC_ACM_BULK_OUT_REQ_NUM            1
+
+// Bulk transfer configurations
+#define USBD_CDC_ACM_HS_BULK_MAX_PACKET_SIZE     512
+#define USBD_CDC_ACM_FS_BULK_MAX_PACKET_SIZE     64
+
+#define USBD_CDC_ACM_HS_BULK_IN_PACKET_SIZE     (USBD_CDC_ACM_HS_BULK_MAX_PACKET_SIZE)
+#define USBD_CDC_ACM_HS_BULK_OUT_PACKET_SIZE    (USBD_CDC_ACM_HS_BULK_MAX_PACKET_SIZE)
+#define USBD_CDC_ACM_FS_BULK_IN_PACKET_SIZE     (USBD_CDC_ACM_FS_BULK_MAX_PACKET_SIZE)
+#define USBD_CDC_ACM_FS_BULK_OUT_PACKET_SIZE    (USBD_CDC_ACM_FS_BULK_MAX_PACKET_SIZE)
+
+#define USBD_CDC_ACM_MAX_BULK_IN_XFER_SIZE       65535
+
+#define USBD_CDC_ACM_DEFAULT_BULK_IN_XFER_SIZE   1024  // Shall be <= USBD_CDC_ACM_MAX_BULK_IN_XFER_SIZE, restrict it to save memory
+#define USBD_CDC_ACM_DEFAULT_BULK_OUT_XFER_SIZE  1024  // Shall be <= USBD_CDC_ACM_MAX_BULK_IN_XFER_SIZE, restrict it to save memory
+
+// Bulk in task configurations
+#define USBD_CDC_ACM_BULK_IN_TASK_PRIORITY      (tskIDLE_PRIORITY + 2) // Should be lower than USBD_IRQ_THREAD_PRIORITY
+#define USBD_CDC_ACM_BULK_IN_TASK_STACK_SIZE     512
 
 // Endpoint address
-#define USBD_CDC_ACM_BULK_IN_EP_ADDRESS     0x81
-#define USBD_CDC_ACM_BULK_OUT_EP_ADDRESS    0x02
-#define USBD_CDC_ACM_INT_IN_EP_ADDRESS      0x83
+#define USBD_CDC_ACM_BULK_IN_EP_ADDRESS          0x81
+#define USBD_CDC_ACM_BULK_OUT_EP_ADDRESS         0x02
+#define USBD_CDC_ACM_INT_IN_EP_ADDRESS           0x83
 
 // CDC descriptor types
-#define USBD_CDC_HEADER_TYPE                0x00
-#define USBD_CDC_CALL_MANAGEMENT_TYPE       0x01
-#define USBD_CDC_ACM_TYPE                   0x02
-#define USBD_CDC_UNION_TYPE                 0x06
-#define USBD_CDC_COUNTRY_TYPE               0x07
-#define USBD_CDC_NETWORK_TERMINAL_TYPE      0x0A
-#define USBD_CDC_ETHERNET_TYPE              0x0F
-#define USBD_CDC_WHCM_TYPE                  0x11
-#define USBD_CDC_MDLM_TYPE                  0x12
-#define USBD_CDC_MDLM_DETAIL_TYPE           0x13
-#define USBD_CDC_DMM_TYPE                   0x14
-#define USBD_CDC_OBEX_TYPE                  0x15
+#define USBD_CDC_HEADER_TYPE                     0x00
+#define USBD_CDC_CALL_MANAGEMENT_TYPE            0x01
+#define USBD_CDC_ACM_TYPE                        0x02
+#define USBD_CDC_UNION_TYPE                      0x06
+#define USBD_CDC_COUNTRY_TYPE                    0x07
+#define USBD_CDC_NETWORK_TERMINAL_TYPE           0x0A
+#define USBD_CDC_ETHERNET_TYPE                   0x0F
+#define USBD_CDC_WHCM_TYPE                       0x11
+#define USBD_CDC_MDLM_TYPE                       0x12
+#define USBD_CDC_MDLM_DETAIL_TYPE                0x13
+#define USBD_CDC_DMM_TYPE                        0x14
+#define USBD_CDC_OBEX_TYPE                       0x15
 
 // CDC subclass
-#define USBD_CDC_SUBCLASS_ACM               0x02
-#define USBD_CDC_SUBCLASS_ETHERNET          0x06
-#define USBD_CDC_SUBCLASS_WHCM              0x08
-#define USBD_CDC_SUBCLASS_DMM               0x09
-#define USBD_CDC_SUBCLASS_MDLM              0x0A
-#define USBD_CDC_SUBCLASS_OBEX              0x0B
+#define USBD_CDC_SUBCLASS_ACM                    0x02
+#define USBD_CDC_SUBCLASS_ETHERNET               0x06
+#define USBD_CDC_SUBCLASS_WHCM                   0x08
+#define USBD_CDC_SUBCLASS_DMM                    0x09
+#define USBD_CDC_SUBCLASS_MDLM                   0x0A
+#define USBD_CDC_SUBCLASS_OBEX                   0x0B
 
 // CDC ACM protocol
-#define USBD_CDC_ACM_PROTO_NONE             0x00
-#define USBD_CDC_ACM_PROTO_AT               0x01
-#define USBD_CDC_ACM_PROTO_VENDOR           0xFF
+#define USBD_CDC_ACM_PROTO_NONE                  0x00
+#define USBD_CDC_ACM_PROTO_AT                    0x01
+#define USBD_CDC_ACM_PROTO_VENDOR                0xFF
 
 // CDC ACM requests
-#define USBD_CDC_SEND_ENCAPSULATED_COMMAND  0x00U
-#define USBD_CDC_GET_ENCAPSULATED_RESPONSE  0x01U
-#define USBD_CDC_SET_COMM_FEATURE           0x02U
-#define USBD_CDC_GET_COMM_FEATURE           0x03U
-#define USBD_CDC_CLEAR_COMM_FEATURE         0x04U
-#define USBD_CDC_SET_LINE_CODING            0x20U
-#define USBD_CDC_GET_LINE_CODING            0x21U
-#define USBD_CDC_SET_CONTROL_LINE_STATE     0x22U
-#define USBD_CDC_SEND_BREAK                 0x23U
+#define USBD_CDC_SEND_ENCAPSULATED_COMMAND       0x00U
+#define USBD_CDC_GET_ENCAPSULATED_RESPONSE       0x01U
+#define USBD_CDC_SET_COMM_FEATURE                0x02U
+#define USBD_CDC_GET_COMM_FEATURE                0x03U
+#define USBD_CDC_CLEAR_COMM_FEATURE              0x04U
+#define USBD_CDC_SET_LINE_CODING                 0x20U
+#define USBD_CDC_GET_LINE_CODING                 0x21U
+#define USBD_CDC_SET_CONTROL_LINE_STATE          0x22U
+#define USBD_CDC_SEND_BREAK                      0x23U
 
 // CDC ACM debug options
-#define USBD_CDC_ACM_DEBUG                  0
+#define USBD_CDC_ACM_DEBUG                       0
 #if USBD_CDC_ACM_DEBUG
-#define USBD_CDC_INFO(fmt, args...)         printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
-#define USBD_CDC_WARN(fmt, args...)         printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
-#define USBD_CDC_ERROR(fmt, args...)        printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
-#define USBD_CDC_ENTER                      printf("\n\r[CDC]%s: =>", __FUNCTION__)
-#define USBD_CDC_EXIT                       printf("\n\r[CDC]%s: <=", __FUNCTION__)
-#define USBD_CDC_EXIT_ERR                   printf("\n\r[CDC]%s: ERR <=", __FUNCTION__)
+#define USBD_CDC_INFO(fmt, args...)              printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
+#define USBD_CDC_WARN(fmt, args...)              printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
+#define USBD_CDC_ERROR(fmt, args...)             printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
+#define USBD_CDC_ENTER                           printf("\n\r[CDC]%s: =>", __FUNCTION__)
+#define USBD_CDC_EXIT                            printf("\n\r[CDC]%s: <=", __FUNCTION__)
+#define USBD_CDC_EXIT_ERR                        printf("\n\r[CDC]%s: ERR <=", __FUNCTION__)
 #else
 #define USBD_CDC_INFO(fmt, args...)
 #define USBD_CDC_WARN(fmt, args...)
-#define USBD_CDC_ERROR(fmt, args...)
+#define USBD_CDC_ERROR(fmt, args...)             printf("\n\r[CDC]%s: " fmt, __FUNCTION__, ## args)
 #define USBD_CDC_ENTER
 #define USBD_CDC_EXIT
 #define USBD_CDC_EXIT_ERR
@@ -169,14 +199,25 @@ struct usb_cdc_dev_t {
     u8 interface_number;
 
     struct usb_gadget *gadget;
-    
-    struct usb_ep *bulk_out_ep;
-    struct usb_request *bulk_out_req;
-    u16 bulk_out_buf_len;
 
-    struct usb_ep *bulk_in_ep;    
-    struct usb_request *bulk_in_req;
-    u16 bulk_in_buf_len;
+    struct usb_ep *bulk_out_ep;
+    _list bulk_out_req_list;
+    u16 bulk_out_req_num;
+    volatile u16 bulk_out_req_act_num;
+    u16 bulk_out_buf_size;
+    _mutex bulk_out_mutex;
+
+    struct usb_ep *bulk_in_ep;
+    _list bulk_in_req_list;
+    u16 bulk_in_req_num;
+    volatile u16 bulk_in_req_act_num;
+    u16 bulk_in_buf_size;
+    _mutex bulk_in_mutex;
+    volatile int bulk_in_busy;
+
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+    struct task_struct bulk_in_task;
+#endif
 
     usbd_cdc_acm_usr_cb_t *cb;
 };

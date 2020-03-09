@@ -30,6 +30,7 @@ export ABS_ROOTDIR MAKE_INCLUDE_GEN HOSTCC
 ifeq ($(COMPILEOS_CYGWIN),Cygwin)
 HOSTNAME_APP = /usr/bin/hostname
 PADTOOL      = $(UTILITYDIR)/imgpad.exe
+LBITS := $(shell getconf LONG_BIT)
 else
 HOSTNAME_APP = $(which hostname)
 PADTOOL      = $(UTILITYDIR)/imgpadl
@@ -52,11 +53,13 @@ LINK_ROM_LIB_NS = $(ROOTDIR)/lib/rom_acut/rom_ns.a
 
 LINK_ROM_SYMBOL_NS = ./ld/rlx8721d_rom_symbol_empty.ld
 LINK_ROM_SYMBOL_S = ./ld/rlx8721d_rom_symbol_empty.ld
+LINK_ROM_SYMBOL_BOOT = ./ld/rlx8721d_rom_symbol_empty.ld
 ifeq ($(CONFIG_LINK_ROM_SYMB),y) 
 LINK_ROM_LIB =
 LINK_ROM_LIB_NS =
 LINK_ROM_SYMBOL_NS = ./ld/rlx8721d_rom_symbol_acut.ld
 LINK_ROM_SYMBOL_S = ./ld/rlx8721d_rom_symbol_acut_s.ld
+LINK_ROM_SYMBOL_BOOT = ./ld/rlx8721d_rom_symbol_acut_boot.ld
 endif
 
 ifeq ($(CONFIG_FT),y) 
@@ -99,6 +102,10 @@ endif
 # LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_faac.a
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_cmsis_dsp.a
 
+ifeq ($(CONFIG_TRUSTZONE), y)
+LINK_APP_LIB += $(IMAGE_TARGET_FOLDER)/cmse_implib.lib
+endif
+
 .PHONY: all build_target_folder menuconfig clean build_libraries package_prebuilt_rom_objs mp_image2_ns 
 
 
@@ -109,6 +116,8 @@ LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_mdns.a
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_websocket.a
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_tftp.a
 LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_dct.a
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_coap.a
+#LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_eap.a
 #LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_http2.a
 #LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_rt_airkiss_algo.a
 #LINK_APP_LIB += $(BASEDIR)/component/common/application/airkiss/2.0.0-26515/lib/libairkiss.a
@@ -142,6 +151,12 @@ lib_all: build_target_folder copy_ld_img2 check_toolchain build_info.h make_subd
 #*****************************************************************************#
 
 build_target_folder:
+ifeq ($(COMPILEOS_CYGWIN),Cygwin)
+ifneq ("$(LBITS)", "32")
+	@echo ONLY 32-BIT CYGWIN IS SUPPORTED!
+	@exit -1
+endif
+endif
 	@if [ -d $(BUILD_TARGET_FOLDER) ]; then echo "$(BUILD_TARGET_FOLDER) exist"; else $(MKDIR) -p $(BUILD_TARGET_FOLDER); fi
 	@if [ -d $(IMAGE_TARGET_FOLDER) ]; then echo "$(IMAGE_TARGET_FOLDER) exist"; else $(MKDIR) -p $(IMAGE_TARGET_FOLDER); fi
 	@if [ -d $(BUILD_TARGET_RAM_FOLDER) ]; then echo "$(BUILD_TARGET_RAM_FOLDER) exist"; else $(MKDIR) $(BUILD_TARGET_RAM_FOLDER); fi
@@ -194,8 +209,10 @@ make_subdirs_lib:
 	@make -C make/network/httpd all
 	@make -C make/network/websocket all
 	#@make -C make/network/http2 all
+	@make -C make/network/eap all
 	@make -C make/network/tftp all
 	@make -C make/file_system/dct all
+	#@make -C make/network/libcoap all
 #	MMF LIBRARY
 # 	@make -C make/audio/g711 all
 # 	@make -C make/audio/faac all
@@ -215,6 +232,7 @@ make_subdirs_lib:
 #*****************************************************************************#
 
 linker_image3:
+ifeq ($(CONFIG_TRUSTZONE), y)
 	@echo "========= linker img3 secure start ========="
 	$(LD) $(LD_SEC_OUT_ARG) $(LD_ARG) target_img3.axf $(LINK_ROM_LIB) $(RAM_OBJS_LIST)
 
@@ -267,7 +285,7 @@ linker_image3:
 	$(UTILITYDIR)/image_tool/imagetool.sh $(IMAGE_TARGET_FOLDER)/km4_image3_psram.bin
 
 	@echo "========== Image manipulating end =========="
-
+endif
 linker_image2:
 	@echo "========= linker img2 start ========="
 	$(LD) $(LD_ARG) target.axf $(RAM_OBJS_LIST) $(LINK_ROM_LIB) $(LINK_APP_LIB)
@@ -310,7 +328,7 @@ linker_image2:
 
 linker_image2_ns:
 	@echo "========= linker img2_ns start ========="
-	$(LD) $(LD_ARG) target_img2.axf $(RAM_OBJS_LIST) $(LINK_ROM_LIB_NS) $(LINK_APP_LIB) $(IMAGE_TARGET_FOLDER)/cmse_implib.lib -lm -lstdc++
+	$(LD) $(LD_ARG) target_img2.axf $(RAM_OBJS_LIST) $(LINK_ROM_LIB_NS) $(LINK_APP_LIB)  -lm -lstdc++
 
 	$(MOVE) text.map $(IMAGE_TARGET_FOLDER)/text_image2_ns.map
 	$(MOVE) target_img2.axf $(IMAGE_TARGET_FOLDER)
@@ -677,7 +695,7 @@ copy_ld_rom:
 	$(COPY) ./ld/rlx8721d_rom_bin.ld  $(BUILD_TARGET_FOLDER)/rlx8721d.ld
 copy_ld_img1:
 	$(COPY) ./ld/rlx8721d_img1_s.ld  $(BUILD_TARGET_FOLDER)/rlx8721d.ld
-	cat $(LINK_ROM_SYMBOL_S) >> $(BUILD_TARGET_FOLDER)/rlx8721d.ld
+	cat $(LINK_ROM_SYMBOL_BOOT) >> $(BUILD_TARGET_FOLDER)/rlx8721d.ld
 copy_ld_img2:
 ifeq ($(CONFIG_TRUSTZONE_EN), y)
 	$(COPY) ./ld/rlx8721d_img2_tz.ld  $(BUILD_TARGET_FOLDER)/rlx8721d.ld

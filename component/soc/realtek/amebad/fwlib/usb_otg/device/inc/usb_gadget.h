@@ -125,7 +125,7 @@ struct usb_request {
 
     usb_req_complete_t complete;
     void *context;
-    dwc_list_link_t list;
+    _list list;
     int status;
     unsigned actual;
     unsigned direct;

@@ -1,10 +1,11 @@
 
 include $(MAKE_INCLUDE_GEN)
-IFLAGS               += -I$(BASEDIR)/component/common/network/coap/include
+#IFLAGS               += -I$(BASEDIR)/component/common/network/coap/include
 IFLAGS               += -I$(BASEDIR)/component/common/application/mqtt/MQTTClient
 IFLAGS				+= -I$(BASEDIR)/component/common/audio/flac
 IFLAGS               += -I$(BASEDIR)/component/common/bluetooth/realtek/sdk
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/sdio/realtek/sdio_host/inc
+IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 .PHONY: all clean
 
 #*****************************************************************************#
@@ -44,17 +45,24 @@ CSRC += $(DIR)/websocket_client/example_wsclient.c
 CSRC += $(DIR)/websocket_server/example_ws_server.c
 CSRC += $(DIR)/xml/example_xml.c
 CSRC += $(DIR)/mqtt/example_mqtt.c
-CSRC += $(DIR)/coap/example_coap.c
+#CSRC += $(DIR)/coap/example_coap.c
+CSRC += $(DIR)/coap_client/example_coap_client.c
+CSRC += $(DIR)/coap_server/example_coap_server.c
 CSRC += $(DIR)/httpd/example_httpd.c
 CSRC += $(DIR)/httpd/example_httpc.c
 CSRC += $(DIR)/ota_http/example_ota_http.c
 CSRC += $(DIR)/ota_https/example_ota_https.c
 CSRC += $(DIR)/ota_sdcard/example_ota_sdcard.c
+CSRC += $(DIR)/dct/example_dct.c
 CSRC += $(DIR)/wifi_manager/example_wifi_manager.c
 CSRC += $(DIR)/wifi_roaming/example_wifi_roaming.c
-CSRC += $(DIR)/wifi_roaming_plus/example_wifi_roaming_plus.c
-CSRC += $(DIR)/wifi_roaming_plus/example_uart_update.c
-
+#CSRC += $(DIR)/wifi_roaming_plus/example_wifi_roaming_plus.c
+CSRC += $(DIR)/uart_firmware_update/example_uart_update.c
+CSRC += $(DIR)/ipv6/example_ipv6.c
+CSRC += $(DIR)/cJSON/example_cJSON.c
+CSRC += $(DIR)/sdcard_upload_httpd/example_sdcard_upload_httpd.c
+CSRC += $(DIR)/socket_tcp_trx/example_socket_tcp_trx_1.c
+CSRC += $(DIR)/socket_tcp_trx/example_socket_tcp_trx_2.c
 # MMF AUDIO EXAMPLE
 # CSRC += $(DIR)/media_framework/example_media_framework.c
 # CSRC += $(DIR)/media_framework/mmf2_example_audioloop_init.c
@@ -83,11 +91,11 @@ CSRC += $(DIR)/wifi_roaming_plus/example_uart_update.c
 #CSRC += $(DIR)/audio_sport/audio_tts/example_audio_tts.c
 CSRC += $(DIR)/fatfs/example_fatfs.c
 CSRC += $(DIR)/dct/example_dct.c
-CSRC += $(DIR)/competitive_headphones/example_competitive_headphones.c
-CSRC += $(DIR)/competitive_headphones/headphone_rl6548_audio.c
-CSRC += $(DIR)/competitive_headphones/headphone_burst.c
-CSRC += $(DIR)/competitive_headphones/headphone_packet_compensation.c
-CSRC += $(DIR)/competitive_headphones_dongle/example_competitive_headphones_dongle.c
+#CSRC += $(DIR)/competitive_headphones/example_competitive_headphones.c
+#CSRC += $(DIR)/competitive_headphones/headphone_rl6548_audio.c
+#CSRC += $(DIR)/competitive_headphones/headphone_burst.c
+#CSRC += $(DIR)/competitive_headphones/headphone_packet_compensation.c
+#CSRC += $(DIR)/competitive_headphones_dongle/example_competitive_headphones_dongle.c
 
 ifeq ($(CONFIG_AUDIO_EN),y)
 IFLAGS += -I$(BASEDIR)/component/common/audio/libav
@@ -113,7 +121,9 @@ CSRC += $(DIR)/usbd_audio/example_usbd_audio_sp.c
 CSRC += $(DIR)/usbd_audio/example_usbd_audio.c
 CSRC += $(DIR)/usbd_msc/example_usbd_msc.c
 CSRC += $(DIR)/usbd_cdc_acm/example_usbd_cdc_acm.c
+CSRC += $(DIR)/usbd_vendor/example_usbd_vendor.c
 CSRC += $(DIR)/usbh_msc/example_usbh_msc.c
+CSRC += $(DIR)/usbh_vendor/example_usbh_vendor.c
 
 #*****************************************************************************#
 #                               Object FILE LIST                              #

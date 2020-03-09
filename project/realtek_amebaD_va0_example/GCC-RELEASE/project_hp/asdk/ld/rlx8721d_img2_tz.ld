@@ -57,6 +57,7 @@ SECTIONS
 
 	.ram_heap.data : 
 	{
+		. = ALIGN (32);
 		*(.bfsram.data*)
 		end = .;
 		*(.heap.stdlib*)
@@ -133,12 +134,15 @@ SECTIONS
 
 	.psram_image2.data : 
 	{
+		. = ALIGN (32);
 		*(.psram.data*)
+		. = ALIGN (32);
 		*(.psram.rodata*)
 	} > PSRAM_NS
   
 	.psram_image2.bss :
 	{
+		. = ALIGN (32);
 		__psram_bss_start__ = .;
 		*(.psram.bss*)
 		__psram_bss_end__ = .;
@@ -146,6 +150,7 @@ SECTIONS
 
 	.psram_heap.data : 
 	{
+		. = ALIGN (32);
 		*(.psram.heap*)
 	} > PSRAM_NS
 }

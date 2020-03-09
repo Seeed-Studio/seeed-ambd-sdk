@@ -23,6 +23,7 @@ export ABS_ROOTDIR MAKE_INCLUDE_GEN HOSTCC
 ifeq ($(COMPILEOS_CYGWIN),Cygwin)
 HOSTNAME_APP = /usr/bin/hostname
 PADTOOL      = $(UTILITYDIR)/imgpad.exe
+LBITS := $(shell getconf LONG_BIT)
 else
 HOSTNAME_APP = $(which hostname)
 PADTOOL      = $(UTILITYDIR)/imgpadl
@@ -76,6 +77,12 @@ lib_all: build_target_folder copy_ld_img2 check_toolchain build_info.h make_subd
 #*****************************************************************************#
 
 build_target_folder:
+ifeq ($(COMPILEOS_CYGWIN),Cygwin)
+ifneq ("$(LBITS)", "32")
+	@echo ONLY 32-BIT CYGWIN IS SUPPORTED!
+	@exit -1
+endif
+endif
 	@if [ -d $(BUILD_TARGET_FOLDER) ]; then echo "$(BUILD_TARGET_FOLDER) exist"; else $(MKDIR) -p $(BUILD_TARGET_FOLDER); fi
 	@if [ -d $(IMAGE_TARGET_FOLDER) ]; then echo "$(IMAGE_TARGET_FOLDER) exist"; else $(MKDIR) -p $(IMAGE_TARGET_FOLDER); fi
 	@if [ -d $(BUILD_TARGET_RAM_FOLDER) ]; then echo "$(BUILD_TARGET_RAM_FOLDER) exist"; else $(MKDIR) $(BUILD_TARGET_RAM_FOLDER); fi

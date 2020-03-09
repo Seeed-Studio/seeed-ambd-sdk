@@ -38,6 +38,6 @@ clean:
 	make -C websocket clean
 	make -C tftp clean
 	make -C rtsp clean
-
-
+	make -C http2 clean
+	make -C eap clean
 

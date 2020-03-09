@@ -254,5 +254,9 @@ extern void *dwc_malloc_atomic(uint32_t size);
 extern void dwc_free(void *addr);
 extern void dwc_memcpy(void *dest, void const *src, uint32_t size);
 
+extern void dwc_cache_clean(u32 addr, u32 bytes);
+extern void dwc_cache_invalidate(u32 addr, u32 bytes);
+extern void dwc_cache_clean_invalidate(u32 addr, u32 bytes);
+
 #endif /* _DWC_OS_H_ */
 

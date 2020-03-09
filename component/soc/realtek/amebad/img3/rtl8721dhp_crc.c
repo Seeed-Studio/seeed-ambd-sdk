@@ -91,7 +91,7 @@ int CRC_Calculate(CRC_InitTypeDef* CRC_InitStruct, IN const u8* message, IN cons
 		return FAIL;
 	}
 
-	DCache_CleanInvalidate(((u32)message & CACHE_LINE_ADDR_MSK), (msglen + CACHE_LINE_SIZE));
+	DCache_CleanInvalidate(((u32)message), msglen);
 
 	// set data length
 	CRC_S_MODULE->CRC_OP &= ~ (CRC_LENGTH | CRC_LAST) ;

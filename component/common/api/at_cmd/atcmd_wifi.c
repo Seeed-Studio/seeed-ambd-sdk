@@ -1664,6 +1664,7 @@ void print_wlan_help(void *arg){
 }
 
 #if WIFI_LOGO_CERTIFICATION_CONFIG
+u8 use_static_ip = 0;
 void fATPE(void *arg)
 {
     int argc, error_no = 0;
@@ -1715,8 +1716,10 @@ void fATPE(void *arg)
 	netif_set_addr(&xnetif[0], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
 
 exit:
-    if(error_no==0)
+    if(error_no==0){
         at_printf("\r\n[ATPE] OK");
+	  use_static_ip = 1;		
+    }
     else
         at_printf("\r\n[ATPE] ERROR:%d",error_no);
 

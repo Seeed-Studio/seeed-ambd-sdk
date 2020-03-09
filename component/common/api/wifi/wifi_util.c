@@ -853,7 +853,7 @@ int wext_set_pscan_channel(const char *ifname, __u8 *ch, __u8 *pscan_config, __u
 	*(para+12) = length;
 	for(i = 0; i < length; i++){
 		*(para + 13 + i)= *(ch + i);
-		*((__u16*) (para + 13 + length + i))= *(pscan_config + i);
+		*(para + 13 + length + i)= *(pscan_config + i);
 	}
 	
 	iwr.u.data.pointer = para;

@@ -37,21 +37,21 @@ void example_usbh_msc_thread(void *param)
 
     buf = (u8 *)rtw_malloc(USBH_MSC_TEST_BUF_SIZE);
     if (buf == NULL) {
-        printf("\r\n Allocate USBH MSC test buffer fail\n");
+        printf("\nFail to allocate USBH MSC test buffer\n");
         goto exit;
     }
     
     ret = usb_init();
     if (ret != USB_INIT_OK) {
-        printf("\r\n USB init fail\n");
+        printf("\nFail to init USB\n");
         goto exit_free;
     }
     
     // Register USB disk driver to fatfs
-    printf("\nRegister USB disk driver to Fatfs.\n");
+    printf("\nRegister USB disk driver\n");
     drv_num = FATFS_RegisterDiskDriver(&USB_disk_Driver);
     if (drv_num < 0) {
-        printf("Rigester USB disk driver to FATFS fail.\n");
+        printf("Fail to register USB disk driver\n");
         goto exit_deinit;
     }
 
@@ -60,26 +60,26 @@ void example_usbh_msc_thread(void *param)
     logical_drv[2] = '/';
     logical_drv[3] = 0;
     
-    // Fatfs write and read test
-    printf("FatFS USB Write/Read performance test start...\n");
+    printf("FatFS USB Write/Read performance test started...\n");
+    
+    // mount fatfs
     res = f_mount(&fs, logical_drv, 1);
     if (res) {
-        printf("Fail to mount logical drive.\n");
+        printf("Fail to mount logical drive: %d\n", res);
         goto exit_unregister;
     }
 
-    // write and read test
     strcpy(path, logical_drv);
     sprintf(&path[strlen(path)], "%s", filename);
-    
-    //Open source file
+
+    // open test file
+    printf("Test file: %s\n\n", filename);
     res = f_open(&f, path, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
     if (res) {
-        printf("Fail to open file: %s.\n", filename);
+        printf("Fail to open file: %s\n", filename);
         goto exit_unmount;
     }
 
-    printf("Test file name: %s\n\n", filename);
     // clean write and read buffer
     memset(&buf[0], USBH_MSC_TEST_SEED, USBH_MSC_TEST_BUF_SIZE);
 
@@ -96,7 +96,7 @@ void example_usbh_msc_thread(void *param)
             res = f_write(&f, (void *)buf, test_size, (UINT *)&bw);
             if (res || (bw < test_size)) {
                 f_lseek(&f, 0);
-                printf("Write error bw=%d, rc=%d.\n", bw, res);
+                printf("Write error bw=%d, rc=%d\n", bw, res);
                 ret = 1;
                 break;
             }
@@ -104,7 +104,7 @@ void example_usbh_msc_thread(void *param)
 
         elapse = SYSTIMER_GetPassTime(start);
         perf = (round * test_size * 10000 / 1024) / elapse;
-        printf("Write rate %d.%d KB/s for %d round @ %d ms.\n", perf / 10, perf % 10, round, elapse);
+        printf("Write rate %d.%d KB/s for %d round @ %d ms\n", perf / 10, perf % 10, round, elapse);
         
         /* move the file pointer to the file head*/
         res = f_lseek(&f, 0);
@@ -116,7 +116,7 @@ void example_usbh_msc_thread(void *param)
             res = f_read(&f, (void *)buf, test_size, (UINT *)&br);
             if (res || (br < test_size)) {
                 f_lseek(&f, 0);
-                printf("Read error br=%d, rc=%d.\n", br, res);
+                printf("Read error br=%d, rc=%d\n", br, res);
                 ret = 1;
                 break;
             }
@@ -124,27 +124,27 @@ void example_usbh_msc_thread(void *param)
 
         elapse = SYSTIMER_GetPassTime(start);
         perf = (round * test_size * 10000 / 1024) / elapse;
-        printf("Read rate %d.%d KB/s for %d round @ %d ms.\n", perf / 10, perf % 10, round, elapse);
+        printf("Read rate %d.%d KB/s for %d round @ %d ms\n", perf / 10, perf % 10, round, elapse);
         
         /* move the file pointer to the file head*/
         res = f_lseek(&f, 0);
     }
+    
+    printf("FatFS USB Write/Read performance test %s\n", (ret == 0) ? "done" : "aborted");
 
     // close source file
     res = f_close(&f);
     if (res) {
-        printf("Fail to close file: %s.\n", filename);
+        printf("Fail to close file: %s\n", filename);
     }
-    
-    printf("FatFS USB Write/Read performance test %s\n", (ret == 0) ? "done" : "aborted");
 
 exit_unmount:
     if (f_mount(NULL, logical_drv, 1) != FR_OK) {
-        printf("Fail to unmount logical drive.\n");
+        printf("Fail to unmount logical drive\n");
     }
 exit_unregister:
     if (FATFS_UnRegisterDiskDriver(drv_num)) {
-        printf("Fail to unregister disk driver from FATFS.\n");
+        printf("Fail to unregister disk driver from FATFS\n");
     }
 exit_deinit:
     usb_deinit();
@@ -161,11 +161,11 @@ void example_usbh_msc(void)
     int ret;
     struct task_struct task;
     
-    printf("\nUSBH MSC demo start...\n");
+    printf("\nUSB host MSC demo started...\n");
 
     ret = rtw_create_task(&task, "example_usbh_msc_thread", USBH_MSC_THREAD_STACK_SIZE, tskIDLE_PRIORITY + 2, example_usbh_msc_thread, NULL);
     if (ret != pdPASS) {
-        printf("\n\rCreate USBH MSC thread fail\n\r");
+        printf("\n%Fail to create USB host MSC thread\n");
     }
 }
 

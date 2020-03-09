@@ -24,5 +24,6 @@ endif
 clean:
 	@make -C baidu clean
 	@make -C mqtt clean
+	@make -C xmodem clean
 	#@make -C airkiss clean
 -include $(DEPS)

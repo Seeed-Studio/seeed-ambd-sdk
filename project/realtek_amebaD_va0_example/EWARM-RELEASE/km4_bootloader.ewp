@@ -362,7 +362,6 @@
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\os_dep\include\</state>
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\os_dep\..\</state>
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\string</state>
-                    <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\fwlib\usb_otg\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api\platform</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api\wifi</state>
@@ -412,8 +411,6 @@
                     <state>$PROJ_DIR$\..\..\..\component\common\application\apple\homekit\crypto\sha512</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\file_system\fatfs\r0.10c\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\file_system\fatfs</state>
-                    <state>$PROJ_DIR$\..\..\..\component\common\drivers\usb_class\device</state>
-                    <state>$PROJ_DIR$\..\..\..\component\common\drivers\usb_class\device\class</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\libduer-device\framework\core</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\libduer-device\framework\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\duerapp\include</state>
@@ -849,7 +846,7 @@
                 </option>
                 <option>
                     <name>IlinkSuppressDiags</name>
-                    <state></state>
+                    <state>Lp006</state>
                 </option>
                 <option>
                     <name>IlinkTreatAsRem</name>
@@ -1467,7 +1464,6 @@
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\os_dep\include\</state>
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\os_dep\..\</state>
                     <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\swlib\string</state>
-                    <state>$PROJ_DIR$\..\..\..\component\soc\realtek\amebad\fwlib\usb_otg\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api\platform</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\api\wifi</state>
@@ -1517,8 +1513,6 @@
                     <state>$PROJ_DIR$\..\..\..\component\common\application\apple\homekit\crypto\sha512</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\file_system\fatfs\r0.10c\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\file_system\fatfs</state>
-                    <state>$PROJ_DIR$\..\..\..\component\common\drivers\usb_class\device</state>
-                    <state>$PROJ_DIR$\..\..\..\component\common\drivers\usb_class\device\class</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\libduer-device\framework\core</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\libduer-device\framework\include</state>
                     <state>$PROJ_DIR$\..\..\..\component\common\application\baidu\duerapp\include</state>
@@ -1954,7 +1948,7 @@
                 </option>
                 <option>
                     <name>IlinkSuppressDiags</name>
-                    <state></state>
+                    <state>Lp006</state>
                 </option>
                 <option>
                     <name>IlinkTreatAsRem</name>

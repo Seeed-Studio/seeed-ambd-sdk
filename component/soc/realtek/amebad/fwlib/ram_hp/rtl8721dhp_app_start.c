@@ -15,15 +15,16 @@
 #pragma section=".ram_image2.nocache.data"
 #pragma section=".psram.bss"
 
-SECTION(".data") u8* __bss_start__;
-SECTION(".data") u8* __bss_end__;
-SECTION(".data") u8* __ram_nocache_start__;
-SECTION(".data") u8* __ram_nocache_end__;
-SECTION(".data") u8* __psram_bss_start__;
-SECTION(".data") u8* __psram_bss_end__;
+SECTION(".data") u8* __bss_start__ = 0;
+SECTION(".data") u8* __bss_end__ = 0;
+SECTION(".data") u8* __ram_nocache_start__ = 0;
+SECTION(".data") u8* __ram_nocache_end__ = 0;
+SECTION(".data") u8* __psram_bss_start__ = 0;
+SECTION(".data") u8* __psram_bss_end__ = 0;
 #endif
 extern int main(void);
 extern u32 GlobalDebugEnable;
+struct _driver_call_os_func_map driver_call_os_func_map;
 void NS_ENTRY BOOT_IMG3(void);
 extern void INT_HardFault_C(uint32_t mstack[], uint32_t pstack[], uint32_t lr_value, uint32_t fault_id);
 void app_init_psram(void);
@@ -129,16 +130,32 @@ void _init(void) {}
 
 void INT_HardFault_Patch_C(uint32_t mstack[], uint32_t pstack[], uint32_t lr_value, uint32_t fault_id)
 {
-	DBG_8195A("\r\nHard Fault Patch\r\n");
+	u8 IsPstack = 0;
+
+	DBG_8195A("\r\nHard Fault Patch (Non-secure)\r\n");
+
+	/* EXC_RETURN.S, 1: original is Secure, 0: original is Non-secure */
+	if (lr_value & BIT(6)) {					//Taken from S
+		DBG_8195A("\nException taken from Secure to Non-secure.\nSecure stack is used to store context." 
+			"It can not be dumped from non-secure side for security reason!!!\n");
+
+		while(1);
+	} else {									//Taken from NS
+		if (lr_value & BIT(3)) {				//Thread mode
+			if (lr_value & BIT(2)) {			//PSP
+				IsPstack = 1;
+			}
+		}
+	}
 
 #if defined(CONFIG_EXAMPLE_CM_BACKTRACE) && CONFIG_EXAMPLE_CM_BACKTRACE
-	cm_backtrace_fault((lr_value & 0x04) ? pstack : mstack, lr_value);
+	cm_backtrace_fault(IsPstack ? pstack : mstack, lr_value);
 	while(1);
 #else
 
-	/*fix rom code error*/
-	if ((lr_value & 0x04)) 
+	if(IsPstack)
 		mstack = pstack;
+
 	INT_HardFault_C(mstack, pstack, lr_value, fault_id);
 #endif	
 	
@@ -338,6 +355,13 @@ static void* app_psram_load_s()
 #endif
 }
 
+/*initialize driver call os_function map*/
+static void app_driver_call_os_func_init(void)
+{
+	driver_call_os_func_map.driver_enter_critical = vPortEnterCritical;
+	driver_call_os_func_map.driver_exit_critical = vPortExitCritical;
+}
+
 // The Main App entry point
 void app_start(void)
 {
@@ -398,6 +422,8 @@ extern void __libc_init_array(void);
 	memcpy_gdma_init();
 	//retention Ram space should not exceed 0xB0
 	assert_param(sizeof(RRAM_TypeDef) <= 0xB0);
+
+	app_driver_call_os_func_init();
 
 	main(); /* project/xxxx/src/main.c */
 }

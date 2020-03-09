@@ -58,7 +58,11 @@ static struct usb_interface_descriptor cdc_acm_comm_if_desc = {
     .bDescriptorType    = USB_DT_INTERFACE,
     .bInterfaceNumber   = 0,                        // This will be assign automatically
     .bAlternateSetting  = 0,
+#if USBD_CDC_ACM_USE_INT_IN_ENDPOINT
     .bNumEndpoints      = 1,
+#else
+    .bNumEndpoints      = 0,
+#endif
     .bInterfaceClass    = USB_CLASS_COMM,
     .bInterfaceSubClass = USBD_CDC_SUBCLASS_ACM,    // Abstract Control Model
     .bInterfaceProtocol = USBD_CDC_ACM_PROTO_NONE,  // None
@@ -109,7 +113,7 @@ struct usb_endpoint_descriptor usbd_cdc_acm_notify_ep_desc_FS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_INT_IN_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_INT,
-    .wMaxPacketSize     = 64,
+    .wMaxPacketSize     = 8,
     .bInterval          = 16,
 
 };
@@ -120,7 +124,7 @@ struct usb_endpoint_descriptor usbd_cdc_acm_notify_ep_desc_HS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_INT_IN_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_INT,
-    .wMaxPacketSize     = 512,
+    .wMaxPacketSize     = 8,
     .bInterval          = 16,
 
 };
@@ -145,7 +149,7 @@ static struct usb_endpoint_descriptor cdc_acm_data_bulk_in_ep_desc_FS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_BULK_IN_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_BULK,
-    .wMaxPacketSize     = 64,
+    .wMaxPacketSize     = USBD_CDC_ACM_FS_BULK_MAX_PACKET_SIZE,
     .bInterval          = 0,
 };
 
@@ -155,7 +159,7 @@ static struct usb_endpoint_descriptor cdc_acm_data_bulk_out_ep_desc_FS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_BULK_OUT_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_BULK,
-    .wMaxPacketSize     = 64,
+    .wMaxPacketSize     = USBD_CDC_ACM_FS_BULK_MAX_PACKET_SIZE,
     .bInterval          = 0,
 };
 
@@ -165,7 +169,7 @@ static struct usb_endpoint_descriptor cdc_acm_data_bulk_in_ep_desc_HS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_BULK_IN_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_BULK,
-    .wMaxPacketSize     = 512,
+    .wMaxPacketSize     = USBD_CDC_ACM_HS_BULK_MAX_PACKET_SIZE,
     .bInterval          = 0,
 };
 
@@ -175,7 +179,7 @@ static struct usb_endpoint_descriptor cdc_acm_data_bulk_out_ep_desc_HS = {
     .bDescriptorType    = USB_DT_ENDPOINT,
     .bEndpointAddress   = USBD_CDC_ACM_BULK_OUT_EP_ADDRESS,
     .bmAttributes       = USB_ENDPOINT_XFER_BULK,
-    .wMaxPacketSize     = 512,
+    .wMaxPacketSize     = USBD_CDC_ACM_HS_BULK_MAX_PACKET_SIZE,
     .bInterval          = 0,
 };
 
@@ -185,7 +189,9 @@ static struct usb_descriptor_header *cdc_acm_descriptors_FS[] = {
     (struct usb_descriptor_header *) &cdc_acm_call_mgmt_desc,
     (struct usb_descriptor_header *) &cdc_acm_acm_desc,
     (struct usb_descriptor_header *) &cdc_acm_union_desc,
+#if USBD_CDC_ACM_USE_INT_IN_ENDPOINT
     (struct usb_descriptor_header *) &usbd_cdc_acm_notify_ep_desc_FS,
+#endif
     (struct usb_descriptor_header *) &cdc_acm_data_if_desc,
     (struct usb_descriptor_header *) &cdc_acm_data_bulk_in_ep_desc_FS,
     (struct usb_descriptor_header *) &cdc_acm_data_bulk_out_ep_desc_FS,
@@ -198,7 +204,9 @@ static struct usb_descriptor_header *cdc_acm_descriptors_HS[] = {
     (struct usb_descriptor_header *) &cdc_acm_call_mgmt_desc,
     (struct usb_descriptor_header *) &cdc_acm_acm_desc,
     (struct usb_descriptor_header *) &cdc_acm_union_desc,
+#if USBD_CDC_ACM_USE_INT_IN_ENDPOINT
     (struct usb_descriptor_header *) &usbd_cdc_acm_notify_ep_desc_HS,
+#endif
     (struct usb_descriptor_header *) &cdc_acm_data_if_desc,
     (struct usb_descriptor_header *) &cdc_acm_data_bulk_in_ep_desc_HS,
     (struct usb_descriptor_header *) &cdc_acm_data_bulk_out_ep_desc_HS,
@@ -226,24 +234,84 @@ static usbd_cdc_acm_ctrl_line_state_t acm_ctrl_line_state = {
     .d16 = 0,
 };
 
-struct usb_cdc_dev_t usb_cdc_dev;
+static struct usb_cdc_dev_t cdc_dev;
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+static void *cdc_bulk_in_xfer_buf;
+static u32 cdc_bulk_in_xfer_size;
+#endif
 
 static int cdc_acm_receive_data(struct usb_cdc_dev_t *dev);
 
-void usbd_cdc_acm_set_bulk_transfer_buffer_size(u16 bulk_out_size, u16 bulk_in_size)
+static struct usb_request *cdc_get_bulk_in_request(struct usb_cdc_dev_t *dev)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
-    if (bulk_out_size > 0) {
-        dev->bulk_out_buf_len = bulk_out_size;
+    struct usb_request  *req = NULL;
+    int retry = 0;
+    
+    while (++retry <= 500) {
+        rtw_mutex_get(&dev->bulk_in_mutex);
+        if (!rtw_is_list_empty(&dev->bulk_in_req_list)) {
+            req = list_first_entry(&dev->bulk_in_req_list, struct usb_request, list);
+            rtw_list_delete(&req->list);
+            if (dev->bulk_in_req_act_num > 0) {
+                dev->bulk_in_req_act_num--;
+            }
+            rtw_mutex_put(&dev->bulk_in_mutex);
+            break;
+        }
+        rtw_mutex_put(&dev->bulk_in_mutex);
+        rtw_mdelay_os(1);
     }
-    if (bulk_in_size > 0) {
-        dev->bulk_in_buf_len = bulk_in_size;
+    
+    return req;
+}
+
+static void cdc_put_bulk_in_request(struct usb_cdc_dev_t *dev, struct usb_request  *req)
+{
+    rtw_mutex_get(&dev->bulk_in_mutex);
+    if (dev->bulk_in_req_act_num < dev->bulk_in_req_num) {
+        rtw_list_insert_tail(&req->list, &dev->bulk_in_req_list);
+        dev->bulk_in_req_act_num++;
     }
+    rtw_mutex_put(&dev->bulk_in_mutex);
+}
+
+static struct usb_request *cdc_get_bulk_out_request(struct usb_cdc_dev_t *dev)
+{
+    struct usb_request  *req = NULL;
+    int retry = 0;
+    
+    while (++retry <= 500) {
+        rtw_mutex_get(&dev->bulk_out_mutex);
+        if (!rtw_is_list_empty(&dev->bulk_out_req_list)) {
+            req = list_first_entry(&dev->bulk_out_req_list, struct usb_request, list);
+            rtw_list_delete(&req->list);
+            if (dev->bulk_out_req_act_num > 0) {
+                dev->bulk_out_req_act_num--;
+            }
+            rtw_mutex_put(&dev->bulk_out_mutex);
+            break;
+        }
+        rtw_mutex_put(&dev->bulk_out_mutex);
+        rtw_mdelay_os(1);
+    }
+
+    return req;
+}
+
+static void cdc_put_bulk_out_request(struct usb_cdc_dev_t *dev, struct usb_request  *req)
+{
+    rtw_mutex_get(&dev->bulk_out_mutex);
+    if (dev->bulk_out_req_act_num < dev->bulk_out_req_num) {
+        rtw_list_insert_tail(&req->list, &dev->bulk_out_req_list);
+        dev->bulk_out_req_act_num++;
+    }
+    rtw_mutex_put(&dev->bulk_out_mutex);
 }
 
 static void cdc_ctrl_out_complete(struct usb_ep *ep, struct usb_request *req)
 {
     UNUSED(ep);
+    
     USBD_CDC_ENTER;
 
     if ((req->status == ESUCCESS) && 
@@ -257,13 +325,34 @@ static void cdc_ctrl_out_complete(struct usb_ep *ep, struct usb_request *req)
 
 static void cdc_bulk_in_complete(struct usb_ep *ep, struct usb_request *req)
 {
-    UNUSED(ep);
-    UNUSED(req);
+    int status = req->status;
+    struct usb_cdc_dev_t *dev = (struct usb_cdc_dev_t *)ep->driver_data;
+    
+    switch (status) {
+        case ESUCCESS:
+            break;
+
+        case -ESHUTDOWN:
+            USBD_CDC_WARN("Bulk in shutdown\n");
+            break;
+
+        default:
+            USBD_CDC_WARN("Bulk in failed: %d\n", status);
+            break;
+    }
+
+#if (USBD_CDC_ACM_USE_BULK_IN_THREAD == 0)
+    if ((dev->cb != NULL) && (dev->cb->transmit_complete != NULL)) {
+        dev->cb->transmit_complete(status);
+    }
+#endif
+
+    cdc_put_bulk_in_request(dev, req);
 }
 
 static void cdc_bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
 {
-    struct usb_cdc_dev_t *dev = ep->driver_data;
+    struct usb_cdc_dev_t *dev = (struct usb_cdc_dev_t *)ep->driver_data;
     int result = 0;
     int status = req->status;
     
@@ -272,43 +361,29 @@ static void cdc_bulk_out_complete(struct usb_ep *ep, struct usb_request *req)
     switch (status) {
         case ESUCCESS:
             if ((req->actual > 0) && (dev->cb->receive != NULL)) {
-#if defined(CONFIG_PLATFORM_8721D)
-                DCache_Invalidate(((u32)(req->buf) & CACHE_LINE_ADDR_MSK), (req->actual + CACHE_LINE_SIZE));
-#endif
                 result = dev->cb->receive(req->buf, req->actual);
                 if (result != ESUCCESS) {
-                    USBD_CDC_WARN("user data processing fail\n");
+                    USBD_CDC_WARN("Fail to run user receive callback\n");
                 }
-                
-                cdc_acm_receive_data(dev);
             }
+            
+            cdc_put_bulk_out_request(dev, req);
+            cdc_acm_receive_data(dev);
 
             break;
 
         case -ESHUTDOWN:
-            USBD_CDC_WARN("%s shutdown\n", ep->name);
+            USBD_CDC_WARN("Bulk out shutdown\n");
+            cdc_put_bulk_out_request(dev, req);
             break;
 
         default:
-            USBD_CDC_WARN("status %d\n", status);
+            USBD_CDC_WARN("Bulk out failed: %d\n", status);
+            cdc_put_bulk_out_request(dev, req);
             break;
     }
 
     USBD_CDC_EXIT;
-}
-
-static void cdc_remove_bulk_in_requests(struct usb_cdc_dev_t *dev)
-{
-    if (dev->bulk_in_req != NULL) {
-        usb_ep_dequeue(dev->bulk_out_ep, dev->bulk_in_req);
-    }
-}
-
-static void cdc_remove_bulk_out_requests(struct usb_cdc_dev_t *dev)
-{
-    if (dev->bulk_out_req != NULL) {
-        usb_ep_dequeue(dev->bulk_out_ep, dev->bulk_out_req);
-    }
 }
 
 static struct usb_request *cdc_alloc_request(struct usb_ep *ep, u32 buf_len)
@@ -317,21 +392,65 @@ static struct usb_request *cdc_alloc_request(struct usb_ep *ep, u32 buf_len)
     
     req = usb_ep_alloc_request(ep, 1);
     if (!req) {
-        USBD_CDC_ERROR("alloc request fail\n");
+        USBD_CDC_ERROR("Fail to alloc request\n");
         return NULL;
     }
 
-    req->buf = rtw_zmalloc(buf_len);
+    req->buf = rtw_malloc(buf_len);
     if (NULL == req->buf) {
-        USBD_CDC_ERROR("alloc request buffer fail\n");
+        USBD_CDC_ERROR("Fail to alloc request buffer\n");
         usb_ep_free_request(ep, req);
         return NULL;
     }
 
     req->dma = (dma_addr_t)req->buf;
     req->length = buf_len;
+    req->zero = 0;
     
     return req;
+}
+
+static int cdc_equeue_bulk_in_req(struct usb_cdc_dev_t *dev, struct usb_request  *req)
+{
+    int status;
+    
+    status = usb_ep_queue(dev->bulk_in_ep, req, 1);
+    if (status != ESUCCESS) {
+        USBD_CDC_ERROR("Fail to equeue bulk in request: %d", status);
+        cdc_put_bulk_in_request(dev, req);
+    }
+    
+    return status;
+}
+
+static int cdc_equeue_bulk_out_req(struct usb_cdc_dev_t *dev, struct usb_request  *req)
+{
+    int status;
+    
+    status = usb_ep_queue(dev->bulk_out_ep, req, 1);
+    if (status != ESUCCESS) {
+        USBD_CDC_ERROR("Fail to equeue bulk out request: %d", status);
+        cdc_put_bulk_out_request(dev, req);
+    }
+    
+    return status;
+}
+
+static int cdc_acm_receive_data(struct usb_cdc_dev_t *dev)
+{
+    struct usb_request  *req = NULL;
+    int status = -EBUSY;
+
+    USBD_CDC_ENTER;
+
+    req = cdc_get_bulk_out_request(dev);
+    if (req != NULL) {
+        status = cdc_equeue_bulk_out_req(dev, req);
+    }
+
+    USBD_CDC_EXIT;
+
+    return status;
 }
 
 static void cdc_free_request(struct usb_ep *ep, struct usb_request *req)
@@ -345,107 +464,179 @@ static void cdc_free_request(struct usb_ep *ep, struct usb_request *req)
     }
 }
 
+static void cdc_free_bulk_in_resource(struct usb_cdc_dev_t *dev)
+{
+    struct usb_request *req;
+    
+    USBD_CDC_ENTER;
+
+    rtw_mutex_get(&dev->bulk_in_mutex);
+
+    if (dev->bulk_in_ep != NULL) {
+        while (!rtw_is_list_empty(&dev->bulk_in_req_list)) {
+            req = list_first_entry(&dev->bulk_in_req_list, struct usb_request, list);
+            if (req != NULL) {
+                rtw_list_delete(&req->list);
+                cdc_free_request(dev->bulk_in_ep, req);
+            }
+        }
+        
+        dev->bulk_in_req_act_num = 0;
+    }
+    
+    rtw_mutex_put(&dev->bulk_in_mutex);
+    
+    USBD_CDC_EXIT;
+}
+
+static void cdc_free_bulk_out_resource(struct usb_cdc_dev_t *dev)
+{
+    struct usb_request *req;
+    
+    USBD_CDC_ENTER;
+    
+    rtw_mutex_get(&dev->bulk_out_mutex);
+    
+    if (dev->bulk_out_ep != NULL) {
+        while (!rtw_is_list_empty(&dev->bulk_out_req_list)) {
+            req = list_first_entry(&dev->bulk_out_req_list, struct usb_request, list);
+            if (req != NULL) {
+                rtw_list_delete(&req->list);
+                cdc_free_request(dev->bulk_out_ep, req);
+            }
+        }
+        
+        dev->bulk_out_req_act_num = 0;
+    }
+    
+    rtw_mutex_put(&dev->bulk_out_mutex);
+    
+    USBD_CDC_EXIT;
+}
+
+static void cdc_free_resource(struct usb_cdc_dev_t *dev)
+{
+    cdc_free_bulk_in_resource(dev);
+    cdc_free_bulk_out_resource(dev);
+}
+
+static void cdc_disable_bulk_in_ep(struct usb_cdc_dev_t *dev)
+{
+    USBD_CDC_ENTER;
+
+    if (dev->bulk_in_ep != NULL) {
+        if (dev->bulk_in_ep->driver_data != NULL) {
+            usb_ep_disable(dev->bulk_in_ep);
+            dev->bulk_in_ep->driver_data = NULL;
+        }
+    }
+    
+    USBD_CDC_EXIT;
+}
+
+static void cdc_disable_bulk_out_ep(struct usb_cdc_dev_t *dev)
+{
+    USBD_CDC_ENTER;
+
+    if (dev->bulk_out_ep != NULL) {
+        if (dev->bulk_out_ep->driver_data != NULL) {
+            usb_ep_disable(dev->bulk_out_ep);
+            dev->bulk_out_ep->driver_data = NULL;
+        }
+    }
+    
+    USBD_CDC_EXIT;
+}
+
 static int cdc_init_resource(struct usb_cdc_dev_t *dev)
 {
     struct usb_request *req;
     int status = -EINVAL;
+    int i = 0;
 
     USBD_CDC_ENTER;
 
     // Enable data in endpoint
     if (dev->bulk_in_ep != NULL) {
-        if (dev->bulk_in_ep->driver_data != NULL) {
-            usb_ep_disable(dev->bulk_in_ep);
-        }
-        if (dev->bulk_in_req != NULL) {
-            cdc_free_request(dev->bulk_in_ep, dev->bulk_in_req);
-            dev->bulk_in_req = NULL;
-        }
+        cdc_disable_bulk_in_ep(dev);
+        cdc_free_bulk_in_resource(dev);
 
         dev->bulk_in_ep->desc = usb_get_descriptor(dev->gadget, &cdc_acm_data_bulk_in_ep_desc_HS,
                 &cdc_acm_data_bulk_in_ep_desc_FS);
-
-        dev->bulk_in_ep->driver_data = dev;
-
-        req = cdc_alloc_request(dev->bulk_in_ep, dev->bulk_in_buf_len);
-        if (req != NULL) {
-            req->complete = cdc_bulk_in_complete;
-            req->context = dev;
-            dev->bulk_in_req = req;
-        } else {
-            USBD_CDC_ERROR("allocate Bulk IN request fail\n");
-            USBD_CDC_EXIT_ERR;
-            return -ENOMEM;
+        
+        for (i = 0; i < dev->bulk_in_req_num; i++) {
+            req = cdc_alloc_request(dev->bulk_in_ep, dev->bulk_in_buf_size);
+            if (!req) {
+                USBD_CDC_ERROR("Fail to malloc bulk in request\n");
+                status = -ENOMEM;
+                goto cdc_init_resource_exit;
+            } else {
+                req->complete = cdc_bulk_in_complete;
+                req->context = dev;
+                rtw_list_insert_tail(&req->list, &dev->bulk_in_req_list);
+            }
         }
+        
+        dev->bulk_in_req_act_num = dev->bulk_in_req_num;
         
         status = usb_ep_enable(dev->bulk_in_ep, dev->bulk_in_ep->desc);
         if (status < 0) {
-            cdc_free_request(dev->bulk_in_ep, dev->bulk_in_req);
-            dev->bulk_in_req = NULL;
-            dev->bulk_in_ep->driver_data = NULL;
-            USBD_CDC_ERROR("enable Bulk IN endpoint fail\n");
-            USBD_CDC_EXIT_ERR;
-            return -EINVAL;
+            USBD_CDC_ERROR("Fail to enable bulk in endpoint\n");
+            goto cdc_init_resource_exit;
         }
+        dev->bulk_in_ep->driver_data = dev;
     }
 
     // Enable data out endpoint and alloc requset to recieve data from host
     if (dev->bulk_out_ep != NULL) {
-        if (dev->bulk_out_ep->driver_data != NULL) {
-            usb_ep_disable(dev->bulk_out_ep);
-        }
-        if (dev->bulk_out_req != NULL) {
-            cdc_free_request(dev->bulk_out_ep, dev->bulk_out_req);
-            dev->bulk_out_req = NULL;
-        }
+        cdc_disable_bulk_out_ep(dev);
+        cdc_free_bulk_out_resource(dev);
 
         dev->bulk_out_ep->desc = usb_get_descriptor(dev->gadget, &cdc_acm_data_bulk_out_ep_desc_HS,
                 &cdc_acm_data_bulk_out_ep_desc_FS);
 
-        dev->bulk_out_ep->driver_data = dev;
-
-        req = cdc_alloc_request(dev->bulk_out_ep, dev->bulk_out_buf_len);
-        if (req != NULL) {
-            req->complete = cdc_bulk_out_complete;
-            req->context = dev;
-            dev->bulk_out_req = req;
-        } else {
-            USBD_CDC_ERROR("allocate Bulk OUT request fail\n");
-            USBD_CDC_EXIT_ERR;
-            return -ENOMEM;
+        for (i = 0; i < dev->bulk_out_req_num; i++) {
+            req = cdc_alloc_request(dev->bulk_out_ep, dev->bulk_out_buf_size);
+            if (!req) {
+                USBD_CDC_ERROR("Fail to malloc bulk out request\n");
+                status = -ENOMEM;
+                goto cdc_init_resource_exit;
+            } else {
+                req->complete = cdc_bulk_out_complete;
+                req->context = dev;
+                rtw_list_insert_tail(&req->list, &dev->bulk_out_req_list);
+            }
         }
+
+        dev->bulk_out_req_act_num = dev->bulk_out_req_num;
         
         status = usb_ep_enable(dev->bulk_out_ep, dev->bulk_out_ep->desc);
         if (status < 0) {
-            cdc_free_request(dev->bulk_out_ep, dev->bulk_out_req);
-            dev->bulk_out_req = NULL;
-            dev->bulk_out_ep->driver_data = NULL;
-            USBD_CDC_ERROR("enable Bulk OUT endpoint fail\n");
-            USBD_CDC_EXIT_ERR;
-            return -EINVAL;
+            USBD_CDC_ERROR("Fail to enable bulk out endpoint\n");
+            goto cdc_init_resource_exit;
         }
+
+        dev->bulk_out_ep->driver_data = dev;
     }
 
     USBD_CDC_EXIT;
 
     return ESUCCESS;
+
+cdc_init_resource_exit:
+    cdc_free_resource(dev);
+    return status;
 }
 
 static int cdc_deinit_resource(struct usb_cdc_dev_t *dev)
 {
-    cdc_remove_bulk_out_requests(dev);
-    cdc_free_request(dev->bulk_out_ep, dev->bulk_out_req);
-    dev->bulk_out_req = NULL;
-    cdc_remove_bulk_in_requests(dev);
-    cdc_free_request(dev->bulk_in_ep, dev->bulk_in_req);
-    dev->bulk_in_req = NULL;
-
+    cdc_free_resource(dev);
     return ESUCCESS;
 }
 
 static int cdc_fun_setup(struct usb_function *f, const struct usb_control_request *ctrl)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     struct usb_composite_dev *cdev = f->config->cdev;
     struct usb_request *req0 = cdev->req;
     struct usb_ep *ep0 = dev->gadget->ep0;
@@ -526,16 +717,18 @@ static int cdc_fun_setup(struct usb_function *f, const struct usb_control_reques
     return value;
 }
 
-static int cdc_fun_set_alt(struct usb_function *f, unsigned interface, unsigned alt)
+static int cdc_fun_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
     int status = -EINVAL;
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     
     UNUSED(f);
-    UNUSED(interface);
+    UNUSED(intf);
     UNUSED(alt);
     
     USBD_CDC_ENTER;
+    
+    dev->bulk_in_busy = 0;
     
     status = cdc_init_resource(dev);
     if (status != ESUCCESS) {
@@ -553,39 +746,118 @@ static int cdc_fun_set_alt(struct usb_function *f, unsigned interface, unsigned 
 
 static void cdc_fun_disable(struct usb_function *f)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     UNUSED(f);
     
     USBD_CDC_ENTER;
 
-    if (dev->bulk_in_ep != NULL) {
-        cdc_remove_bulk_in_requests(dev);
-        if (dev->bulk_in_ep->driver_data != NULL) {
-            usb_ep_disable(dev->bulk_in_ep);
-            dev->bulk_in_ep->driver_data = NULL;
-        }
-    }
-    
-    if (dev->bulk_out_ep != NULL) {
-        cdc_remove_bulk_out_requests(dev);
-        if (dev->bulk_out_ep->driver_data != NULL) {
-            usb_ep_disable(dev->bulk_out_ep);
-            dev->bulk_out_ep->driver_data = NULL;
-        }
-    }
+    cdc_disable_bulk_in_ep(dev);
+    cdc_disable_bulk_out_ep(dev);
     
     USBD_CDC_EXIT;
 }
 
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+
+static thread_return cdc_bulk_in_handler(thread_context context)
+{
+    struct usb_cdc_dev_t *dev = &cdc_dev;
+    struct usb_request  *req = NULL;
+    int status = -ENODEV;
+    u32 residue = 0;
+    void *buf = NULL;
+    u16 buf_size = 0;
+    
+    UNUSED(context);
+    
+    USBD_CDC_ENTER;
+
+    while(TRUE) {
+        status = rtw_down_sema(&(dev->bulk_in_task.wakeup_sema));
+        if (FAIL == status) {
+            USBD_CDC_ERROR("Fail to get bulk in task wakeup sema");
+            break;
+        }
+        
+        if (dev->bulk_in_task.blocked) {
+            USBD_CDC_WARN("CDC_BULK_IN_TASK aborted\n");
+            break;
+        }
+
+        residue = cdc_bulk_in_xfer_size;
+        buf = cdc_bulk_in_xfer_buf;
+        
+        USBD_CDC_INFO("Xfer [%p] %d bytes", buf, residue);
+
+        if ((0 == dev->bulk_in_busy) || (NULL == buf) || (0 == residue)) {
+            USBD_CDC_WARN("Invalid bulk in status");
+            continue;
+        }
+
+        buf_size = dev->bulk_in_buf_size;
+        while (residue > 0) {
+            req = cdc_get_bulk_in_request(dev);
+            if (req != NULL) {
+                if (residue > buf_size) {
+                    req->length = buf_size;
+                    residue -= buf_size;
+                } else {
+                    req->length = residue;
+                    residue = 0;
+                }
+            
+                rtw_memcpy((void *)req->buf, buf, req->length);
+                status = cdc_equeue_bulk_in_req(dev, req);
+                if (status != ESUCCESS) {
+                    break;
+                }
+                buf = (void *)((u32)buf + req->length);
+                rtw_udelay_os(100); // Descrease or eliminate the delay properly to speed up as per specific application
+            } else {
+                status = -EBUSY;
+                USBD_CDC_WARN("Fail to get bulk in request");
+                break;
+            }
+        }
+
+        if ((residue > 0) || (status != ESUCCESS)) {
+            USBD_CDC_WARN("Fail to bulk in data: total=%d, residue=%d", cdc_bulk_in_xfer_size, residue);
+        }
+        
+        dev->bulk_in_busy = 0;
+        if ((dev->cb != NULL) && (dev->cb->transmit_complete != NULL)) {
+            dev->cb->transmit_complete(status);
+        }
+    }
+    
+    rtw_up_sema(&(dev->bulk_in_task.terminate_sema));
+    
+    USBD_CDC_WARN("CDC_BULK_IN_TASK exit\n");
+    
+    rtw_thread_exit();
+    
+    USBD_CDC_EXIT;
+}
+
+#endif
+
 static int cdc_fun_bind(struct usb_configuration *c, struct usb_function *f)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     struct usb_ep *ep;
     int status = -ENODEV;
     int id;
     
     USBD_CDC_ENTER;
-    
+
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+    if (rtw_create_task(&dev->bulk_in_task, "CDC_BULK_IN_TASK",
+        USBD_CDC_ACM_BULK_IN_TASK_STACK_SIZE, USBD_CDC_ACM_BULK_IN_TASK_PRIORITY, cdc_bulk_in_handler, (void *)NULL) != pdPASS) {
+        USBD_CDC_ERROR("Fail to create thread CDC_BULK_IN_TASK");
+        goto fail;
+    }
+#endif
+
     // Allocate instance-specific interface ID
     id = usb_interface_id(c, f); // this will return the allocated interface id
     if (id < 0) {
@@ -638,6 +910,11 @@ static int cdc_fun_bind(struct usb_configuration *c, struct usb_function *f)
     return ESUCCESS;
     
 fail:
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+    if (dev->bulk_in_task.task != NULL) {
+        rtw_delete_task(&dev->bulk_in_task);
+    }
+#endif
     usb_free_all_descriptors(f);
     USBD_CDC_EXIT_ERR;
     return status;
@@ -647,6 +924,12 @@ static void cdc_fun_unbind(struct usb_configuration *c, struct usb_function *f)
 {
     UNUSED(c);
     USBD_CDC_ENTER;
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+    struct usb_cdc_dev_t *dev = &cdc_dev;
+    if (dev->bulk_in_task.task != NULL) {
+        rtw_delete_task(&dev->bulk_in_task);
+    }
+#endif
     usb_free_all_descriptors(f);
     USBD_CDC_EXIT;
 }
@@ -656,11 +939,8 @@ static void cdc_fun_free(struct usb_function *f)
     USBD_CDC_ENTER;
     UNUSED(f);
     
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
-    cdc_free_request(dev->bulk_in_ep, dev->bulk_in_req);
-    dev->bulk_in_req = NULL;
-    cdc_free_request(dev->bulk_out_ep, dev->bulk_out_req);
-    dev->bulk_out_req = NULL;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
+    cdc_free_resource(dev);
     usb_free_all_descriptors(f);
     
     USBD_CDC_EXIT;
@@ -668,7 +948,7 @@ static void cdc_fun_free(struct usb_function *f)
 
 static int cdc_config(struct usb_configuration *c)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     
     USBD_CDC_ENTER;
 
@@ -692,56 +972,88 @@ static struct usb_composite_driver cdc_acm_driver = {
 	.strings 	 = cdc_acm_gadget_strings,
 	.config_desc = &cdc_acm_config_desc,
 	.functions   = &cdc_acm_funcions,
-	.driver_data = &usb_cdc_dev,
+	.driver_data = &cdc_dev,
 	.config      = cdc_config,
 };
 
-int usbd_cdc_acm_init(usbd_cdc_acm_usr_cb_t *cb)
+// USBD CDC ACM init
+// bulk_in_buf_size: Bulk in transfer buffer size, i.e. the transfer bytes of single bulk in transfer, should be <= 65535, limited by USBD core lib,
+// bulk_out_buf_size: Bulk out transfer buffer size, i.e. the transfer bytes of single bulk out transfer, should be <= 65535, limited by USBD core lib,
+// cb: User callback
+int usbd_cdc_acm_init(u16 bulk_in_buf_size, u16 bulk_out_buf_size, usbd_cdc_acm_usr_cb_t *cb)
 {
     int status = -EINVAL;
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
 
     USBD_CDC_ENTER;
 
+    if (bulk_in_buf_size == 0) {
+        dev->bulk_in_buf_size = USBD_CDC_ACM_DEFAULT_BULK_IN_XFER_SIZE;
+    } else {
+        dev->bulk_in_buf_size = bulk_in_buf_size;
+    }
+    
+    if (bulk_out_buf_size == 0) {
+        dev->bulk_out_buf_size = USBD_CDC_ACM_DEFAULT_BULK_OUT_XFER_SIZE;
+    } else {
+        dev->bulk_out_buf_size = bulk_out_buf_size;
+    }
+
+    dev->bulk_in_req_num = USBD_CDC_ACM_BULK_IN_REQ_NUM;
+    dev->bulk_out_req_num = USBD_CDC_ACM_BULK_OUT_REQ_NUM;
+    
     if (cb != NULL) {
         dev->cb = cb;
     }
 
-    dev->bulk_in_buf_len = 0;
-    dev->bulk_out_buf_len = 0;
-
     if ((dev->cb != NULL) && (dev->cb->init != NULL)) {
         status = dev->cb->init();
         if (status != 0) {
-            USBD_CDC_ERROR("User init fail");
-            goto usbd_cdc_acm_init_fail;
+            USBD_CDC_ERROR("Fail to run user init callback");
+            goto usbd_cdc_acm_init_exit;
         }
     }
 
-    // If not assigned by user, use default buffer length
-    if (dev->bulk_in_buf_len <= 0) {
-        dev->bulk_in_buf_len = CDC_ACM_DEFAULT_BULK_IN_BUF_LEN;
-    }
-    if (dev->bulk_out_buf_len <= 0) {
-        dev->bulk_out_buf_len = CDC_ACM_DEFAULT_BULK_OUT_BUF_LEN;
-    }
-    
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+#if defined (CONFIG_PLATFORM_8721D)
+    // rtw_create_task in Ameba1 has semaphore and initial inside,
+    // but AmebaPro(AmebaD) didn't have it, so we create semaphore by ourselves
+    rtw_init_sema(&dev->bulk_in_task.wakeup_sema, 0);
+    rtw_init_sema(&dev->bulk_in_task.terminate_sema, 0);
+#endif
+#endif
+
+    rtw_init_listhead(&dev->bulk_in_req_list);
+    rtw_mutex_init(&dev->bulk_in_mutex);
+    rtw_init_listhead(&dev->bulk_out_req_list);
+    rtw_mutex_init(&dev->bulk_out_mutex);
+
     status = usb_composite_register(&cdc_acm_driver);
     if (status != 0) {
         USBD_CDC_ERROR("Register composite driver fail");
-        usb_composite_unregister(&cdc_acm_driver);
-        goto usbd_cdc_acm_init_fail;
+        goto usbd_cdc_acm_init_exit_free;
     }
     
     USBD_CDC_EXIT;
     return ESUCCESS;
+
+usbd_cdc_acm_init_exit_free:
+
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+#if defined (CONFIG_PLATFORM_8721D)
+    rtw_free_sema(&dev->bulk_in_task.wakeup_sema);
+    rtw_free_sema(&dev->bulk_in_task.terminate_sema);
+#endif
+#endif
     
-usbd_cdc_acm_init_fail:
-        
+    rtw_mutex_free(&dev->bulk_in_mutex);
+    rtw_mutex_free(&dev->bulk_out_mutex);
+    
     if ((dev->cb->deinit != NULL)) {
         dev->cb->deinit();
     }
-        
+    
+usbd_cdc_acm_init_exit:
     USBD_CDC_EXIT_ERR;
 
     return status;
@@ -749,63 +1061,112 @@ usbd_cdc_acm_init_fail:
 
 void usbd_cdc_acm_deinit(void)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     
     USBD_CDC_ENTER;
+
+	usb_composite_unregister(&cdc_acm_driver);
+
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+#if defined (CONFIG_PLATFORM_8721D)
+    rtw_free_sema(&dev->bulk_in_task.wakeup_sema);
+    rtw_free_sema(&dev->bulk_in_task.terminate_sema);
+#endif
+#endif
+        
+    rtw_mutex_free(&dev->bulk_in_mutex);
+    rtw_mutex_free(&dev->bulk_out_mutex);
     
     if ((dev->cb != NULL) && (dev->cb->deinit != NULL)) {
         dev->cb->deinit();
     }
-    
-	usb_composite_unregister(&cdc_acm_driver);
-    
+
     USBD_CDC_EXIT;
 }
 
-static int cdc_acm_receive_data(struct usb_cdc_dev_t *dev)
+// Synchronously transfer user data to host via bulk in endpoint
+// buf: user data buffer
+// length: user data length
+int usbd_cdc_acm_sync_transmit_data(void *buf, u16 length)
 {
+    struct usb_cdc_dev_t *dev = &cdc_dev;
     struct usb_request  *req = NULL;
-    int status = -EINVAL;
-
+    int status = -EBUSY;
+    
     USBD_CDC_ENTER;
 
-    req = dev->bulk_out_req;
-    if ((req != NULL) && (dev->bulk_out_buf_len > 0)) {
-        req->length = dev->bulk_out_buf_len;
-        req->zero = 0;
-        status = usb_ep_queue(dev->bulk_out_ep, req, 1);
-        if (status != ESUCCESS) {
-            USBD_CDC_WARN("Fail to equeue bulk out request");
-        }
+    if ((buf == NULL) || (length == 0) || (length > dev->bulk_in_buf_size)) {
+        return -EINVAL;
     }
 
+    req = cdc_get_bulk_in_request(dev);
+    if (req != NULL) {
+        req->length = length;
+        rtw_memcpy((void *)req->buf, buf, length);
+        status = cdc_equeue_bulk_in_req(dev, req);
+    } else {
+        USBD_CDC_ERROR("Fail to get bulk in request");
+    }
+    
     USBD_CDC_EXIT;
-
+    
     return status;
 }
 
-int usbd_cdc_acm_transmit_data(void *buf, u16 length)
+// Asynchronously transfer user data to host via bulk in endpoint
+// buf: user data buffer, shall be properly maintained by user application
+// length: user data length
+int usbd_cdc_acm_async_transmit_data(void *buf, u32 length)
 {
-    struct usb_cdc_dev_t *dev = &usb_cdc_dev;
-    struct usb_request  *req = NULL;
-    u16 len = MIN(length, dev->bulk_in_buf_len);
-    int status = -EINVAL;
+#if USBD_CDC_ACM_USE_BULK_IN_THREAD
+
+    struct usb_cdc_dev_t *dev = &cdc_dev;
+#if USBD_CDC_ACM_ALLOC_ASYNC_BULK_IN_BUF
+    void *xfer_buf = NULL;
+#endif
     
     USBD_CDC_ENTER;
-    
-    req = dev->bulk_in_req;
-    if ((req != NULL) && (len > 0)) {
-        rtw_memcpy(req->buf, buf, len);
-        req->length = len;
-        req->zero = 0;
-        status = usb_ep_queue(dev->bulk_in_ep, req, 1);
-        if (status != ESUCCESS) {
-            USBD_CDC_WARN("Fail to equeue bulk in request");
-        }
+
+    if ((buf == NULL) || (length == 0)) {
+        USBD_CDC_EXIT_ERR;
+        return -EINVAL;
     }
 
+    if (dev->bulk_in_busy) {
+        USBD_CDC_EXIT_ERR;
+        return -EBUSY;
+    }
+    
+#if USBD_CDC_ACM_ALLOC_ASYNC_BULK_IN_BUF
+    xfer_buf = rtw_malloc(length);
+    if (xfer_buf == NULL) {
+        USBD_CDC_ERROR("Fail to malloc async bulk in xfer buffer");
+        USBD_CDC_EXIT_ERR;
+        return -ENOMEM;
+    }
+    cdc_bulk_in_xfer_buf = xfer_buf;
+    rtw_memcpy(cdc_bulk_in_xfer_buf, buf, length);
+#else
+    cdc_bulk_in_xfer_buf = buf;
+#endif
+    cdc_bulk_in_xfer_size = length;
+
+    dev->bulk_in_busy = 1;
+
+    rtw_up_sema(&(dev->bulk_in_task.wakeup_sema));
+
     USBD_CDC_EXIT;
-    return status;
+    
+    return ESUCCESS;
+    
+#else
+
+    UNUSED(buf);
+    UNUSED(length);
+    
+    return -EOPNOTSUPP;
+
+#endif
 }
 
 #endif // CONFIG_USBD_CDC_ACM

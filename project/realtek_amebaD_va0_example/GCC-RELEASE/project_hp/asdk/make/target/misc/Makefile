@@ -42,5 +42,6 @@ clean: CLEAN_OBJS
 	$(REMOVE) *.i
 	$(REMOVE) *.s
 	$(REMOVE) *.d
+	$(REMOVE) *.su
 
 -include $(DEPS)

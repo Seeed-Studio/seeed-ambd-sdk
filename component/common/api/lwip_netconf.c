@@ -243,6 +243,15 @@ uint8_t LwIP_DHCP(uint8_t idx, uint8_t dhcp_state)
 
 	pnetif = &xnetif[idx];
 	if(DHCP_state == 0){
+		
+#if WIFI_LOGO_CERTIFICATION_CONFIG
+	extern u8 use_static_ip;
+	if(use_static_ip){
+		printf("\r\nUse static ip\n");
+		return -1;
+	}
+#endif
+
 #if LWIP_VERSION_MAJOR >= 2
 		ip_addr_set_zero(&pnetif->ip_addr);
 		ip_addr_set_zero(&pnetif->netmask);

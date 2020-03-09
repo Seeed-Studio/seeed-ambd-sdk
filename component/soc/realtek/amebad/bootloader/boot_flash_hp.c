@@ -13,6 +13,7 @@ extern u8 Boot_Log_En;
 extern u8 IMG3_Exist;
 extern void INT_HardFault_C(uint32_t mstack[], uint32_t pstack[], uint32_t lr_value, uint32_t fault_id);
 
+BOOT_RAM_DATA_SECTION
 u32 SCB_VTOR_BK = 0;
 
 /* Generate BLXNS instruction */
@@ -369,16 +370,33 @@ BOOT_RAM_TEXT_SECTION
 void INT_HardFault_Patch_C(uint32_t mstack[], uint32_t pstack[], uint32_t lr_value, uint32_t fault_id)
 {
 	int i;
+	u8 IsPstack = 0;
+	u32 control_ns;
 
-	DBG_8195A("\r\nHard Fault Patch\r\n");
-	for(i=0;i<50;i++)
-		DBG_8195A("mstack %x\n",mstack[i]);
-	for(i=0;i<50;i++)
-		DBG_8195A("pstack %x\n",pstack[i]);
+	DBG_8195A("\r\nHard Fault Patch (Secure)\r\n");
+
+	/* EXC_RETURN.S, 1: original is Secure, 0: original is Non-secure */
+	if (lr_value & BIT(6)) {			//Taken from S
+		if (lr_value & BIT(3)) {		//Thread mode
+			if (lr_value & BIT(2)) { 	//EXC_RETURN.SPSEL
+				IsPstack = 1;
+			}
+		}
+
+	} else {							//Taken from NS
+		__ASM volatile ("MRS %0, control_ns" : "=r" (control_ns) );
+
+		if(lr_value & BIT(3)) {			//Thread mode
+			if(control_ns & BIT(1)) {	//CONTROL_NS.SPSEL
+				IsPstack = 1;
+			}
+		}
+	}
 
 	/*fix rom code error*/
-	if (!(lr_value & 0x04)) 
-		mstack = pstack;	
+	if (IsPstack)
+		mstack = pstack;
+
 	INT_HardFault_C(mstack, pstack, lr_value, fault_id);
 }
 
@@ -453,7 +471,7 @@ INT_SecureFault_Patch(VOID)
 	__ASM volatile(
 		"MRS R0, MSP_NS\n\t" /*note: print Non security is more usefully */
 		"MRS R1, PSP_NS\n\t" /*note: print Non security is more usefully */
-		"MRS R2, CONTROL_NS\n\t" /* second parameter is LR current value */
+		"MOV R2, LR\n\t" /* second parameter is LR current value */
 		"MOV R3, #4\n\t"        
 		"SUB.W	R4, R0, #128\n\t"
 		"MSR MSP, R4\n\t"

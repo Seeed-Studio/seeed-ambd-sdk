@@ -6,9 +6,13 @@
 #include "wifi_conf.h"
 #include <lwip/sockets.h>
 #include <lwip/netdb.h>
+
+#if CONFIG_EXAMPLE_COAP_SERVER
 #include <coap/config.h>
 #include <coap/coap.h>
 #include <coap/coap_time.h>
+
+time_t clock_offset;
 
 #if !defined(LWIP_TIMEVAL_PRIVATE)||!defined(SO_REUSE)\
     ||!defined(MEMP_USE_CUSTOM_POOLS)||!defined(LWIP_IPV6)
@@ -18,7 +22,6 @@
 #define SERVER_HOST     NULL
 #define SERVER_PORT     "5683"
 
-time_t clock_offset;
 static char response[256]= "";
 
 #ifndef min
@@ -332,7 +335,7 @@ static void example_coap_server_thread(void *para){
   
   coap_set_log_level(log_level);
   
-  clock_offset = time(NULL);
+  clock_offset = xTaskGetTickCount();
     
   ctx = get_context(SERVER_HOST, SERVER_PORT);
   if (!ctx)
@@ -369,8 +372,7 @@ static void example_coap_server_thread(void *para){
       timeout = &tv;
     }
     
-    coap_read(ctx); /* read received data */
-    coap_dispatch(ctx,&response); /* and dispatch PDUs from receivequeue */
+    coap_dispatch(ctx, (const char*)&response); /* and dispatch PDUs from receivequeue */
 
     coap_ticks(&obs_wait);
     if((obs_wait-obs_start)/COAP_TICKS_PER_SECOND > (timeout->tv_sec + timeout->tv_usec/10000)){
@@ -403,3 +405,5 @@ void example_coap_server(void)
   if(xTaskCreate(example_coap_server_thread, ((const char*)"example_coap_server_thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
     printf("\n\r%s xTaskCreate(init_thread) failed", __FUNCTION__);
 }
+
+#endif

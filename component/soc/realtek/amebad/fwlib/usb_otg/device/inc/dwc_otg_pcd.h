@@ -211,5 +211,7 @@ extern int dwc_otg_pcd_init(dwc_otg_pcd_t *pcd, dwc_otg_core_if_t *core_if);
 
 extern void pcd_suspend(void);
 
+dwc_otg_pcd_ep_t *get_ep_from_handle(dwc_otg_pcd_t *pcd, void *handle);
+
 #endif
 

@@ -1,6 +1,6 @@
 
 include $(MAKE_INCLUDE_GEN)
-
+IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
 
 .PHONY: all clean
 
@@ -18,9 +18,12 @@ CSRC +=	$(DIR)/atcmd_sys.c \
 		$(DIR)/atcmd_wifi.c \
 		$(DIR)/atcmd_lwip.c \
 		$(DIR)/log_service.c \
-		$(DIR)/atcmd_bt.c \
 		$(DIR)/atcmd_mp.c \
 		$(DIR)/atcmd_mp_ext2.c \
+
+ifeq ($(CONFIG_BT_EN), y)
+CSRC += $(DIR)/atcmd_bt.c
+endif	
 #*****************************************************************************#
 #                               Object FILE LIST                              #
 #*****************************************************************************#

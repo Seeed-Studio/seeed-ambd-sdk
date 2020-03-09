@@ -180,7 +180,10 @@ int eap_start(char *method)
 
 	//unsigned long tick1 = xTaskGetTickCount();
 	//unsigned long tick2;
-	
+	while(!(wifi_is_up(RTW_STA_INTERFACE) || wifi_is_up(RTW_AP_INTERFACE))) {
+		vTaskDelay(1000 / portTICK_RATE_MS);
+	}
+        
 	if(rltk_wlan_running(WLAN1_IDX)){
 		printf("\n\rNot support con-current mode!\n\r");
 		return -1;
