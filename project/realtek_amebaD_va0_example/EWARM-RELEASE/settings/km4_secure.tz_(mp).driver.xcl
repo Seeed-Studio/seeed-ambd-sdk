@@ -1,0 +1,15 @@
+"--endian=little" 
+
+"--cpu=Cortex-M33" 
+
+"--cmse" 
+
+"--fpu=VFPv5_SP" 
+
+"--semihosting" 
+
+"--multicore_nr_of_cores=1" 
+
+
+
+

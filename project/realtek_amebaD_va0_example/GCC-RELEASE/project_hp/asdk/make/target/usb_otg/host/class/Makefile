@@ -1,0 +1,61 @@
+
+include $(MAKE_INCLUDE_GEN)
+
+.PHONY: all clean
+
+#*****************************************************************************#
+#                               VARIABLES	                              #
+#*****************************************************************************#
+DIR_OTG = $(BASEDIR)/component/soc/realtek/amebad/fwlib/usb_otg/host
+DIR_CLASS = $(BASEDIR)/component/common/drivers/usb/host
+ifeq ($(CONFIG_USBH_MSC),y)
+DIR = $(DIR_CLASS)/msc/src
+endif
+IFLAGS += -I$(DIR)/../inc
+IFLAGS += -I$(DIR_OTG)/inc
+
+vpath %.c $(DIR) $(shell find $(DIR) -type d)
+
+#*****************************************************************************#
+#                               Source FILE LIST                              #
+#*****************************************************************************#
+ifeq ($(CONFIG_USBH_MSC),y)
+CSRC = $(DIR)/us.c \
+    $(DIR)/us_intf.c \
+    $(DIR)/us_scsi.c \
+    $(DIR)/us_transport.c \
+    $(DIR)/us_protocol.c \
+    $(DIR)/us_initializers.c \
+    $(DIR)/usual_tables.c \
+    $(DIR)/us_debug.c \
+    $(DIR)/scsi/scsi_eh.c
+endif
+
+#*****************************************************************************#
+#                               Object FILE LIST                              #
+#*****************************************************************************#
+OBJS = $(notdir $(CSRC:.c=.o))
+
+#*****************************************************************************#
+#                        RULES TO GENERATE TARGETS                            #
+#*****************************************************************************#
+
+# Define the Rules to build the core targets
+all: CORE_TARGETS COPY_RAM_OBJS
+	
+#*****************************************************************************#
+#              GENERATE OBJECT FILE 
+#*****************************************************************************#
+CORE_TARGETS:	$(OBJS)
+
+
+#*****************************************************************************#
+#                        RULES TO CLEAN TARGETS                               #
+#*****************************************************************************#
+clean: CLEAN_OBJS 
+	$(REMOVE) *.o
+	$(REMOVE) *.i
+	$(REMOVE) *.s
+	$(REMOVE) *.d
+
+-include $(DEPS)	

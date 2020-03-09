@@ -1,0 +1,79 @@
+[Description]
+1. The configuration of amazon SDK.
+   - Amazon SDK is release in patch 6.2b_patch_AmebaD_amazon_IAR_(v01).
+
+2. For AWS IoT document, please refer to the Amazon Web
+   - https://docs.aws.amazon.com/iot/latest/developerguide/what-is-aws-iot.html
+
+[Amazon patch configuration]
+
+1. Please refer to the project file (km4_application.ewp) to add Amazon SDK source code to IAR project.
+   - The project file in the patch can directly replace with the original project file in pure SDK v6.2b
+
+2. For running Amazon SDK example, the following configuration is set.
+   - Default will run vStartMQTTEchoDemo() example in aws_demo_runner.c.
+
+(1) Include amazon folder to build.
+    - The "amazon" folder in IAR project is default set to "Exclude from build"
+    - To include amazon folder into porject build, please enable amazon project as following:
+    -> "amazon" folder in IAR project (right click) 
+       -> option 
+          -> uncheck "Exclude from build"
+          
+(2) platform_opts.h
+
+    #define CONFIG_EXAMPLE_AMAZON_FREERTOS   1
+
+(3) FreeRTOSConfig.h
+
+#if (__IASMARM__ != 1)
+#include "diag.h"
+extern void cli(void);
+#define configASSERT(x)			do { \
+						if((x) == 0){ \
+                                                 char *pcAssertTask = "NoTsk"; \
+                                                 if( xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED ) \
+                                                 { \
+                                                     pcAssertTask = pcTaskGetName( NULL );\
+                                                 } \
+							DiagPrintf("\n\r[%s]Assert(" #x ") failed on line %d in file %s", pcAssertTask, __LINE__, __FILE__); \
+						cli(); for(;;);}\
+					} while(0)
+
+/* Map the FreeRTOS printf() to the logging task printf. */
+    /* The function that implements FreeRTOS printf style output, and the macro
+     * that maps the configPRINTF() macros to that function. */
+extern void vLoggingPrintf( const char * pcFormat, ... );
+#define configPRINTF( X )    vLoggingPrintf X
+
+/* Non-format version thread-safe print. */
+extern void vLoggingPrint( const char * pcMessage );
+#define configPRINT( X )     vLoggingPrint( X )
+
+/* Map the logging task's printf to the board specific output function. */
+#define configPRINT_STRING( x )    DiagPrintf( x )
+
+/* Sets the length of the buffers into which logging messages are written - so
+ * also defines the maximum length of each log message. */
+#define configLOGGING_MAX_MESSAGE_LENGTH            128
+
+/* Set to 1 to prepend each log message with a message number, the task name,
+ * and a time stamp. */
+#define configLOGGING_INCLUDE_TIME_AND_TASK_NAME    1
+#define configSUPPORT_STATIC_ALLOCATION              1
+#endif
+
+(4) config_rsa.h //The configuration is already modified in the config_rsa.h of the patch.
+#define MBEDTLS_ENTROPY_HARDWARE_ALT
+#define MBEDTLS_NO_PLATFORM_ENTROPY
+#define MBEDTLS_SSL_ALPN
+#define MBEDTLS_THREADING_ALT
+#define MBEDTLS_ASN1_WRITE_C
+//#define MBEDTLS_DEBUG_C
+#define MBEDTLS_ECDH_C
+#define MBEDTLS_ECDSA_C
+#define MBEDTLS_ECP_C
+#define MBEDTLS_ENTROPY_C
+#define MBEDTLS_PK_WRITE_C
+#define MBEDTLS_THREADING_C
+#define MBEDTLS_SSL_MAX_CONTENT_LEN 8192

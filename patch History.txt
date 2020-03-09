@@ -1,0 +1,10 @@
+1 modify some BT config API
+2 add BT TP test example
+3 fix DFS FCC certification issue
+4 fix Trp tis test issue
+5 update ADC & captouch Driver (very important)
+6 revise LWIP BUFSIZE from 500 to 508
+7 fix BLE init mem leakage
+8 fix freertos timer block issue
+9 add and revise some examples
+10 update USB API and fix some usb hardfault and mem leakage (in lib)

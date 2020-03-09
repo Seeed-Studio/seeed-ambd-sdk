@@ -1,0 +1,15 @@
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.30.1\arm\bin\armproc.dll" 
+
+"C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.30.1\arm\bin\armjlink2.dll" 
+
+"F:\IOT\ameba_D\ameba_D\SDK\sdk-amebad_v6.2b-RC\project\realtek_amebaD_va0_example\EWARM-RELEASE\Debug\Exe\km4_image\km4_application.axf" 
+
+--plugin="C:\Program Files (x86)\IAR Systems\Embedded Workbench 8.30.1\arm\bin\armbat.dll" 
+
+--macro="F:\IOT\ameba_D\ameba_D\SDK\sdk-amebad_v6.2b-RC\project\realtek_amebaD_va0_example\EWARM-RELEASE\..\..\..\component\soc\realtek\amebad\misc\iar_utility\common\preload.mac" 
+
+--flash_loader="F:\IOT\ameba_D\ameba_D\SDK\sdk-amebad_v6.2b-RC\project\realtek_amebaD_va0_example\EWARM-RELEASE\..\..\..\component\soc\realtek\amebad\misc\iar_utility\common\flashloader\FlashRTL8721D_hp.board" 
+
+
+
+

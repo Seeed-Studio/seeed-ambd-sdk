@@ -1,0 +1,61 @@
+
+/*
+ * Release Note
+ */
+  	v1.0.1.67
+	2019/10/09
+    GCID 9c00093c8b0608ec, PGCID bac4679626a74d0c
+	1. Fix a hardfault issue that application calling bte_deinit when creating connection.
+
+  	v1.0.1.63
+	2019/7/29
+    GCID 097f06a4fd8168c5, PGCID 8bc1d255c021e540
+	1. Fix a bug for GAP service writable feature.
+
+  	v1.0.1.61
+	2019/7/25
+    GCID 9a972610af7cacac, PGCID 92d24c873e761afe
+	1. Fix a bug host flow control.
+
+  	v1.0.1.59
+	2019/7/15
+    GCID 722529d9cc5a67ed, PGCID f57d9fd5cb6913e1
+	1. Fix a hardfault issuee when call bte_deinit twice.
+
+ 	v1.0.1.49
+	2019/7/3
+    GCID f89d571af23f155, PGCID cbd0b931bbe16995
+	1. Enlarge HCI task size.
+	2. Add size check with allocate memory.
+	3. Open Host to controller flow control.
+
+	v1.0.1.40
+	2019/6/11
+    GCID f5ff6b1565211d0b, PGCID 113265a923f774ea
+	1. Adjust bt stack
+
+	v1.0.1.35
+	2019/5/10
+    GCID 80fefce2f3e41c3, PGCID 974bd6b96bfca59
+	1. Adjust bt stack
+
+	v1.0.1.20
+	2019/3/5
+	GCID feea4e1edadca966, PGCID e84631d5466819df
+	1. Add os_timer_state_get
+	
+	v1.0.1.18
+	2019/2/1
+	GCID 9e11491d2db8472, PGCID af114fc898fc5646
+	1. Close Controller to Host flow control
+	2. Add ftl.h
+
+	v1.0.1.15
+	2019/1/23
+	GCID d592b3101ffac116, PGCID 4450301711e5a9d0
+	1. First release
+	
+
+	
+
+

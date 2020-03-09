@@ -1,0 +1,8 @@
+1.cp inc_alios/autoconf.h to
+/component/common/drivers/wlan/realtek/include/autoconf.h in order to
+1)disable PLATFORM_FREERTOS
+2)enable PLATFORM_ALIOS
+3)undo define CONFIG_PROMISC
+2.Enter project/realtek_amebaD_va0_example/AliOS-RELEASE
+3.Excute make
+4.release project/realtek_amebaD_va0_example/AliOS-RELEASE/lib_all
