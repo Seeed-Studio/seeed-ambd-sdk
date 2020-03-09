@@ -942,6 +942,8 @@ static void spi_atcmd_thread(void *param)
 
 	at_set_debug_mask(-1UL);
 
+	at_printf("\r\nready\r\n");	// esp-at compatible
+
 	if (xTaskCreate(spi_trx_thread, ((const char *) "spi_trx_thread"), 4096, NULL, tskIDLE_PRIORITY + 6, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(spi_trx_thread) failed", __FUNCTION__);
 
