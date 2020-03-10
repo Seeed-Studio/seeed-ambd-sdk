@@ -2,6 +2,21 @@
 /*
  * Release Note
  */
+  	v1.0.1.80
+	2020/02/25
+    GCID 1ff58df62e93fb06, PGCID b3b1ecde8bb31085
+	1. Rename os_timer_start and os_timer_stop
+
+  	v1.0.1.69
+	2019/11/12
+    GCID db7943ddb59af187, PGCID 463cedfa36d03b9a
+	1. Add API le_scan_info_filter.
+
+  	v1.0.1.68
+	2019/11/08
+    GCID 463cedfa36d03b9a, PGCID 9c00093c8b0608ec
+	1. Add more configure APIs.
+	
   	v1.0.1.67
 	2019/10/09
     GCID 9c00093c8b0608ec, PGCID bac4679626a74d0c

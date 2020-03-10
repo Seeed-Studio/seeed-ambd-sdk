@@ -31,6 +31,7 @@
 #include <gcs_client.h>
 #include "platform_opts_bt.h"
 #include "data_uart.h"
+#include "ble_central_at_cmd.h"
 
 /** @defgroup  CENTRAL_CLIENT_APP Central Client Application
     * @brief This file handles BLE central client application routines.
@@ -80,6 +81,13 @@ void ble_central_app_handle_io_msg(T_IO_MSG io_msg)
         user_cmd_collect(&user_cmd_if, &rx_char, sizeof(rx_char), user_cmd_table);
         break;
 #endif
+    case IO_MSG_TYPE_AT_CMD:
+        {
+            uint16_t subtype = io_msg.subtype;
+            void *arg = io_msg.u.buf;
+            ble_central_app_handle_at_cmd(subtype, arg);
+        }
+        break;
     default:
         break;
     }
@@ -93,6 +101,7 @@ void ble_central_app_handle_io_msg(T_IO_MSG io_msg)
  * @param[in] cause GAP device state change cause
  * @return   void
  */
+extern void sw_bt_info_update(unsigned char is_scan);
 void ble_central_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t cause)
 {
     APP_PRINT_INFO3("ble_central_app_handle_dev_state_evt: init state  %d, scan state %d, cause 0x%x",
@@ -406,7 +415,9 @@ void ble_central_app_handle_gap_msg(T_IO_MSG *p_gap_msg)
 
     case GAP_MSG_LE_BOND_OOB_INPUT:
         {
+#if F_BT_LE_SMP_OOB_SUPPORT
             uint8_t oob_data[GAP_OOB_LEN] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+#endif
             conn_id = gap_msg.msg_data.gap_bond_oob_input.conn_id;
             APP_PRINT_INFO1("GAP_MSG_LE_BOND_OOB_INPUT: conn_id %d", conn_id);
 #if F_BT_LE_SMP_OOB_SUPPORT

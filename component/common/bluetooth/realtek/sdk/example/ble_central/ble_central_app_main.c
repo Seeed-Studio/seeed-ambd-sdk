@@ -37,6 +37,7 @@
 #include "task.h"
 #include "rtk_coex.h"
 #include <stdio.h>
+#include <gap_adv.h>
 extern bool bt_trace_uninit(void);
 
 /** @defgroup  CENTRAL_CLIENT_DEMO_MAIN Central Client Main
@@ -88,7 +89,9 @@ void ble_central_app_le_gap_init(void)
     uint8_t  auth_pair_mode = GAP_PAIRING_MODE_PAIRABLE;
     uint16_t auth_flags = GAP_AUTHEN_BIT_BONDING_FLAG;
     uint8_t  auth_io_cap = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+#if F_BT_LE_SMP_OOB_SUPPORT
     uint8_t  auth_oob = false;
+#endif
     uint8_t  auth_use_fix_passkey = false;
     uint32_t auth_fix_passkey = 0;
     uint8_t  auth_sec_req_enable = false;
@@ -123,6 +126,32 @@ void ble_central_app_le_gap_init(void)
 
     /* register gap message callback */
     le_register_app_cb(ble_central_app_gap_callback);
+#if F_BT_LE_USE_STATIC_RANDOM_ADDR
+	T_APP_STATIC_RANDOM_ADDR random_addr;
+	bool gen_addr = true;
+	uint8_t local_bd_type = GAP_LOCAL_ADDR_LE_RANDOM;
+	if (ble_central_app_load_static_random_address(&random_addr) == 0)
+	{
+		if (random_addr.is_exist == true)
+		{
+			gen_addr = false;
+		}
+	}
+	if (gen_addr)
+	{
+		if (le_gen_rand_addr(GAP_RAND_ADDR_STATIC, random_addr.bd_addr) == GAP_CAUSE_SUCCESS)
+		{
+			random_addr.is_exist = true;
+			ble_central_app_save_static_random_address(&random_addr);
+		}
+	}
+	le_cfg_local_identity_address(random_addr.bd_addr, GAP_IDENT_ADDR_RAND);
+	le_set_gap_param(GAP_PARAM_RANDOM_ADDR, 6, random_addr.bd_addr);
+	//only for peripheral,broadcaster
+	//le_adv_set_param(GAP_PARAM_ADV_LOCAL_ADDR_TYPE, sizeof(local_bd_type), &local_bd_type);
+	//only for central,observer
+	le_scan_set_param(GAP_PARAM_SCAN_LOCAL_ADDR_TYPE, sizeof(local_bd_type), &local_bd_type);
+#endif
 #if F_BT_LE_5_0_SET_PHY_SUPPORT
 	uint8_t  phys_prefer = GAP_PHYS_PREFER_ALL;
 	uint8_t  tx_phys_prefer = GAP_PHYS_PREFER_1M_BIT | GAP_PHYS_PREFER_2M_BIT |
@@ -173,7 +202,6 @@ int ble_central_app_main(void)
 
     return 0;
 }
-/** @} */ /* End of group CENTRAL_CLIENT_DEMO_MAIN */
 
 extern void wifi_btcoex_set_bt_on(void);
 int ble_central_app_init(void)
@@ -229,18 +257,4 @@ void ble_central_app_deinit(void)
 	}
 #endif
 }
-
-void ble_central_app_modify_para_scan_inerval_window(int param,uint16_t scan_param)
-{
-	uint16_t scan_interval = 0;
-	uint16_t scan_window = 0;
-
-	if(param == 2){//modify scan interval
-		scan_interval = scan_param;
-		le_scan_set_param(GAP_PARAM_SCAN_INTERVAL, sizeof(scan_interval), &scan_interval);
-	}else if(param == 3){//modify scan window
-		scan_window = scan_param;
-		le_scan_set_param(GAP_PARAM_SCAN_WINDOW, sizeof(scan_window), &scan_window);	
-	}
-}
-
+/** @} */ /* End of group CENTRAL_CLIENT_DEMO_MAIN */

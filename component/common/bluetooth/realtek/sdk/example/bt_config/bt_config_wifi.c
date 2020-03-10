@@ -10,7 +10,6 @@
 #include "wifi_conf.h"
 #include "dhcp/dhcps.h"
 #include "bt_config_app_task.h"
-#include "bt_airsync_config_app_task.h"
 
 #if ((defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) && \
 	(defined(CONFIG_BT_CENTRAL_CONFIG) && CONFIG_BT_CENTRAL_CONFIG))
@@ -18,13 +17,17 @@
 extern T_GAP_DEV_STATE ble_scatternet_gap_dev_state;
 extern void set_bt_config_state(uint8_t state);
 #endif
+
 extern void bt_config_app_deinit(void);
 extern T_GAP_CONN_STATE bt_config_gap_conn_state;
 extern T_GAP_DEV_STATE bt_config_gap_dev_state;
 
+#if defined(CONFIG_BT_AIRSYNC_CONFIG) && CONFIG_BT_AIRSYNC_CONFIG
+#include "bt_airsync_config_app_task.h"
 extern void bt_airsync_config_app_deinit(void);
 extern T_GAP_CONN_STATE bt_airsync_config_gap_conn_state;
 extern T_GAP_DEV_STATE bt_airsync_config_gap_dev_state;
+#endif
 
 // a temp variable for wifi scan
 static xSemaphoreHandle wifi_scan_sema = NULL;
@@ -238,6 +241,10 @@ void BC_req_status_hdl(BC_status_t *status, uint8_t *SSID, uint8_t *BSSID, rtw_s
 void BC_status_monitor(void)
 {
 	T_GAP_CONN_STATE gap_conn_state;
+
+#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
+	rtw_create_secure_context(configMINIMAL_SECURE_STACK_SIZE);
+#endif
 
 	while (1)
 	{

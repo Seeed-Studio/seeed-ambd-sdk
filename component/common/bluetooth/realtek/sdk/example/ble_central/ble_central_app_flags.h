@@ -27,7 +27,11 @@
  *============================================================================*/
 
 /** @brief  Config APP LE link number */
+#if defined(CONFIG_PLATFORM_8721D)
 #define BLE_CENTRAL_APP_MAX_LINKS  3
+#elif defined(CONFIG_PLATFORM_8710C)
+#define BLE_CENTRAL_APP_MAX_LINKS  1
+#endif
 
 /** @brief  Config the discovery table number of gcs_client */
 #define BLE_CENTRAL_APP_MAX_DISCOV_TABLE_NUM 40
@@ -39,6 +43,8 @@
 #define F_BT_LE_5_0_SET_PHY_SUPPORT         0
 #endif
 
+/** @brief  Config local address type: 0-pulic address, 1-static random address */
+#define F_BT_LE_USE_STATIC_RANDOM_ADDR      0
 
 /** @} */ /* End of group CENTRAL_CLIENT_Config */
 

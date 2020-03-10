@@ -1012,6 +1012,9 @@ bool osif_timer_dump(void)
     return true;
 }
 
+#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
+extern void rtw_create_secure_context(u32 secure_stack_size);
+#endif
 void osif_create_secure_context(uint32_t size)
 {
 #if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)

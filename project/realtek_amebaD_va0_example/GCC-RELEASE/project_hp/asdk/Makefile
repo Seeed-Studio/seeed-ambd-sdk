@@ -90,8 +90,11 @@ endif
 
 ifeq ($(CONFIG_BT_EN), y) 
 LINK_APP_LIB += $(BASEDIR)/component/common/bluetooth/realtek/sdk/board/amebad/lib/btgap.a
-#LINK_APP_LIB += $(BASEDIR)/component/common/bluetooth/realtek/sdk/example/mesh/lib/lib/amebad/btmesh_prov.a
-#LINK_APP_LIB += $(BASEDIR)/component/common/bluetooth/realtek/sdk/example/mesh/lib/lib/amebad/btmesh_dev.a
+ifeq ($(findstring y, $(CONFIG_BT_MESH_PROVISIONER) $(CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE)), y)
+LINK_APP_LIB += $(BASEDIR)/component/common/bluetooth/realtek/sdk/example/bt_mesh/lib/lib/amebad/btmesh_prov.a
+else ifeq ($(findstring y, $(CONFIG_BT_MESH_DEVICE) $(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE)), y)
+LINK_APP_LIB += $(BASEDIR)/component/common/bluetooth/realtek/sdk/example/bt_mesh/lib/lib/amebad/btmesh_dev.a
+endif
 endif
 
 # MMF LIBRARY

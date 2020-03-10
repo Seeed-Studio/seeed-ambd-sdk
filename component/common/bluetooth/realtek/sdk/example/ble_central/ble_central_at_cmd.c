@@ -7,19 +7,36 @@
 #include <gcs_client.h>
 #include "ble_central_client_app.h"
 #include "ble_central_app_flags.h"
+#include "log_service.h"
+#include "atcmd_bt.h"
+#include "ble_central_at_cmd.h"
+#include <platform/platform_stdlib.h>
 
-#if defined(CONFIG_PLATFORM_8710C)
-#include "platform_opts_bt.h"
+#if 0
+#include <drv_types.h>
+#include <hal_data.h>
 #endif
 
-//#include "user_cmd.h"
-#include <platform/platform_stdlib.h>
-#if ((defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) && \
-	(defined(CONFIG_BT_CENTRAL) && CONFIG_BT_CENTRAL) && \
-	(defined(CONFIG_BT_PERIPHERAL) && CONFIG_BT_PERIPHERAL))
+#if ((defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
+    (defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
+#if defined(CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE) && CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE
+#include "bt_mesh_provisioner_multiple_profile_app_flags.h"
+extern T_GAP_DEV_STATE bt_mesh_provisioner_multiple_profile_gap_dev_state;
+#elif defined(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE) && CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE
+#include "bt_mesh_device_multiple_profile_app_flags.h"
+extern T_GAP_DEV_STATE bt_mesh_device_multiple_profile_gap_dev_state;
+#endif
+extern int bt_mesh_scatternet_central_app_max_links;
+#endif
+
+#if ((defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
+    (defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
+extern int bt_mesh_multiple_profile_scan_state;
+#endif
+
+#if defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET
 #include "ble_scatternet_app_flags.h"
 extern int ble_scatternet_central_app_max_links;
-#include "user_cmd_parse.h"
 #endif
 
 #define BD_ADDR_LEN							6
@@ -64,7 +81,7 @@ static u8 hex_str_to_bd_addr(u32 str_len, s8 *str, u8 *num_arr)
 	return TRUE;
 }
 
-int hex_str_to_int(u32 str_len, s8*str)
+static int hex_str_to_int(u32 str_len, s8*str)
 {
 	int result = 0;
 	unsigned int n = 2;
@@ -93,10 +110,13 @@ static int dec_str_to_int(u32 str_len, s8*str)
 int ble_central_at_cmd_connect(int argc, char **argv)
 {
 	(void) argc;
-#if ((defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) && \
-	(defined(CONFIG_BT_CENTRAL) && CONFIG_BT_CENTRAL) && \
-	(defined(CONFIG_BT_PERIPHERAL) && CONFIG_BT_PERIPHERAL))
+#if defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET
 	if(ble_scatternet_central_app_max_links >= BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS){
+		BLE_PRINT("scatternet:exceed the max links number\r\n");
+		return 0;
+	}
+#elif defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET
+    if(bt_mesh_scatternet_central_app_max_links >= BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS){
 		BLE_PRINT("scatternet:exceed the max links number\r\n");
 		return 0;
 	}
@@ -104,14 +124,8 @@ int ble_central_at_cmd_connect(int argc, char **argv)
     u8 DestAddr[6] = {0};
     //u8 addr_len;
     u8 DestAddrType = GAP_REMOTE_ADDR_LE_PUBLIC;
-#if ((defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) && \
-	(defined(CONFIG_BT_CENTRAL) && CONFIG_BT_CENTRAL) && \
-	(defined(CONFIG_BT_PERIPHERAL) && CONFIG_BT_PERIPHERAL))
 #if F_BT_LE_USE_STATIC_RANDOM_ADDR
 	T_GAP_LOCAL_ADDR_TYPE local_addr_type = GAP_LOCAL_ADDR_LE_RANDOM;
-#else
-	T_GAP_LOCAL_ADDR_TYPE local_addr_type = GAP_LOCAL_ADDR_LE_PUBLIC;
-#endif
 #else
 	T_GAP_LOCAL_ADDR_TYPE local_addr_type = GAP_LOCAL_ADDR_LE_PUBLIC;
 #endif
@@ -138,7 +152,7 @@ int ble_central_at_cmd_connect(int argc, char **argv)
     conn_req_param.ce_len_max = 2 * (conn_req_param.conn_interval_max - 1);
     le_set_conn_param(GAP_CONN_PARAM_1M, &conn_req_param);
 
-    BLE_PRINT("cmd_con, DestAddr: 0x%2X:0x%2X:0x%2X:0x%2X:0x%2X:0x%2X\r\n", 
+    BLE_PRINT("cmd_con, DestAddr: 0x%02X:0x%02X:0x%02X:0x%02X:0x%02X:0x%02X\r\n", 
 			DestAddr[0], DestAddr[1], DestAddr[2], DestAddr[3], DestAddr[4],DestAddr[5]);
 
     le_connect(0, DestAddr, (T_GAP_REMOTE_ADDR_TYPE)DestAddrType, local_addr_type,
@@ -146,12 +160,11 @@ int ble_central_at_cmd_connect(int argc, char **argv)
 
     return 0;
 }
-
 int ble_central_at_cmd_modify_whitelist(int argc, char **argv)
 {
 	(void) argc;
     u8 DestAddr[6] = {0};
-    u8 DestAddrType = GAP_REMOTE_ADDR_LE_PUBLIC;
+    T_GAP_REMOTE_ADDR_TYPE DestAddrType = GAP_REMOTE_ADDR_LE_PUBLIC;
 	T_GAP_WHITE_LIST_OP operation = GAP_WHITE_LIST_OP_ADD;
 	u8 type;
 	
@@ -162,9 +175,7 @@ int ble_central_at_cmd_modify_whitelist(int argc, char **argv)
 	}
 
 	if(type == 0){
-		operation = GAP_WHITE_LIST_OP_CLEAR;
-		*DestAddr = NULL;
-		DestAddrType = GAP_REMOTE_ADDR_LE_PUBLIC;
+		le_modify_white_list(GAP_WHITE_LIST_OP_CLEAR, NULL, GAP_REMOTE_ADDR_LE_PUBLIC);
 	}else{
 		if(type == 1)
 			operation = GAP_WHITE_LIST_OP_ADD;
@@ -180,17 +191,18 @@ int ble_central_at_cmd_modify_whitelist(int argc, char **argv)
 			return -1;
 		
 		hex_str_to_bd_addr(strlen(argv[3]), ( s8 *)argv[3], (u8*)DestAddr);	
-	}
 	
-   BLE_PRINT("cmd_modify, DestAddr: 0x%2X:0x%2X:0x%2X:0x%2X:0x%2X:0x%2X\r\n", 
-		DestAddr[0], DestAddr[1], DestAddr[2], DestAddr[3], DestAddr[4],DestAddr[5]);
+	
+   		BLE_PRINT("cmd_modify, DestAddr: 0x%02X:0x%02X:0x%02X:0x%02X:0x%02X:0x%02X\r\n", 
+			DestAddr[0], DestAddr[1], DestAddr[2], DestAddr[3], DestAddr[4],DestAddr[5]);
 
-	le_modify_white_list(operation, DestAddr, DestAddrType);
+		le_modify_white_list(operation, DestAddr, DestAddrType);
+	}
 
+	return 0;
 }
 
 int ble_central_at_cmd_disconnect(int argc, char **argv)
-
 {
 	(void) argc;
 	u8 conn_id = atoi(argv[1]);
@@ -200,13 +212,18 @@ int ble_central_at_cmd_disconnect(int argc, char **argv)
 }
 
 int ble_central_at_cmd_get_conn_info(int argc, char **argv)
-
 {
     (void) argc;
     (void) argv;
     u8 conn_id;
+    u8 conn_max_link = BLE_CENTRAL_APP_MAX_LINKS;
     T_GAP_CONN_INFO conn_info;
-    for (conn_id = 0; conn_id < BLE_CENTRAL_APP_MAX_LINKS; conn_id++)
+#if defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET
+    conn_max_link = (BLE_CENTRAL_APP_MAX_LINKS > BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS) ? BLE_CENTRAL_APP_MAX_LINKS : BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS;
+#elif defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET
+    conn_max_link = (BLE_CENTRAL_APP_MAX_LINKS > BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS) ? BLE_CENTRAL_APP_MAX_LINKS : BLE_SCATTERNET_CENTRAL_APP_MAX_LINKS;
+#endif
+    for (conn_id = 0; conn_id < conn_max_link; conn_id++)
     {
         if (le_get_conn_info(conn_id, &conn_info))
         {
@@ -222,21 +239,6 @@ int ble_central_at_cmd_get_conn_info(int argc, char **argv)
     BLE_PRINT("active link num %d,  idle link num %d\r\n",
                     le_get_active_link_num(), le_get_idle_link_num());
     return 0;
-
-}
-
-extern T_GAP_CAUSE le_adv_start(void);
-int ble_central_at_cmd_start_advertising(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-	int ret;
-    ret = le_adv_start();
-	if(ret == GAP_CAUSE_SUCCESS)
-		BLE_PRINT("\n\rstart advertising success!!\n");
-	else
-		BLE_PRINT("\n\rstart advertising failed!!\n");
-    return ret;
 
 }
 
@@ -379,7 +381,9 @@ int ble_central_at_cmd_get(int argc, char **argv)
 	return 0;
 
 }
-
+#if 0
+extern Rltk_wlan_t rltk_wlan_info[NET_IF_NUM];
+#endif 
 int ble_central_at_cmd_scan(int argc, char **argv)
 {
 	T_GAP_CAUSE cause;
@@ -387,7 +391,16 @@ int ble_central_at_cmd_scan(int argc, char **argv)
     uint8_t scan_filter_duplicate = GAP_SCAN_FILTER_DUPLICATE_ENABLE;
 	u8 scan_enable = 0;
 	static u8 scan_is_processing = 0;
+#if 0
+	struct net_device *dev;
+	_adapter *padapter;
+	u8 u1H2CTDMAParm[5]={0};
 
+	dev = rltk_wlan_info[0].dev;
+	if(dev){
+		padapter = (_adapter *)rtw_netdev_priv(dev);
+	}	
+#endif	
 	if(argc >= 2){
 		scan_enable = atoi(*(argv+1));
 		if(scan_enable == 1){
@@ -409,18 +422,90 @@ int ble_central_at_cmd_scan(int argc, char **argv)
 			BLE_PRINT("Start scan\n\r");
 			BLE_PRINT("scan_filter_policy = %d, scan_filter_duplicate=%d\n\r", scan_filter_policy, scan_filter_duplicate);
 			scan_is_processing = 1;
-		    le_scan_set_param(GAP_PARAM_SCAN_FILTER_POLICY, sizeof(scan_filter_policy),
+			le_scan_set_param(GAP_PARAM_SCAN_FILTER_POLICY, sizeof(scan_filter_policy),
 		                      &scan_filter_policy);
-		    le_scan_set_param(GAP_PARAM_SCAN_FILTER_DUPLICATES, sizeof(scan_filter_duplicate),
+			le_scan_set_param(GAP_PARAM_SCAN_FILTER_DUPLICATES, sizeof(scan_filter_duplicate),
 		                      &scan_filter_duplicate);
+#if 0
+			if(wifi_is_up(RTW_STA_INTERFACE) ) {
+				u1H2CTDMAParm[0]=0x11;
+				u1H2CTDMAParm[1]=0x10;
+				u1H2CTDMAParm[2]=0x10;
+				u1H2CTDMAParm[3]=0x14;
+				u1H2CTDMAParm[4]=0x16;
+				HAL_WRITE32(WIFI_REG_BASE, 0x6C0, 0x55555555); //bt slot: BT > WLAN
+				HAL_WRITE32(WIFI_REG_BASE, 0x6C4, 0xAAAAAAAA); //wlan slot: WLAN > BT
+
+				rtw_hal_fill_h2c_cmd(padapter, 0x60, 5, u1H2CTDMAParm);
+			}
+
+			if(wifi_is_up(RTW_AP_INTERFACE) ) {
+				u1H2CTDMAParm[0]=0x31;
+				u1H2CTDMAParm[1]=0x14;
+				u1H2CTDMAParm[2]=0x14;
+				u1H2CTDMAParm[3]=0x04;
+				u1H2CTDMAParm[4]=0x1e;
+				HAL_WRITE32(WIFI_REG_BASE, 0x6C0, 0x55555555); //bt slot: BT > WLAN
+				HAL_WRITE32(WIFI_REG_BASE, 0x6C4, 0xAAAAAAAA); //wlan slot: WLAN > BT
+				HAL_WRITE32(WIFI_REG_BASE, 0x6CC, 0x10); //wlan slot: WLAN > BT
+
+				rtw_hal_fill_h2c_cmd(padapter, 0x60, 5, u1H2CTDMAParm);
+			}
+#endif
+#if ((defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
+    (defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
+#if defined(CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE) && CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE
+            if (bt_mesh_provisioner_multiple_profile_gap_dev_state.gap_init_state) {
+                bt_mesh_multiple_profile_scan_state = 1;
+            } else {
+                cause = le_scan_start();
+            }
+#elif defined(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE) && CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE
+            if (bt_mesh_device_multiple_profile_gap_dev_state.gap_init_state) {
+                bt_mesh_multiple_profile_scan_state = 1;
+            } else {
+                cause = le_scan_start();
+            }
+#endif
+#else
 		    cause = le_scan_start();
+#endif
 			if (cause != GAP_CAUSE_SUCCESS)
 				BLE_PRINT("Scan error\n\r");
 		}
 	}else{
 		if(scan_is_processing){
 			BLE_PRINT("Stop scan\n\r");
-			le_scan_stop();
+#if 0
+			u1H2CTDMAParm[0]=0x10;
+			u1H2CTDMAParm[1]=0x10;
+			u1H2CTDMAParm[2]=0x10;
+			u1H2CTDMAParm[3]=0x14;
+			u1H2CTDMAParm[4]=0x16;
+			HAL_WRITE32(WIFI_REG_BASE, 0x6C0, 0x5A5A5A5A);
+			HAL_WRITE32(WIFI_REG_BASE, 0x6C4, 0x5A5A5A5A);
+			HAL_WRITE32(WIFI_REG_BASE, 0x6CC, 0x0);
+
+			rtw_hal_fill_h2c_cmd(padapter, 0x60, 5, u1H2CTDMAParm);
+#endif
+#if ((defined(CONFIG_BT_MESH_CENTRAL) && CONFIG_BT_MESH_CENTRAL) || \
+    (defined(CONFIG_BT_MESH_SCATTERNET) && CONFIG_BT_MESH_SCATTERNET))
+#if defined(CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE) && CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE
+            if (bt_mesh_provisioner_multiple_profile_gap_dev_state.gap_init_state) {
+                bt_mesh_multiple_profile_scan_state = 0;
+            } else {
+                cause = le_scan_stop();
+            }
+#elif defined(CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE) && CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE
+            if (bt_mesh_device_multiple_profile_gap_dev_state.gap_init_state) {
+                bt_mesh_multiple_profile_scan_state = 0;
+            } else {
+                cause = le_scan_stop();
+            }
+#endif
+#else
+            le_scan_stop();
+#endif
 			scan_is_processing = 0;
 		}else
 			BLE_PRINT("There is no scan\n\r");
@@ -472,7 +557,9 @@ int ble_central_at_cmd_auth(int argc, char **argv)
 		u8  auth_pair_mode = GAP_PAIRING_MODE_PAIRABLE;
 	    u16 auth_flags = GAP_AUTHEN_BIT_BONDING_FLAG;
 	    u8  auth_io_cap = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+#if F_BT_LE_SMP_OOB_SUPPORT
 	    u8  oob_enable = false;
+#endif
 	    u8  auth_sec_req_enable = false;
 	    u16 auth_sec_req_flags = GAP_AUTHEN_BIT_BONDING_FLAG;
 
@@ -486,9 +573,11 @@ int ble_central_at_cmd_auth(int argc, char **argv)
 		if (argc >= 5) {
 	        auth_sec_req_enable = atoi(argv[4]);
 	    }
+#if F_BT_LE_SMP_OOB_SUPPORT
 		if (argc >= 6) {
 	        oob_enable = atoi(argv[5]);
 	    }
+#endif
 
 		gap_set_param(GAP_PARAM_BOND_PAIRING_MODE, sizeof(auth_pair_mode), &auth_pair_mode);
 		gap_set_param(GAP_PARAM_BOND_AUTHEN_REQUIREMENTS_FLAGS, sizeof(auth_flags), &auth_flags);
@@ -601,7 +690,7 @@ int ble_central_at_cmd_write(int argc, char **argv)
 	{
         for (uint8_t i = 0; i < argc - 5; ++i)
         {
-            data[i] = atoi(argv[i + 5]);
+            data[i] = hex_str_to_int(strlen(argv[i + 5]), (s8 *)argv[i + 5]);
         }
 	}
 	
@@ -611,11 +700,28 @@ int ble_central_at_cmd_write(int argc, char **argv)
 	return 0;
 }
 
-#if defined(CONFIG_PLATFORM_8721D)
-#if ((defined(CONFIG_BT_SCATTERNET) && CONFIG_BT_SCATTERNET) || \
-	(defined(CONFIG_BT_CENTRAL) && CONFIG_BT_CENTRAL) || \
-	(defined(CONFIG_BT_PERIPHERAL) && CONFIG_BT_PERIPHERAL))
-int ble_scatternet_at_cmd_set_phy(int argc, char **argv)
+int ble_central_at_cmd_set_scan_param(int argc, char **argv)
+{
+	u16 scan_interval = 0;
+	u16 scan_window = 0;
+
+	int param = atoi(argv[1]);
+	u16 scan_param = hex_str_to_int(strlen(argv[2]), (s8 *) argv[2]);
+
+	if (param == 1) {//modify scan interval
+		scan_interval = scan_param;
+		le_scan_set_param(GAP_PARAM_SCAN_INTERVAL, sizeof(scan_interval), &scan_interval);
+	} else if (param == 2) {//modify scan window
+		scan_window = scan_param;
+		le_scan_set_param(GAP_PARAM_SCAN_WINDOW, sizeof(scan_window), &scan_window);	
+	} else
+		return -1;
+
+	return 0;
+}
+
+#if F_BT_LE_5_0_SET_PHY_SUPPORT
+int ble_central_at_cmd_set_phy(int argc, char **argv)
 {
 	(void) argc;
     uint8_t conn_id;
@@ -662,7 +768,72 @@ int ble_scatternet_at_cmd_set_phy(int argc, char **argv)
     cause = le_set_phy(conn_id, all_phys, tx_phys, rx_phys, phy_options);
 
     return cause;
-
 }
 #endif
+
+int ble_central_app_handle_at_cmd(uint16_t subtype, void *arg)
+{
+	int common_cmd_flag = 0;
+	int argc = 0;
+	char *argv[MAX_ARGC] = {0};
+
+	if (arg) {
+		argc = parse_param(arg, argv);
+	}
+
+	switch (subtype) {
+		case BT_ATCMD_SCAN:
+			ble_central_at_cmd_scan(argc, argv);
+			break;
+		case BT_ATCMD_CONNECT:
+			ble_central_at_cmd_connect(argc, argv);
+			break;
+		case BT_ATCMD_DISCONNECT:
+			ble_central_at_cmd_disconnect(argc, argv);
+			break;
+		case BT_ATCMD_AUTH:
+			ble_central_at_cmd_auth(argc, argv);
+			common_cmd_flag = 1;
+			break;
+		case BT_ATCMD_GET:
+			ble_central_at_cmd_get(argc, argv);
+			break;
+		case BT_ATCMD_GET_COON_INFO:
+			ble_central_at_cmd_get_conn_info(argc, argv);
+			break;
+		case BT_ATCMD_SEND_USERCONF:
+			ble_central_at_cmd_send_userconf(argc, argv);
+			common_cmd_flag = 1;
+			break;
+		case BT_ATCMD_UPDATE_CONN_REQUEST:
+			ble_central_at_cmd_update_conn_request(argc, argv);
+			common_cmd_flag = 1;
+			break;
+		case BT_ATCMD_BOND_INFORMATION:
+			ble_central_at_cmd_bond_information(argc, argv);
+			common_cmd_flag = 1;
+			break;
+		case BT_ATCMD_READ:
+			ble_central_at_cmd_read(argc, argv);
+			break;
+		case BT_ATCMD_WRITE:
+			ble_central_at_cmd_write(argc, argv);
+			break;
+		case BT_ATCMD_MODIFY_WHITELIST:
+			ble_central_at_cmd_modify_whitelist(argc, argv);
+			break;
+		case BT_ATCMD_SET_SCAN_PARAM:
+			ble_central_at_cmd_set_scan_param(argc, argv);
+			break;
+#if F_BT_LE_5_0_SET_PHY_SUPPORT
+		case BT_ATCMD_SET_PHY:
+			ble_central_at_cmd_set_phy(argc, argv);
+			break;
 #endif
+		default:
+			break;
+	}
+
+	return common_cmd_flag;
+}
+

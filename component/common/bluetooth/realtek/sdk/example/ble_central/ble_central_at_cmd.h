@@ -5,6 +5,9 @@
 extern "C" {
 #endif      /* __cplusplus */
 
+#include "platform_opts_bt.h"
+
+int ble_central_app_handle_at_cmd(uint16_t subtype, void *arg);
 
 #ifdef  __cplusplus
 }

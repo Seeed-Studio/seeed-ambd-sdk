@@ -32,6 +32,7 @@
 #include "wifi_conf.h"
 #include "rtk_coex.h"
 #include "FreeRTOS.h"
+#include "task.h"
 
 /** @defgroup  BEACON_MAIN Beacon Main
     * @brief Main file to initialize hardware and BT stack and start task scheduling
@@ -131,9 +132,11 @@ static const uint8_t alt_beacon_adv_data[] =
  * NOTE: This function shall be called before @ref bte_init is invoked.
  * @return void
  */
+extern void gap_config_hci_task_secure_context(uint32_t size);
 static void bt_stack_config_init(void)
 {
     gap_config_max_le_link_num(0);
+    gap_config_hci_task_secure_context (280);
 }
 
 /**

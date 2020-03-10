@@ -32,18 +32,17 @@ void bt_example_init_thread(void *param)
 	(void )param;
 	T_GAP_DEV_STATE new_state;
 	
+#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
+	rtw_create_secure_context(configMINIMAL_SECURE_STACK_SIZE);
+#endif
+	
 	/*Wait WIFI init complete*/
 	while(!(wifi_is_up(RTW_STA_INTERFACE) || wifi_is_up(RTW_AP_INTERFACE))) {
 		vTaskDelay(1000 / portTICK_RATE_MS);
 	}
 	
 	/*Init BT*/
-#if defined (CONFIG_BT_MESH_PROVISIONER) && (CONFIG_BT_MESH_PROVISIONER)
-	ble_app_main();
-#endif
-#if defined (CONFIG_BT_MESH_DEVICE) && (CONFIG_BT_MESH_DEVICE)
-	ble_app_main();
-#endif
+
 	bt_coex_init();
 
 	/*Wait BT init complete*/
@@ -62,7 +61,6 @@ void bt_example_init(void)
 {
 #if ((defined(CONFIG_BT_MESH_PROVISIONER) && CONFIG_BT_MESH_PROVISIONER) || \
 	(defined(CONFIG_BT_MESH_DEVICE) && CONFIG_BT_MESH_DEVICE))
-	
 	if(xTaskCreate(bt_example_init_thread, ((const char*)"bt example init"), 1024, NULL, tskIDLE_PRIORITY + 5 + PRIORITIE_OFFSET, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(bt example init) failed", __FUNCTION__);
 #endif // BT example flags

@@ -90,9 +90,11 @@ static const uint8_t adv_data[] =
  * NOTE: This function shall be called before @ref bte_init is invoked.
  * @return void
  */
+extern void gap_config_hci_task_secure_context(uint32_t size);
 void bt_config_stack_config_init(void)
 {
     gap_config_max_le_link_num(APP_MAX_LINKS);
+    gap_config_hci_task_secure_context (280);
 }
 /**
   * @brief  Initialize peripheral and gap bond manager related parameters

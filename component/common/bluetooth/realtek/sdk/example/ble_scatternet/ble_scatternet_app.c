@@ -33,6 +33,8 @@
 #include "platform_opts_bt.h"
 #include "gatt_builtin_services.h"
 #include "data_uart.h"
+#include "ble_central_at_cmd.h"
+#include "ble_peripheral_at_cmd.h"
 
 #if defined (CONFIG_BT_CENTRAL_CONFIG) && (CONFIG_BT_CENTRAL_CONFIG)
 #include <wifi_conf.h>
@@ -95,6 +97,14 @@ void ble_scatternet_app_handle_io_msg(T_IO_MSG io_msg)
         user_cmd_collect(&ble_scatternet_user_cmd_if, &rx_char, sizeof(rx_char), ble_scatternet_user_cmd_table);
         break;
 #endif
+    case IO_MSG_TYPE_AT_CMD:
+        {
+            uint16_t subtype = io_msg.subtype;
+            void *arg = io_msg.u.buf;
+            if (ble_central_app_handle_at_cmd(subtype, arg) != 1)
+                ble_peripheral_app_handle_at_cmd(subtype, arg);
+        }
+        break;
     case IO_MSG_TYPE_QDECODE:
         {
             if (io_msg.subtype == 1) {
@@ -117,6 +127,7 @@ void ble_scatternet_app_handle_io_msg(T_IO_MSG io_msg)
  * @param[in] cause GAP device state change cause
  * @return   void
  */
+extern void sw_bt_info_update(unsigned char is_scan);
 void ble_scatternet_app_handle_dev_state_evt(T_GAP_DEV_STATE new_state, uint16_t cause)
 {
     int ret = 1;

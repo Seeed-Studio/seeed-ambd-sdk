@@ -235,7 +235,6 @@ mainmenu_option next_comment
 comment '< CONFIG BT '
 bool "Enable BT"				CONFIG_BT_EN
 if [ "$CONFIG_BT_EN" = "y" ]; then
-define_bool CONFIG_BT y
 	define_bool CONFIG_BT y
 	bool "BT_Peripheral"		CONFIG_BT_PERIPHERAL
 	bool "BT_Central"			CONFIG_BT_CENTRAL
@@ -243,6 +242,39 @@ define_bool CONFIG_BT y
 	bool "BT_Beacon"			CONFIG_BT_BEACON
 	bool "BT_Simple_Config"		CONFIG_BT_CONFIG
 	bool "BT_Airsync_Config"	CONFIG_BT_AIRSYNC_CONFIG
+	bool "BT_Mesh_Provisioner"	CONFIG_BT_MESH_PROVISIONER
+	if [ "$CONFIG_BT_MESH_PROVISIONER" = "y" ]; then
+		bool "BT_Mesh_Provisioner_RTK_Demo"	CONFIG_BT_MESH_PROVISIONER_RTK_DEMO
+	fi
+	bool "BT_Mesh_Device"		CONFIG_BT_MESH_DEVICE
+	if [ "$CONFIG_BT_MESH_DEVICE" = "y" ]; then
+		bool "BT_Mesh_Device_RTK_Demo"		CONFIG_BT_MESH_DEVICE_RTK_DEMO
+	fi
+	bool "BT_Mesh_Provisioner_Multiple_Profile"	CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE
+	if [ "$CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE" = "y" ]; then
+		bool "BT_Mesh_Provisioner_RTK_Demo"	CONFIG_BT_MESH_PROVISIONER_RTK_DEMO 
+		bool "BT_Mesh_Central"              CONFIG_BT_MESH_CENTRAL
+		bool "BT_Mesh_Peripheral"           CONFIG_BT_MESH_PERIPHERAL
+		bool "BT_Mesh_Scatternet"           CONFIG_BT_MESH_SCATTERNET
+	fi
+	bool "BT_Mesh_Device_Multiple_Profile"	CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE
+	if [ "$CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE" = "y" ]; then
+		bool "BT_Mesh_Device_RTK_Demo"		CONFIG_BT_MESH_DEVICE_RTK_DEMO
+		bool "BT_Mesh_Central"              CONFIG_BT_MESH_CENTRAL
+		bool "BT_Mesh_Peripheral"           CONFIG_BT_MESH_PERIPHERAL
+		bool "BT_Mesh_Scatternet"           CONFIG_BT_MESH_SCATTERNET
+	fi
+	if [ "$CONFIG_BT_MESH_PROVISIONER $CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE" = "n n" ]; then
+		define_bool CONFIG_BT_MESH_PROVISIONER_RTK_DEMO  n
+	fi
+	if [ "$CONFIG_BT_MESH_DEVICE $CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE" = "n n" ]; then
+		define_bool CONFIG_BT_MESH_DEVICE_RTK_DEMO       n
+	fi
+	if [ "$CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE $CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE" = "n n" ]; then
+		define_bool CONFIG_BT_MESH_CENTRAL               n
+		define_bool CONFIG_BT_MESH_PERIPHERAL            n
+		define_bool CONFIG_BT_MESH_SCATTERNET            n
+	fi
 else
 	define_bool CONFIG_BT n
 	define_bool CONFIG_BT_PERIPHERAL n
@@ -251,6 +283,15 @@ else
 	define_bool CONFIG_BT_BEACON n
 	define_bool CONFIG_BT_CONFIG n
 	define_bool CONFIG_BT_AIRSYNC_CONFIG n
+	define_bool CONFIG_BT_MESH_PROVISIONER n
+	define_bool CONFIG_BT_MESH_PROVISIONER_RTK_DEMO n
+	define_bool CONFIG_BT_MESH_DEVICE n
+	define_bool CONFIG_BT_MESH_DEVICE_RTK_DEMO n
+	define_bool CONFIG_BT_MESH_PROVISIONER_MULTIPLE_PROFILE n
+	define_bool CONFIG_BT_MESH_DEVICE_MULTIPLE_PROFILE n
+	define_bool CONFIG_BT_MESH_CENTRAL n
+	define_bool CONFIG_BT_MESH_PERIPHERAL n
+	define_bool CONFIG_BT_MESH_SCATTERNET n
 fi
 endmenu
 

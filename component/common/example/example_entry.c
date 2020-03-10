@@ -9,6 +9,9 @@
 #if defined(CONFIG_PLATFORM_8710C)
 #include <platform_opts_bt.h>
 #endif
+#if defined(CONFIG_PLATFORM_8721D)
+#include <platform_opts_bt.h>
+#endif
 #include "main.h"
 
 #if ATCMD_VER == ATVER_2
@@ -864,6 +867,10 @@ example_hilink();
 
 #if defined(CONFIG_EXAMPLE_BT_MESH_DEMO) && CONFIG_EXAMPLE_BT_MESH_DEMO
 	example_bt_mesh_demo();
+#endif
+
+#if ((defined CONFIG_BT_MESH_PROVISIONER_RTK_DEMO && CONFIG_BT_MESH_PROVISIONER_RTK_DEMO) || (defined CONFIG_BT_MESH_DEVICE_RTK_DEMO && CONFIG_BT_MESH_DEVICE_RTK_DEMO))
+	example_bt_mesh();
 #endif
 
 #if defined(CONFIG_EXAMPLE_IPV6) && CONFIG_EXAMPLE_IPV6

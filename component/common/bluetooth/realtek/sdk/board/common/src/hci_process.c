@@ -4,6 +4,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "os_mem.h"
 #include "os_sync.h"
@@ -25,6 +26,8 @@ extern uint8_t  hci_tp_phy_efuse[16];
 
 static uint8_t vendor_flow;
 static uint8_t iqk_type = 0xff;
+static uint8_t orignal_thermal[3];
+
 //====================hci_patch_util.c================
 
 uint8_t hci_tp_read_local_ver(void)
@@ -138,23 +141,37 @@ uint8_t hci_tp_read_thermal(void)
     }
 }
 
+static int freq_cmp(const void *a, const void *b)
+{
+	int _a = *(int *) a;
+	int _b = *(int *) b;
+
+	if (_a == 0)
+		return 1;
+	if (_b == 0)
+		return -1;
+	return _a - _b;
+}
+
 uint8_t hci_thermal_check(uint8_t len, uint8_t *p_buf)
 {
     (void)len;
     (void)p_buf;
     uint8_t    thermal;
-    static uint8_t thermalsum4 = 0;
     LE_STREAM_TO_UINT8(thermal, p_buf);
 
-    if (vendor_flow >= 3)   /* fortime */
+    if (vendor_flow > 2)   /* fortime */
     {
         if(!CHECK_SW(EFUSE_SW_DRIVER_DEBUG_LOG))
         {
             hci_board_debug("%s: thermal_check 0x%02x\n",__FUNCTION__,thermal);
         }
-        thermalsum4 = thermalsum4 + thermal;
-        hci_board_debug("\n\rthermal_check OK thermalsum4 = %x\n", thermalsum4);
-        hci_tp_phy_efuse[7]=thermalsum4;
+		qsort(orignal_thermal, 3, sizeof(uint8_t), freq_cmp);
+        hci_board_debug("\n\rthermal_check OK orignal_thermal[1] = %x\n", orignal_thermal[1]);
+
+		thermal = orignal_thermal[1]&0x3F;
+		hci_board_debug("\n\rthermal_check OK thermal = %x\n", thermal);
+		hci_tp_phy_efuse[7]=thermal;
         vendor_flow = 0;
         return HCI_TP_CHECK_OK;
     }
@@ -164,7 +181,7 @@ uint8_t hci_thermal_check(uint8_t len, uint8_t *p_buf)
         {
             hci_board_debug("%s: thermal_check 0x%02x, time %x\n",__FUNCTION__,thermal, vendor_flow);
         }
-        thermalsum4 = thermalsum4 + thermal;
+        orignal_thermal[vendor_flow]=thermal;
         vendor_flow++;
         return HCI_TP_CHECK_AGAIN;
     }

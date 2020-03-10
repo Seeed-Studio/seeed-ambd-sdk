@@ -167,6 +167,7 @@ void ble_scatternet_app_le_gap_init(void)
     uint8_t  device_name[GAP_DEVICE_NAME_LEN] = "BLE_SCATTERNET";
     uint16_t appearance = GAP_GATT_APPEARANCE_UNKNOWN;
 #endif
+
     /* Advertising parameters */
     uint8_t  adv_evt_type = GAP_ADTYPE_ADV_IND;
     uint8_t  adv_direct_type = GAP_REMOTE_ADDR_LE_PUBLIC;
@@ -187,7 +188,9 @@ void ble_scatternet_app_le_gap_init(void)
     uint8_t  auth_pair_mode = GAP_PAIRING_MODE_PAIRABLE;
     uint16_t auth_flags = GAP_AUTHEN_BIT_BONDING_FLAG;
     uint8_t  auth_io_cap = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+#if F_BT_LE_SMP_OOB_SUPPORT
     uint8_t  auth_oob = false;
+#endif
     uint8_t  auth_use_fix_passkey = false;
     uint32_t auth_fix_passkey = 0;
     uint8_t  auth_sec_req_enable = false;
@@ -200,7 +203,7 @@ void ble_scatternet_app_le_gap_init(void)
 	le_set_gap_param(GAP_PARAM_SLAVE_INIT_GATT_MTU_REQ, sizeof(slave_init_mtu_req),
                      &slave_init_mtu_req);
 #endif
-	
+
 	/* Set advertising parameters */
 	le_adv_set_param(GAP_PARAM_ADV_EVENT_TYPE, sizeof(adv_evt_type), &adv_evt_type);
 	le_adv_set_param(GAP_PARAM_ADV_DIRECT_ADDR_TYPE, sizeof(adv_direct_type), &adv_direct_type);
@@ -397,7 +400,6 @@ int ble_scatternet_app_init(void)
 	int bt_stack_already_on = 0;
 	T_GAP_CONN_INFO conn_info;
 #endif
-	//int bt_stack_already_on = 0;
 	//(void) bt_stack_already_on;
 	T_GAP_DEV_STATE new_state;
 
@@ -408,21 +410,21 @@ int ble_scatternet_app_init(void)
 	}
 	
 #if defined (CONFIG_BT_CENTRAL_CONFIG) && (CONFIG_BT_CENTRAL_CONFIG) 
-		set_bt_config_state(BC_DEV_INIT); // BT Config on
+	set_bt_config_state(BC_DEV_INIT); // BT Config on
 
 #if CONFIG_AUTO_RECONNECT
-		/* disable auto reconnect */
-		wifi_set_autoreconnect(0);
+	/* disable auto reconnect */
+	wifi_set_autoreconnect(0);
 #endif
-	
-		wifi_disconnect();
-	
+
+	wifi_disconnect();
+
 #if CONFIG_LWIP_LAYER
-		LwIP_ReleaseIP(WLAN0_IDX);
+	LwIP_ReleaseIP(WLAN0_IDX);
 #endif
-	
-		le_get_conn_info(bt_config_conn_id, &conn_info);
-		bt_config_gap_conn_state = conn_info.conn_state;
+
+	le_get_conn_info(bt_config_conn_id, &conn_info);
+	bt_config_gap_conn_state = conn_info.conn_state;
 #endif
 
 	//judge BLE central is already on

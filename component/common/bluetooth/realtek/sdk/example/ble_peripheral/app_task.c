@@ -46,9 +46,9 @@
 /*============================================================================*
  *                              Variables
  *============================================================================*/
-static void *app_task_handle = NULL;   //!< APP Task handle
-static void *evt_queue_handle = NULL;  //!< Event queue handle
-static void *io_queue_handle = NULL;   //!< IO queue handle
+void *app_task_handle = NULL;   //!< APP Task handle
+void *evt_queue_handle = NULL;  //!< Event queue handle
+void *io_queue_handle = NULL;   //!< IO queue handle
 
 extern T_GAP_DEV_STATE gap_dev_state;
 

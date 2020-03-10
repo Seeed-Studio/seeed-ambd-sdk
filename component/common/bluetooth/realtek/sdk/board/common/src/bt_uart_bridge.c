@@ -58,6 +58,7 @@ char bt_uart_bridge_getc(void)
 }
 
 #ifdef CONFIG_PLATFORM_8710C
+static int log_flag = 0;
 static void _bt_uart_bridge_irq(u32 id,u32 event)
 {
 	unsigned char rc = 0;
@@ -65,9 +66,9 @@ static void _bt_uart_bridge_irq(u32 id,u32 event)
 	if(event==RxIrq){
 		rc = bt_uart_bridge_getc();
 		
-		//printf("set=%02x,\r\n",rc);
+		//if(log_flag)
+			//printf("~~~~~~~~~~~set = %02x, check_byte_num = %d\r\n",rc, check_byte_num);
 		//bt_uart_tx((u8)rc);//Test UART rx
-			
 		if(check_byte_num!=17){
 			switch (rc)
 			{				
@@ -166,6 +167,56 @@ static void _bt_uart_bridge_irq(u32 id,u32 event)
 					else
 						check_byte_num=0;
 					break;
+                case 0x00: //single tone command 00
+                    if(check_byte_num==23)
+						check_byte_num=25;
+					else
+						check_byte_num=0;
+                    break;
+                case 0x01: //single tone command 01
+                    if(check_byte_num==23)
+						check_byte_num=24;
+                    else if(check_byte_num==0)
+                        check_byte_num=20;
+					else
+						check_byte_num=0;
+                    break;
+                case 0xfc: //single tone command fc
+                    if(check_byte_num==21)
+						check_byte_num=22;
+					else
+						check_byte_num=0;
+                    break;
+                case 'x': //single tone command 78
+                    if(check_byte_num==20)
+						check_byte_num=21;
+					else
+						check_byte_num=0;
+					break;
+                case 0x04: //single tone command 04
+					if(check_byte_num==22)
+						check_byte_num=23;
+					else
+						check_byte_num=0;
+                    break;
+                case 'L':
+					if(check_byte_num==5)
+						check_byte_num=30;
+					else
+						check_byte_num=0;
+					break;
+                case 'O':
+					if(check_byte_num==30)
+						check_byte_num=31;
+					else
+						check_byte_num=0;
+					break;
+                case 'G':
+					if(check_byte_num==31)
+						check_byte_num=32;
+					else
+						check_byte_num=0;
+					break;
 				default:
 					check_byte_num=0;
 					break;
@@ -174,6 +225,7 @@ static void _bt_uart_bridge_irq(u32 id,u32 event)
 		if(check_byte_num==17){
 			
 			if(rc==KEY_ENTER){
+                log_flag=0;
 				memset(log_buf,'\0',LOG_SERVICE_BUFLEN);
 				strncpy(log_buf,close_cmd_buf,strlen(close_cmd_buf));
 				check_byte_num=0;
@@ -181,6 +233,15 @@ static void _bt_uart_bridge_irq(u32 id,u32 event)
 				rtw_up_sema_from_isr((_sema*)&log_rx_interrupt_sema);
 			}
 
+		}
+		else if(check_byte_num==32){
+			log_flag += 1;
+		}
+		else if(check_byte_num==24){
+			btc_set_single_tone_tx(1);
+		}
+		else if(check_byte_num==25){
+			btc_set_single_tone_tx(0);
 		}
 		else
 		{

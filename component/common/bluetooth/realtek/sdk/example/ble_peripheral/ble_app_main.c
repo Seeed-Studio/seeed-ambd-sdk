@@ -94,9 +94,11 @@ static const uint8_t adv_data[] =
  * NOTE: This function shall be called before @ref bte_init is invoked.
  * @return void
  */
+extern void gap_config_hci_task_secure_context(uint32_t size);
 void bt_stack_config_init(void)
 {
     gap_config_max_le_link_num(APP_MAX_LINKS);
+    gap_config_hci_task_secure_context (280);
 }
 
 /**
@@ -278,6 +280,7 @@ int ble_app_init(void)
 
 extern void app_task_deinit(void);
 extern bool bt_trace_uninit(void);
+extern T_GAP_DEV_STATE gap_dev_state;
 
 void ble_app_deinit(void)
 {
@@ -292,29 +295,11 @@ void ble_app_deinit(void)
 	else {
 		bte_deinit();
 		bt_trace_uninit();
+		memset(&gap_dev_state, 0, sizeof(T_GAP_DEV_STATE));
 		printf("[BLE Peripheral]BT Stack deinitalized\n\r");
 	}
 #endif
 }
-
-extern T_GAP_DEV_STATE gap_dev_state;               /**< GAP device state */
-void ble_app_modify_para_adv_interval(uint16_t adv_interval)
-{
-    uint16_t adv_int_min = adv_interval;
-    uint16_t adv_int_max = adv_interval;
-
-	//before modify adv_interval,first stop adv
-	le_adv_stop();
-	//delay to ensure adv is stop
-	do {
-		os_delay(5);
-	}while(gap_dev_state.gap_adv_state != GAP_ADV_STATE_IDLE);
-	//set new adv interval
-    le_adv_set_param(GAP_PARAM_ADV_INTERVAL_MIN, sizeof(adv_int_min), &adv_int_min);
-    le_adv_set_param(GAP_PARAM_ADV_INTERVAL_MAX, sizeof(adv_int_max), &adv_int_max);
-	le_adv_start();
-}
-
 
 /** @} */ /* End of group PERIPH_DEMO_MAIN */
 

@@ -206,7 +206,7 @@ static inline void uart_insert_char(T_HCI_UART *hci_adapter, uint8_t ch)
         return;
     }
 
-    if(rltk_wlan_is_mp())
+   // if(rltk_wlan_is_mp())
     {
         if(hci_adapter->hci_uart_bridge_flag == true)
         {

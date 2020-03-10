@@ -5,7 +5,9 @@ include $(MAKE_INCLUDE_GEN)
 include ../amebad_bsp/Makefile
 
 SDK_DIR = $(BASEDIR)/component/common/bluetooth/realtek/sdk
-MESH_DIR = $(SDK_DIR)/example/mesh
+MESH_DIR = $(SDK_DIR)/example/bt_mesh
+MESH_USER_API_DIR = $(MESH_DIR)/api
+MESH_PROV_RTK_DEMO_DIR = $(SDK_DIR)/example/bt_mesh_provisioner_rtk_demo
 
 #*****************************************************************************#
 #                        INCLUDE FILES                                        #
@@ -22,16 +24,21 @@ MODULE_IFLAGS += \
    -I$(MESH_DIR)/lib/profile \
    -I$(MESH_DIR)/lib/utility \
    -I$(MESH_DIR)/provisioner \
-   -I$(SDK_DIR)/board/amebad/src/vendor_cmd
-
-MODULE_IFLAGS += -DCONFIG_FTL_ENABLED -DMESH_PROVISIONER -DCONFIG_PLATFORM_8721D
-MODULE_IFLAGS += -include app_flags.h
+   -I$(MESH_DIR)/device \
+   -I$(MESH_DIR)/api/provisioner \
+   -I$(MESH_DIR)/api/common \
+   -I$(SDK_DIR)/board/amebad/src/vendor_cmd \
+   -I$(MESH_USER_API_DIR)/provisioner \
+   -I$(MESH_USER_API_DIR)/device \
+   -I$(MESH_USER_API_DIR) \
+   -I$(MESH_PROV_RTK_DEMO_DIR)/inc \
 
 #*****************************************************************************#
 #                        DEVICE APP FILES                                     #
 #*****************************************************************************#
 CSRC += \
-    $(MESH_DIR)/lib/cmd/data_uart.c \
+    $(MESH_DIR)/lib/cmd/mesh_data_uart.c \
+	$(MESH_DIR)/lib/cmd/mesh_user_cmd_parse.c \
     $(MESH_DIR)/lib/profile/datatrans_service.c \
     $(MESH_DIR)/lib/profile/datatrans_client.c \
     $(MESH_DIR)/lib/model/configuration_client.c \
@@ -43,8 +50,11 @@ CSRC += \
     $(MESH_DIR)/lib/model/generic_on_off_client.c \
     $(MESH_DIR)/lib/model/generic_default_transition_time_client.c \
     $(MESH_DIR)/lib/model/generic_level_client.c \
+    $(MESH_DIR)/lib/model/generic_location_client.c \
     $(MESH_DIR)/lib/model/generic_power_on_off_client.c \
+    $(MESH_DIR)/lib/model/generic_property_client.c \
     $(MESH_DIR)/lib/model/light_lightness_client.c \
+    $(MESH_DIR)/lib/model/light_xyl_client.c \
     $(MESH_DIR)/lib/model/light_hsl_client.c \
     $(MESH_DIR)/lib/model/generic_power_level_client.c \
     $(MESH_DIR)/lib/model/generic_battery_client.c \
@@ -53,7 +63,7 @@ CSRC += \
     $(MESH_DIR)/lib/model/scene_client.c \
     $(MESH_DIR)/lib/model/sensor_client.c \
     $(MESH_DIR)/lib/model/scheduler_client.c \
-    $(MESH_DIR)/provisioner/app_task.c \
+    $(MESH_DIR)/provisioner/bt_mesh_provisioner_app_task.c \
     $(MESH_DIR)/provisioner/provisioner_app.c \
     $(MESH_DIR)/lib/common/ping_app.c \
     $(MESH_DIR)/lib/common/generic_client_app.c \
@@ -63,8 +73,10 @@ CSRC += \
     $(MESH_DIR)/lib/cmd/client_cmd.c \
     $(MESH_DIR)/lib/cmd/test_cmd.c \
     $(MESH_DIR)/provisioner/provisioner_cmd.c \
-    $(MESH_DIR)/provisioner/ble_app_main.c \
-    $(SDK_DIR)/board/amebad/src/vendor_cmd/vendor_cmd.c
+    $(MESH_DIR)/provisioner/bt_mesh_provisioner_app_main.c \
+    $(SDK_DIR)/board/amebad/src/vendor_cmd/vendor_cmd.c \
+    $(MESH_USER_API_DIR)/provisioner/bt_mesh_provisioner_api.c \
+    $(MESH_USER_API_DIR)/bt_mesh_user_api.c 
 
 OBJS = $(CSRC:.c=.o)
 TOBJS = $(notdir $(OBJS))

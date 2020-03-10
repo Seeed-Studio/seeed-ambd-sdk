@@ -40,6 +40,15 @@ typedef struct
 /** @addtogroup  CENTRAL_CLIENT_SCAN_MGR
     * @{
     */
+#if F_BT_LE_USE_STATIC_RANDOM_ADDR
+typedef struct
+{
+	uint8_t 	 is_exist;
+	uint8_t 	 reserved;		   /**< remote BD type*/
+	uint8_t 	 bd_addr[GAP_BD_ADDR_LEN];	/**< remote BD */
+} T_APP_STATIC_RANDOM_ADDR;
+#endif
+
 /*============================================================================*
  *                              Variables
  *============================================================================*/
@@ -49,5 +58,8 @@ extern T_APP_LINK ble_central_app_link_table[BLE_CENTRAL_APP_MAX_LINKS];
 /*============================================================================*
  *                              Functions
  *============================================================================*/
-
+#if F_BT_LE_USE_STATIC_RANDOM_ADDR
+uint32_t ble_central_app_save_static_random_address(T_APP_STATIC_RANDOM_ADDR *p_addr);
+uint32_t ble_central_app_load_static_random_address(T_APP_STATIC_RANDOM_ADDR *p_addr);
+#endif
 #endif

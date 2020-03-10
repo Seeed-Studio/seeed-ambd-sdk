@@ -30,6 +30,7 @@
 #include "peripheral_app.h"
 #include <gap_conn_le.h>
 #include "platform_stdlib.h"
+#include "ble_peripheral_at_cmd.h"
 
 /** @defgroup  PERIPH_APP Peripheral Application
     * @brief This file handles BLE peripheral application routines.
@@ -72,6 +73,22 @@ void app_handle_io_msg(T_IO_MSG io_msg)
     case IO_MSG_TYPE_BT_STATUS:
         {
             app_handle_gap_msg(&io_msg);
+        }
+        break;
+    case IO_MSG_TYPE_AT_CMD:
+        {
+            uint16_t subtype = io_msg.subtype;
+            void *arg = io_msg.u.buf;
+            ble_peripheral_app_handle_at_cmd(subtype, arg);
+        }
+        break;
+    case IO_MSG_TYPE_QDECODE:
+        {
+            if (io_msg.subtype == 1) {
+                le_adv_start();
+            } else if (io_msg.subtype == 0) {
+                le_adv_stop();
+            }
         }
         break;
     default:
