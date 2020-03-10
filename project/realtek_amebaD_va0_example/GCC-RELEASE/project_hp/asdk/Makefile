@@ -126,6 +126,10 @@ image2_ns:LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_wlan.a $(ROOTDIR)/lib/a
 mp_image2_ns:LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_wlan_mp.a $(ROOTDIR)/lib/application/lib_wps.a
 endif
 
+ifeq ($(CONFIG_LINKKIT_AWSS), y)
+LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_aliiot.a
+endif
+
 ifeq ($(CONFIG_USB_HOST_EN),y)
 	LINK_APP_LIB += $(ROOTDIR)/lib/application/lib_usbh.a
 endif
@@ -224,6 +228,9 @@ make_subdirs_lib:
 	fi
 	@if [ $(CONFIG_USB_HOST_EN) = "y" ]; then \
 		make -C make/target/usb_otg/host/lib all; \
+	fi
+	@if [ $(CONFIG_LINKKIT_AWSS) = "y" ]; then \
+		make -C make/linkkit all; \
 	fi
 #	@make -C make/ui/emwin/emWinLibrary/GUI lib
 

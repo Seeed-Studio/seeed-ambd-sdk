@@ -24,6 +24,10 @@ CSRC +=	$(DIR)/atcmd_sys.c \
 ifeq ($(CONFIG_BT_EN), y)
 CSRC += $(DIR)/atcmd_bt.c
 endif	
+
+ifeq ($(CONFIG_LINKKIT_AWSS), y)
+CSRC += $(DIR)/atcmd_linkkit.c
+endif	
 #*****************************************************************************#
 #                               Object FILE LIST                              #
 #*****************************************************************************#

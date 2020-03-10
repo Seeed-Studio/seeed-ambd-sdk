@@ -127,6 +127,11 @@
 #undef  CONFIG_BAIDU_DUER
 
 /*
+ * < LinkKit Config 
+ */
+#undef  CONFIG_LINKKIT_AWSS
+
+/*
  * < MQTT Config 
  */
 #undef  CONFIG_MQTT_EN

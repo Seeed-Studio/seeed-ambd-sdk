@@ -6,6 +6,15 @@ IFLAGS				+= -I$(BASEDIR)/component/common/audio/flac
 IFLAGS               += -I$(BASEDIR)/component/common/bluetooth/realtek/sdk
 IFLAGS               += -I$(BASEDIR)/component/common/drivers/sdio/realtek/sdio_host/inc
 IFLAGS               += -I$(BASEDIR)/component/common/network/libcoap/include
+
+ifeq ($(CONFIG_LINKKIT_AWSS), y)
+#aliyun
+IFLAGS				 += -I$(BASEDIR)/component/common/application/linkkit/v1.3.0/include
+IFLAGS				 += -I$(BASEDIR)/component/common/application/linkkit/v1.3.0/include/imports
+IFLAGS				 += -I$(BASEDIR)/component/common/application/linkkit/v1.3.0/include/exports
+IFLAGS				 += -I$(BASEDIR)/component/common/application/linkkit/v1.3.0/include/platform
+endif
+
 .PHONY: all clean
 
 #*****************************************************************************#
@@ -124,6 +133,11 @@ CSRC += $(DIR)/usbd_cdc_acm/example_usbd_cdc_acm.c
 CSRC += $(DIR)/usbd_vendor/example_usbd_vendor.c
 CSRC += $(DIR)/usbh_msc/example_usbh_msc.c
 CSRC += $(DIR)/usbh_vendor/example_usbh_vendor.c
+
+ifeq ($(CONFIG_LINKKIT_AWSS), y)
+#linkkit
+CSRC += $(DIR)/linkkit/linkkit_awss_example.c
+endif
 
 #*****************************************************************************#
 #                               Object FILE LIST                              #

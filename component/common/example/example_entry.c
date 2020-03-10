@@ -41,7 +41,7 @@
 #include <nonblock_connect/example_nonblock_connect.h>
 #endif
 
-#if CONFIG_EXAMPLE_SOCKET_TCP_TRX
+#if defined(CONFIG_EXAMPLE_SOCKET_TCP_TRX) && CONFIG_EXAMPLE_SOCKET_TCP_TRX
 #include <socket_tcp_trx/example_socket_tcp_trx.h>
 #endif
 
@@ -141,12 +141,8 @@
 #include <arduino_wifi/ard_spi.h>
 #endif
 
-#if CONFIG_EXAMPLE_GET_BEACON_FRAME
+#if defined(CONFIG_EXAMPLE_GET_BEACON_FRAME) && CONFIG_EXAMPLE_GET_BEACON_FRAME
 #include <get_beacon_frame/example_get_beacon_frame.h>
-#endif
-
-#if defined(CONFIG_EXAMPLE_USB_MASS_STORAGE) && CONFIG_EXAMPLE_USB_MASS_STORAGE
-#include <usb_mass_storage/example_usb_msc.h>
 #endif
 
 #if defined(CONFIG_EXAMPLE_EAP) && CONFIG_EXAMPLE_EAP
@@ -165,6 +161,14 @@
 #include <coap/example_coap.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_COAP_CLIENT) && CONFIG_EXAMPLE_COAP_CLIENT
+#include <coap_client/example_coap_client.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_COAP_SERVER) && CONFIG_EXAMPLE_COAP_SERVER
+#include <coap_server/example_coap_server.h>
+#endif
+
 #if defined(CONFIG_EXAMPLE_WEBSOCKET_CLIENT) && CONFIG_EXAMPLE_WEBSOCKET_CLIENT
 #include <websocket_client/example_wsclient.h>
 #endif
@@ -177,7 +181,7 @@
 #include <wlan_scenario/example_wlan_scenario.h>
 #endif
 
-#if CONFIG_EXAMPLE_BCAST
+#if defined(CONFIG_EXAMPLE_BCAST) && CONFIG_EXAMPLE_BCAST
 #include <bcast/example_bcast.h>
 #endif
 
@@ -217,7 +221,7 @@
 #include <audio_helix_mp3/example_audio_helix_mp3.h>
 #endif
 
-#if CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
+#if defined(CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE) && CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
 #include <high_load_memory_use/example_high_load_memory_use.h>
 #endif
 
@@ -229,7 +233,7 @@
 #include <wifi_manager/example_wifi_manager.h>
 #endif
 
-#if CONFIG_EXAMPLE_RARP
+#if defined(CONFIG_EXAMPLE_RARP) && CONFIG_EXAMPLE_RARP
 #include <rarp/example_rarp.h>
 #endif
 
@@ -243,6 +247,10 @@
 
 #if defined(CONFIG_EXAMPLE_OTA_HTTP) && CONFIG_EXAMPLE_OTA_HTTP
 #include <ota_http/example_ota_http.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_OTA_HTTPS) && CONFIG_EXAMPLE_OTA_HTTPS
+#include <ota_https/example_ota_https.h>
 #endif
 
 #if defined(CONFIG_EXAMPLE_OTA_SDCARD) && CONFIG_EXAMPLE_OTA_SDCARD
@@ -325,6 +333,10 @@
 #include <ipv6/example_ipv6.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_USB_MASS_STORAGE) && CONFIG_EXAMPLE_USB_MASS_STORAGE
+#include <usb_mass_storage/example_usb_msc.h>
+#endif
+
 #if defined(CONFIG_EXAMPLE_USBD_AUDIO) && CONFIG_EXAMPLE_USBD_AUDIO
 #include <usbd_audio/example_usbd_audio.h>
 #endif
@@ -337,8 +349,16 @@
 #include <usbd_cdc_acm/example_usbd_cdc_acm.h>
 #endif
 
+#if defined(CONFIG_EXAMPLE_USBD_VENDOR) && CONFIG_EXAMPLE_USBD_VENDOR
+#include <usbd_vendor/example_usbd_vendor.h>
+#endif
+
 #if defined(CONFIG_EXAMPLE_USBH_MSC) && CONFIG_EXAMPLE_USBH_MSC
 #include <usbh_msc/example_usbh_msc.h>
+#endif
+
+#if defined(CONFIG_EXAMPLE_USBH_VENDOR) && CONFIG_EXAMPLE_USBH_VENDOR
+#include <usbh_vendor/example_usbh_vendor.h>
 #endif
 
 #if (CONFIG_EXAMPLE_AMAZON_FREERTOS)
@@ -408,7 +428,11 @@ void pre_example_entry(void)
    	The configuration is enabled in platform_opts.h
 */
 void example_entry(void)
-{
+{	
+#if defined(CONFIG_LINKKIT_AWSS) && CONFIG_LINKKIT_AWSS
+	example_ali_awss();
+#endif
+
 #if (CONFIG_EXAMPLE_MDNS && !CONFIG_EXAMPLE_UART_ADAPTER) 
 	example_mdns();
 #endif
@@ -429,9 +453,9 @@ void example_entry(void)
 	example_nonblock_connect();
 #endif
 
-#if   CONFIG_EXAMPLE_SOCKET_TCP_TRX == 1
+#if defined(CONFIG_EXAMPLE_SOCKET_TCP_TRX) && (CONFIG_EXAMPLE_SOCKET_TCP_TRX == 1)
 	example_socket_tcp_trx_1();
-#elif CONFIG_EXAMPLE_SOCKET_TCP_TRX == 2
+#elif defined(CONFIG_EXAMPLE_SOCKET_TCP_TRX) && (CONFIG_EXAMPLE_SOCKET_TCP_TRX == 2)
 	example_socket_tcp_trx_2();
 #endif
 
@@ -520,7 +544,7 @@ void example_entry(void)
 	example_joinlink();
 #endif
 
-#if CONFIG_EXAMPLE_GET_BEACON_FRAME
+#if defined(CONFIG_EXAMPLE_GET_BEACON_FRAME) && CONFIG_EXAMPLE_GET_BEACON_FRAME
 	example_get_beacon_frame();
 #endif
 
@@ -543,19 +567,7 @@ void example_entry(void)
 
 #if defined(CONFIG_EXAMPLE_INIC_GSPI_HOST) && CONFIG_EXAMPLE_INIC_GSPI_HOST
 	example_inic_gspi();
-#endif
-
-#if defined(CONFIG_EXAMPLE_USB_MASS_STORAGE) && CONFIG_EXAMPLE_USB_MASS_STORAGE
-	example_mass_storage();
-#endif
-
-#if defined(CONFIG_EXAMPLE_USB_ISOC_DEVICE) && CONFIG_EXAMPLE_USB_ISOC_DEVICE        
-    example_isoc_device();
-#endif
-
-#if defined(CONFIG_EXAMPLE_USB_VENDOR_SPECIFIC) && CONFIG_EXAMPLE_USB_VENDOR_SPECIFIC
-	example_vendor_specific();
-#endif        
+#endif       
         
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 	example_uart_atcmd();
@@ -590,6 +602,14 @@ void example_entry(void)
     example_coap();
 #endif
 
+#if defined(CONFIG_EXAMPLE_COAP_CLIENT) && CONFIG_EXAMPLE_COAP_CLIENT
+    example_coap_client();
+#endif
+
+#if defined(CONFIG_EXAMPLE_COAP_SERVER) && CONFIG_EXAMPLE_COAP_SERVER
+    example_coap_server();
+#endif
+
 #if defined(CONFIG_EXAMPLE_WEBSOCKET_CLIENT) && CONFIG_EXAMPLE_WEBSOCKET_CLIENT
     example_wsclient();
 #endif
@@ -604,7 +624,7 @@ void example_entry(void)
 	example_wlan_scenario("S");
 #endif
 	
-#if CONFIG_EXAMPLE_BCAST
+#if defined(CONFIG_EXAMPLE_BCAST) && CONFIG_EXAMPLE_BCAST
 	example_bcast();
 #endif
 
@@ -684,11 +704,11 @@ void example_entry(void)
 	example_audio_opus_encode();
 #endif
 
-#if CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
+#if defined(CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE) && CONFIG_EXAMPLE_HIGH_LOAD_MEMORY_USE
 	example_high_load_memory_use();
 #endif
 
-#if CONFIG_EXAMPLE_RARP
+#if defined(CONFIG_EXAMPLE_RARP) && CONFIG_EXAMPLE_RARP
 	example_rarp();
 #endif 
 
@@ -791,6 +811,18 @@ example_hilink();
 	#endif
 #endif
 
+#if defined(CONFIG_EXAMPLE_USB_MASS_STORAGE) && CONFIG_EXAMPLE_USB_MASS_STORAGE
+	example_mass_storage();
+#endif
+
+#if defined(CONFIG_EXAMPLE_USB_ISOC_DEVICE) && CONFIG_EXAMPLE_USB_ISOC_DEVICE        
+    example_isoc_device();
+#endif
+
+#if defined(CONFIG_EXAMPLE_USB_VENDOR_SPECIFIC) && CONFIG_EXAMPLE_USB_VENDOR_SPECIFIC
+	example_vendor_specific();
+#endif 
+
 #if defined(CONFIG_EXAMPLE_USBD_AUDIO) && CONFIG_EXAMPLE_USBD_AUDIO	        
 	example_usbd_audio();
 #endif
@@ -803,8 +835,16 @@ example_hilink();
 	example_usbd_cdc_acm();
 #endif
 
+#if defined(CONFIG_EXAMPLE_USBD_VENDOR) && CONFIG_EXAMPLE_USBD_VENDOR
+	example_usbd_vendor();
+#endif
+
 #if defined(CONFIG_EXAMPLE_USBH_MSC) && CONFIG_EXAMPLE_USBH_MSC	        
 	example_usbh_msc();
+#endif
+
+#if defined(CONFIG_EXAMPLE_USBH_VENDOR) && CONFIG_EXAMPLE_USBH_VENDOR	        
+	example_usbh_vendor();
 #endif
 
 #if defined(CONFIG_EXAMPLE_COMPETITIVE_HEADPHONES) && CONFIG_EXAMPLE_COMPETITIVE_HEADPHONES
@@ -833,4 +873,9 @@ example_hilink();
 #if (CONFIG_EXAMPLE_AMAZON_FREERTOS)
 	example_amazon_freertos();
 #endif
+
+#if defined(CONFIG_EXAMPLE_SW_PTA) && CONFIG_EXAMPLE_SW_PTA
+	example_sw_pta();
+#endif
+
 }

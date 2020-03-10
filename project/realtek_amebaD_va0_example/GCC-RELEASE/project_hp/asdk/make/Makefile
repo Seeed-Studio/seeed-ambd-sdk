@@ -74,4 +74,5 @@ clean:
 	@make -C project clean
 	@make -C ui clean
 	@make -C media clean
+	@make -C linkkit clean
 -include $(DEPS)

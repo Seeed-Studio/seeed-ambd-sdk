@@ -321,6 +321,11 @@ bool "Enable DuerOS"                    		CONFIG_BAIDU_DUER
 endmenu
 
 mainmenu_option next_comment
+comment '< LinkKit Config '
+bool "Enable LinkKit"                    		CONFIG_LINKKIT_AWSS
+endmenu
+
+mainmenu_option next_comment
 comment '< MQTT Config '
 bool "Enable MQTT"                    		CONFIG_MQTT_EN
 endmenu
