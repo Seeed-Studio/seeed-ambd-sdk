@@ -6,34 +6,31 @@
 #include "section_config.h"
 
 #include <httpd/httpd.h>
-
+#include "log_service.h"
 #if CONFIG_SDCARD_UPLOAD_HTTPD
 
 #include "ff.h"
 #include <fatfs_ext/inc/ff_driver.h>
-
+#include <disk_if/inc/sdcard.h>
+#if defined(CONFIG_PLATFORM_8195A) || defined(CONFIG_PLATFORM_8195BHP) || defined(CONFIG_PLATFORM_8710C)
 #include "sdio_combine.h"
 #include "sdio_host.h"
-#include <disk_if/inc/sdcard.h>
-#define STACK_SIZE		2048
+extern phal_sdio_host_adapter_t psdioh_adapter;
+#endif
 
 //#if (_USE_MKFS != 1)
 //	#error define _USE_MKFS MACRO to 1 in ffconf.h to enable f_mkfs() which creates FATFS volume on Flash.
 //#endif
-
-
-#include "sdio_combine.h"
-#define	_DBG_SDIO_          	0x00000400
-extern phal_sdio_host_adapter_t psdioh_adapter;
+//#define	_DBG_SDIO_          	0x00000400 //don`t know where it was used..
+#define STACK_SIZE		2048
+#define READ_SIZE 		2048
+#define MP4_NAME		 "OTA_ALL.bin"
 
 FATFS 	fs_sd;
 FIL     m_file;
 FILINFO fno = {0};
 char path[64];
 
-#define READ_SIZE 2048
-
-#define MP4_NAME "AMEBA_0.mp4"
 
 int fatfs_init(char *file_name)
 { 
@@ -42,9 +39,9 @@ int fatfs_init(char *file_name)
 	int br,bw;
 	int Fatfs_ok = 0;
 	FRESULT res; 
-	
+#if defined(CONFIG_PLATFORM_8195A) || defined(CONFIG_PLATFORM_8195BHP) || defined(CONFIG_PLATFORM_8710C)	
 	sdio_driver_init();
-  	  
+ #endif
 	printf("Register disk driver to Fatfs.\n\r");
 	sd_drv_num = FATFS_RegisterDiskDriver(&SD_disk_Driver);
 	
@@ -69,7 +66,7 @@ int fatfs_init(char *file_name)
 				goto exit;
 			}
 #endif
-			if(f_mount(&fs_sd, sd_drv, 0)!= FR_OK){
+			   if(f_mount(&fs_sd, sd_drv, 0)!= FR_OK){
 				printf("FATFS mount logical drive on Flash fail.\n\r");
 				goto exit;
 			}
@@ -78,7 +75,7 @@ int fatfs_init(char *file_name)
 		} 
 		
 		strcpy(path, sd_drv);
-		sprintf(&path[strlen(path)],"%s",file_name);
+		sprintf(&path[strlen(path)],"%s",MP4_NAME);
 		
 		//FILINFO fno;
 		
@@ -86,8 +83,8 @@ int fatfs_init(char *file_name)
 		switch (res) {
 			
 			case FR_OK:
-				printf("Size: %lu\n", fno.fsize);
-				printf("Timestamp: %u/%02u/%02u, %02u:%02u\n",
+				printf("Size: %d\n", fno.fsize);
+				printf("Timestamp: %d/%2d/%2d, %2d:%2d\n",
 							(fno.fdate >> 9) + 1980, fno.fdate >> 5 & 15, fno.fdate & 31,
 							fno.ftime >> 11, fno.ftime >> 5 & 63);
 				printf("Attributes: %c%c%c%c%c\n",
@@ -108,7 +105,7 @@ int fatfs_init(char *file_name)
 		//3.open 
 		res = f_open(&m_file, path, FA_OPEN_ALWAYS | FA_READ | FA_WRITE);
 		if(res){
-			printf("open file (%s) fail. res = %d\n\r", file_name,res);
+			printf("open file (%s) fail. res = %d\n\r", MP4_NAME,res);
 			goto exit;
 		}
 	}  
@@ -139,7 +136,7 @@ void fatfs_homepage_cb(struct httpd_conn *conn)
 	
 	if(httpd_request_is_method(conn, "GET")) {
 		httpd_response_write_header_start(conn, "200 OK", "application/octet-stream", fno.fsize);
-		httpd_response_write_header(conn,"Content-Disposition","attachment; filename=""test.mp4""");
+		httpd_response_write_header(conn,"Content-Disposition","attachment; filename="MP4_NAME);
 		httpd_response_write_header(conn, "Connection", "close");
 		httpd_response_write_header_finish(conn);
 		
@@ -171,7 +168,7 @@ void fatfs_homepage_cb(struct httpd_conn *conn)
 	}
 	
 	time_2 = rtw_get_current_time();
-	printf("start time =%d ms end time =%d ms cost = %d ms  speed = %f MB/s\r\n",time_1,time_2,(time_2-time_1),(float)((float)(fno.fsize)/((float)(time_2-time_1))/1000.f));
+	printf("start time =%d ms end time =%d ms cost = %d ms  speed = %d MB/s\r\n",time_1,time_2,(time_2-time_1),(float)((float)(fno.fsize)/((float)(time_2-time_1))/1000.f));
 	
 	if(res){
 		printf("close file (%s) fail.\n\r", MP4_NAME);
@@ -207,6 +204,7 @@ void example_sdcard_upload_httpd_main(void *parm)
 {
 	int ret = 0;
 	wifi_init();
+	
 	ret = fatfs_init(MP4_NAME);
 	if(ret >= 0){
 		printf("open file %s successful\r\n",MP4_NAME);

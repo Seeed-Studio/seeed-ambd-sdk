@@ -6,4 +6,4 @@ This audio example is used to play bird sound in birds_44100_2ch_16b.c from memo
 
 [Supported List]
 	Source code not in project :
-	    Ameba-1, Ameba-z, Ameba-pro
+	    Ameba-1, Ameba-z, Ameba-pro, Ameba-d

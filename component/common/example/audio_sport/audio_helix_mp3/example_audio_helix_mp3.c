@@ -17,7 +17,7 @@
 #include "mp3dec.h"
 
 #include "rl6548.h"
-
+static int GDMA_flag = 0; 
 #ifndef SDRAM_BSS_SECTION
 #define SDRAM_BSS_SECTION                        
 #endif
@@ -55,9 +55,11 @@ typedef struct _audio_pkt_t {
 static xQueueHandle audio_pkt_queue;
 #endif
 
-SDRAM_BSS_SECTION static uint8_t sp_tx_buf[ SP_DMA_PAGE_SIZE * SP_DMA_PAGE_NUM ];
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+SDRAM_BSS_SECTION static uint8_t sp_tx_buf[SP_DMA_PAGE_SIZE * SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
 //SDRAM_BSS_SECTION static uint8_t sp_rx_buf[ SP_DMA_PAGE_SIZE * SP_DMA_PAGE_NUM ];
-static u8 sp_zero_buf[SP_ZERO_BUF_SIZE];
+static u8 sp_zero_buf[SP_ZERO_BUF_SIZE]__attribute__((aligned(32)));
 
 static SP_InitTypeDef SP_InitStruct;
 static SP_GDMA_STRUCT SPGdmaStruct;
@@ -154,10 +156,18 @@ static void sp_tx_complete(void *Data)
 	sp_release_tx_page();
 	tx_addr = (u32)sp_get_ready_tx_page();
 	tx_length = sp_get_ready_tx_length();
-	GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
 	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	if(GDMA_flag == 0) {
+		AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);
+	} else {
+		GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_AUDIOC, APBPeriph_AUDIOC_CLOCK, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_SPORT, APBPeriph_SPORT_CLOCK, DISABLE);
+		CODEC_DeInit(APP_LINE_OUT);		
+		PLL_PCM_Set(DISABLE);		
+	}
 }
 
 static void sp_rx_complete(void *data, char* pbuf)
@@ -257,7 +267,6 @@ static void initialize_audio(uint8_t ch_num, int sample_rate)
 	sp_init_hal(psp_obj);
 	
 	sp_init_tx_variables();
-
 	/*configure Sport according to the parameters*/
 	AUDIO_SP_StructInit(&SP_InitStruct);
 	SP_InitStruct.SP_MonoStereo= psp_obj->mono_stereo;
@@ -310,7 +319,7 @@ void audio_play_binary_array(uint8_t const *srcbuf, uint32_t len) {
     inbuf = srcbuf;
     bytesLeft = len;
 
-    sp_tx_done_sema = xSemaphoreCreateBinary();
+    //sp_tx_done_sema = xSemaphoreCreateBinary();
 
     while (1) {
         ret = MP3Decode(hMP3Decoder, &inbuf, &bytesLeft, (short*)decodebuf, 0);
@@ -326,7 +335,7 @@ void audio_play_binary_array(uint8_t const *srcbuf, uint32_t len) {
             break;
         }
     }
-
+	GDMA_flag = 1;
     printf("decoding finished\r\n");
 }
 #endif
@@ -488,7 +497,12 @@ void example_audio_helix_mp3_thread(void* param)
     //sp_tx_pcm_queue = xQueueCreate(SP_TX_PCM_QUEUE_LENGTH, SP_DMA_PAGE_SIZE);
 
 #if AUDIO_SOURCE_BINARY_ARRAY
-    audio_play_binary_array(sr48000_br320_stereo_mp3, sr48000_br320_stereo_mp3_len);
+	for(int i = 0; i < 100; i++){
+		audio_play_binary_array(sr48000_br320_stereo_mp3, sr48000_br320_stereo_mp3_len);
+		vTaskDelay(1000);
+		GDMA_flag = 0;
+	}
+	printf("play over\n");
 #endif
 
 #if ADUIO_SOURCE_HTTP_FILE

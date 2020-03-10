@@ -51,7 +51,7 @@ static SP_InitTypeDef SP_InitStruct;
 static SP_GDMA_STRUCT SPGdmaStruct;
 static SP_OBJ sp_obj;
 static SP_TX_INFO sp_tx_info;
-
+static int GDMA_flag = 0;
 static u8 *sp_tx_buf;
 static u8 *sp_zero_buf;
 static u32 sp_zero_buf_size;
@@ -166,10 +166,17 @@ static void sp_tx_complete(void *Data)
 	sp_release_tx_page();
 	tx_addr = (u32)sp_get_ready_tx_page();
 	tx_length = sp_get_ready_tx_length();
-	GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
-	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	if(GDMA_flag == 0) {
+		AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);
+	} else {
+		GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_AUDIOC, APBPeriph_AUDIOC_CLOCK, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_SPORT, APBPeriph_SPORT_CLOCK, DISABLE);
+		CODEC_DeInit(APP_LINE_OUT);		
+		PLL_PCM_Set(DISABLE);		
+	}
 }
 
 static void sp_rx_complete(void *data, char* pbuf)
@@ -205,10 +212,10 @@ static void sp_init_hal(pSP_OBJ psp_obj)
 		case SR_8K:
 			div = 48;
 			break;
-        	case SR_44P1K:
-            		div = 4;
-            		PLL_Sel(PLL_PCM);
-           		 break;
+        case SR_44P1K:
+            div = 4;
+            PLL_Sel(PLL_PCM);
+           	break;
 		default:
 			DBG_8195A("sample rate not supported!!\n");
 			break;
@@ -224,10 +231,8 @@ static void sp_init_hal(pSP_OBJ psp_obj)
 static void sp_init_tx_variables(void)
 {
 	int i;
-
 	sp_zero_buf = malloc(sp_zero_buf_size);
 	sp_tx_buf = malloc(sp_dma_page_size*SP_DMA_PAGE_NUM);
-	
 	for(i=0; i<sp_zero_buf_size; i++){
 		sp_zero_buf[i] = 0;
 	}
@@ -606,7 +611,7 @@ int Flac_Play(u8* filename)
 		bytesLeft += s1;
 	}
 	
-	
+	GDMA_flag = 1;
 	f_close(&FLACfile);
 
 umount:
@@ -619,11 +624,6 @@ unreg:
 	printf("Unregister disk driver from FATFS fail.\n");
 
 	DelayMs(50);
-	AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
-	AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
-	GDMA_ClearINT(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
-	GDMA_Cmd(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum, DISABLE);
-	GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
 	free(sp_tx_buf);
 	free(sp_zero_buf);
 	return 0;	
@@ -639,6 +639,7 @@ void example_audio_flac_thread(void* param)
 	printf("Audio codec flac demo begin......\n");
 
 	for(int i=0; i<FILE_NUM; i++){
+		GDMA_flag = 0;
 		sampling_freq = file[i].sampling_freq;
 		word_len = file[i].word_len;
 		sr_value = file[i].sr_value;
@@ -668,7 +669,6 @@ void example_audio_flac_thread(void* param)
 		tx_length = sp_get_ready_tx_length();
 		
 		AUDIO_SP_TXGDMA_Init(0, &SPGdmaStruct.SpTxGdmaInitStruct, &SPGdmaStruct, (IRQ_FUN)sp_tx_complete, tx_addr, tx_length);
-		
 		Flac_Play(wav);
 	}
 exit:

@@ -18,4 +18,4 @@ This mp3 example is used to play mp3 files from the SDCARD. In order to run the 
 	Supported :
 	    Ameba-1
 	Source code not in project:
-	    Ameba-z, Ameba-pro
+	    Ameba-z, Ameba-pro, Ameba-d

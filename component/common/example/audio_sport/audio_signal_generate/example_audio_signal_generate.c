@@ -3,8 +3,9 @@
 #include "rl6548.h"
 #include "ameba_soc.h"
 #include "arm_math.h"
+
 #if (AUDIO_SIGNAL_GENERATE)
-#define DMIC_LOC_PB1			0	//EVB 1 should set this macro to 0
+#define DMIC_LOC_PB1			1	//EVB v2 should set this macro to 0
 
 #define SAMPLE_RATE				SR_48K
 #define ABS_FREQ				48000
@@ -77,8 +78,8 @@ static int audio_fre;
 static short sine_wave[48000] = {0};
 
 
-static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
-static u8 sp_zero_buf[SP_ZERO_BUF_SIZE];
+static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
+static u8 sp_zero_buf[SP_ZERO_BUF_SIZE]__attribute__((aligned(32)));
 
 SRAM_NOCACHE_DATA_SECTION static u8 sp_rx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
 static u8 sp_full_buf[SP_FULL_BUF_SIZE];
@@ -224,10 +225,11 @@ static void sp_tx_complete(void *Data) {
     sp_release_tx_page();
     tx_addr = (u32)sp_get_ready_tx_page();
     tx_length = sp_get_ready_tx_length();
-    GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-    GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
+    //GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
+    //GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
     
-    GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);    
+    //GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);    
 }
 
 static void sp_rx_complete(void *Data) {
@@ -237,17 +239,18 @@ static void sp_rx_complete(void *Data) {
     u32 rx_length;
     
     GDMA_InitStruct = &(gs->SpRxGdmaInitStruct);
-    
+    DCache_Invalidate(GDMA_InitStruct->GDMA_DstAddr, GDMA_InitStruct->GDMA_BlockSize<<2);
+
     /* Clear Pending ISR */
     GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-
     sp_release_rx_page();
     rx_addr = (u32)sp_get_free_rx_page();
     rx_length = sp_get_free_rx_length();
-    GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr);
-    GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_length>>2);    
+    //GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr);
+    //GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_length>>2);    
     
-    GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+    //GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	AUDIO_SP_RXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr, rx_length);
 }
 
 static void sp_init_hal(pSP_OBJ psp_obj) {

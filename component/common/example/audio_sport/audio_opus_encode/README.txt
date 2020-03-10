@@ -1,11 +1,13 @@
-This mp3 example is used to play mp3 files from the SDCARD. In order to run the example the following steps must be followed.
+This opus encode example is used to encode PCM data to opus data with ogg container. In order to run the example the following steps must be followed.
 
 	1. Set the parameter CONFIG_EXAMPLE_AUDIO_OPUS_ENCODE to 1 in platform_opts.h file
 	
-    2. In Cygwin terminal, change to the directory "/project/realtek_amebaD_cm4_gcc_verification", 
-	type "make menuconfig", and enable audio related configurations (MENUCONFIG FOR CHIP CONFIG -> Audio Config -> Enable Audio).
+    2. In Cygwin terminal, change to the directory ”project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp”, 
+       type ”make menuconfig”, and enable audio related configurations (MENUCONFIG FOR CHIP CONFIG -> Audio Config -> Enable Audio).
 	
-    3. Build and flash the binary to test
+	3. In function opus_audio_opus_encode_thread(...), you can change source_file and dest_file to play your audio files.
+	
+    4. Build and flash the binary to test
 
 [Supported List]
 	Supported :

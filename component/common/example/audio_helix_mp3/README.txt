@@ -25,4 +25,4 @@ Configuration:
 	Supported :
 	    Ameba-1
 	Source code not in project:
-	    Ameba-z, Ameba-pro
+	    Ameba-z, Ameba-pro, Ameba-d

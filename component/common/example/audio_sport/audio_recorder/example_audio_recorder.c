@@ -7,7 +7,10 @@
 #include "osdep_service.h"
 #include "rl6548.h"
 #ifdef CONFIG_EXAMPLE_AUDIO_RECORDER
-SRAM_NOCACHE_DATA_SECTION static u8 sp_rx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
+
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+SRAM_NOCACHE_DATA_SECTION static u8 sp_rx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
 
 static xSemaphoreHandle record_start_sema = NULL;
 static xSemaphoreHandle record_end_sema = NULL;
@@ -18,8 +21,9 @@ static volatile u8 record_flag;
 static u32 record_button = _PA_22;		//record button
 static _timerHandle record_det_timer = NULL;
 
-
-static u8 sp_full_buf[SP_FULL_BUF_SIZE];
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+static u8 sp_full_buf[SP_FULL_BUF_SIZE]__attribute__((aligned(32)));
 static SP_InitTypeDef SP_InitStruct;
 static SP_GDMA_STRUCT SPGdmaStruct;
 static SP_OBJ sp_obj;
@@ -166,17 +170,18 @@ static void sp_rx_complete(void *data)
 	char *pbuf;
 	
 	GDMA_InitStruct = &(gs->SpRxGdmaInitStruct);
-	
+	DCache_Invalidate(GDMA_InitStruct->GDMA_DstAddr, GDMA_InitStruct->GDMA_BlockSize<<2);
 	/* Clear Pending ISR */
 	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
 
 	sp_release_rx_page();
 	rx_addr = (u32)sp_get_free_rx_page();
 	rx_length = sp_get_free_rx_length();
-	GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_length>>2);	
+	//GDMA_SetDstAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr);
+	//GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_length>>2);	
 	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	//GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	AUDIO_SP_RXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, rx_addr, rx_length);
 }
 
 void record_det_isr(void)

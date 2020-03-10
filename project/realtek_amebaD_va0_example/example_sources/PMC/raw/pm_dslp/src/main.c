@@ -1,3 +1,4 @@
+
 #include "ameba_soc.h"
 
 #define AON_TIMER_WAKEUP	0
@@ -62,6 +63,9 @@ void main(void)
 		app_dslp_wake();
 	}
 
+	app_keyscan_init(FALSE); /* 5uA */
+	app_captouch_init(); /* 1uA */
+
 	DSLP_Para.sleep_time = 0;
 
 	switch(wakeup_source){
@@ -102,7 +106,6 @@ void main(void)
 
 	ipc_send_message(IPC_INT_KM4_TICKLESS_INDICATION, (u32)&DSLP_Para);
 
-	while(1);
+	vTaskStartScheduler();
 
 }
-

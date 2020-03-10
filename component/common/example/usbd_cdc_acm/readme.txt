@@ -42,9 +42,7 @@ Setup Guide
 
 Parameter Setting and Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        The size of USB CDC ACM bulk in/out transfer buffer is configurable, user can call 
-        usbd_cdc_acm_set_bulk_transfer_buffer_size() in USB CDC ACM class init callback to set them, 
-        refer to the example code.
+        None
     
 Result description
 ~~~~~~~~~~~~~~~~~~

@@ -13,4 +13,4 @@ Modify TFTP_HOST_IP_ADDR and RECORD_WAV_NAME in example_audio_pcm_upload.c based
 	Supported :
 	    Ameba-1
 	Source code not in project:
-	    Ameba-z, Ameba-pro
+	    Ameba-z, Ameba-pro, Amebad

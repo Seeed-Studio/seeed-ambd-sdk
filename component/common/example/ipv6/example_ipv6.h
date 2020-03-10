@@ -19,8 +19,8 @@
 #define MAX_SEND_SIZE    256
 #define UDP_SERVER_PORT  5002
 #define TCP_SERVER_PORT  5003
-#define UDP_SERVER_IP    "fe80::5913:507e:2dbe:2ac1"
-#define TCP_SERVER_IP    "fe80::5913:507e:2dbe:2ac1"
+#define UDP_SERVER_IP    "fe80:0000:0000:0000:02e0:4cff:fef3:a546"
+#define TCP_SERVER_IP    "fe80:0000:0000:0000:02e0:4cff:fef3:a546"
 
 //MDNS
 #define MCAST_GROUP_PORT 5353

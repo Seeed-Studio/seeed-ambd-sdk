@@ -18,4 +18,4 @@ This m4a example is used to play m4a files from the SDCARD. In order to run the 
 
 [Supported List]
 	Source code not in project :
-	    Ameba-1, Ameba-z, Ameba-pro
+	    Ameba-1, Ameba-z, Ameba-pro, Ameba-d

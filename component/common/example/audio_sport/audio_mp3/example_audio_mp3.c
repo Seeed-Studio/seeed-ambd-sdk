@@ -72,11 +72,15 @@ static SP_GDMA_STRUCT SPGdmaStruct;
 static SP_OBJ sp_obj;
 static SP_TX_INFO sp_tx_info;
 
-static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
-static u8 sp_zero_buf[SP_ZERO_BUF_SIZE];
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
+static u8 sp_zero_buf[SP_ZERO_BUF_SIZE]__attribute__((aligned(32)));
 
 static int sample_rate_table[] = {44100, 48000, 32000};
 static int bit_rate_table[] = {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320};
+
+static int GDMA_flag = 0; 
 
 static u8 *sp_get_free_tx_page(void)
 {
@@ -158,10 +162,17 @@ static void sp_tx_complete(void *Data)
 	sp_release_tx_page();
 	tx_addr = (u32)sp_get_ready_tx_page();
 	tx_length = sp_get_ready_tx_length();
-	GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
-	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	if(GDMA_flag == 0) {
+		AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);
+	} else {
+		GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_AUDIOC, APBPeriph_AUDIOC_CLOCK, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_SPORT, APBPeriph_SPORT_CLOCK, DISABLE);
+		CODEC_DeInit(APP_LINE_OUT);		
+		PLL_PCM_Set(DISABLE);		
+	}
 }
 
 static void sp_rx_complete(void *data, char* pbuf)
@@ -197,9 +208,9 @@ static void sp_init_hal(pSP_OBJ psp_obj)
 			div = 48;
 			break;
 		case SR_44P1K:
-           	 	div = 4;
-            		PLL_Sel(PLL_PCM);
-            		break;	
+           	div = 4;
+            PLL_Sel(PLL_PCM);
+            break;	
 		default:
 			DBG_8195A("sample rate not supported!!\n");
 			break;
@@ -404,6 +415,7 @@ exit:
 	}
 
 umount:
+	GDMA_flag = 1;
 	if(f_mount(NULL, logical_drv, 1) != FR_OK){
 		printf("FATFS unmount logical drive fail.\n");
 	}
@@ -429,28 +441,29 @@ void example_audio_mp3_thread(void* param)
 
 	
 	printf("Audio codec mp3 demo begin......\n");
-	
-	sp_init_hal(psp_obj);
-	
-	sp_init_tx_variables();
+	for(int i = 0; i < 10; i++){
+		sp_init_hal(psp_obj);
+		sp_init_tx_variables();
 
-	/*configure Sport according to the parameters*/
-	AUDIO_SP_StructInit(&SP_InitStruct);
-	SP_InitStruct.SP_MonoStereo= psp_obj->mono_stereo;
-	SP_InitStruct.SP_WordLen = psp_obj->word_len;
+		/*configure Sport according to the parameters*/
+		AUDIO_SP_StructInit(&SP_InitStruct);
+		SP_InitStruct.SP_MonoStereo= psp_obj->mono_stereo;
+		SP_InitStruct.SP_WordLen = psp_obj->word_len;
 
-	AUDIO_SP_Init(AUDIO_SPORT_DEV, &SP_InitStruct);
+		AUDIO_SP_Init(AUDIO_SPORT_DEV, &SP_InitStruct);	
 	
-	AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, ENABLE);
-	AUDIO_SP_TxStart(AUDIO_SPORT_DEV, ENABLE);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, ENABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, ENABLE);
 
-	tx_addr = (u32)sp_get_ready_tx_page();
-	tx_length = sp_get_ready_tx_length();
-	AUDIO_SP_TXGDMA_Init(0, &SPGdmaStruct.SpTxGdmaInitStruct, &SPGdmaStruct, (IRQ_FUN)sp_tx_complete, (u8*)tx_addr, tx_length);
+		tx_addr = (u32)sp_get_ready_tx_page();
+		tx_length = sp_get_ready_tx_length();
+		AUDIO_SP_TXGDMA_Init(0, &SPGdmaStruct.SpTxGdmaInitStruct, &SPGdmaStruct, (IRQ_FUN)sp_tx_complete, (u8*)tx_addr, tx_length);
 	
-	char wav[16] = FILE_NAME;
-	audio_play_sd_mp3(wav);
-		
+		char wav[16] = FILE_NAME;
+		audio_play_sd_mp3(wav);
+		vTaskDelay(1000);
+		GDMA_flag = 0;
+	}
 exit:
 	vTaskDelete(NULL);
 }

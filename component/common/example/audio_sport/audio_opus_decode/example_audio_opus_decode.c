@@ -20,6 +20,7 @@
 #define SP_DMA_PAGE_SIZE 1920
 #define SP_DMA_PAGE_NUM 4
 #define SP_ZERO_BUF_SIZE 128
+static int GDMA_flag = 0;
 
 typedef struct {
 	u32 sample_rate;
@@ -53,8 +54,11 @@ static SP_InitTypeDef SP_InitStruct;
 static SP_GDMA_STRUCT SPGdmaStruct;
 static SP_OBJ sp_obj;
 static SP_TX_INFO sp_tx_info;
-static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
-static u8 sp_zero_buf[SP_ZERO_BUF_SIZE];
+
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
+static u8 sp_zero_buf[SP_ZERO_BUF_SIZE]__attribute__((aligned(32)));
 
 static u8 *sp_get_free_tx_page(void)
 {
@@ -138,9 +142,18 @@ static void sp_tx_complete(void *Data)
 	tx_addr = (u32)sp_get_ready_tx_page();
 	tx_length = sp_get_ready_tx_length();
 
-	GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	if(GDMA_flag == 0) {
+		AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);
+	} else {
+		printf("complete\n");
+		GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_AUDIOC, APBPeriph_AUDIOC_CLOCK, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_SPORT, APBPeriph_SPORT_CLOCK, DISABLE);
+		CODEC_DeInit(APP_LINE_OUT);		
+		PLL_PCM_Set(DISABLE);		
+	}
 }
 
 
@@ -214,9 +227,7 @@ void opus_audio_opus_decode_thread(void* param){
 	pSP_OBJ psp_obj = (pSP_OBJ)param;
 	int *ptx_buf;
 	sp_init_hal(psp_obj);
-	
 	sp_init_tx_variables();
-
 	/*configure Sport according to the parameters*/
 	AUDIO_SP_StructInit(&SP_InitStruct);
 	SP_InitStruct.SP_MonoStereo= psp_obj->mono_stereo;
@@ -250,16 +261,16 @@ void opus_audio_opus_decode_thread(void* param){
 
 	if(i == 1){
 		printf("at 1\n");
-	//ogg_file1 = op_open_memory(ready_to_convert1, sizeof(ready_to_convert1), &error);
+		//ogg_file1 = op_open_memory(ready_to_convert1, sizeof(ready_to_convert1), &error);
 	
 	}
 	if(i == 2){
 		printf("at 2\n");
-	//	ogg_file1 = op_open_memory(ready_to_convert2, sizeof(ready_to_convert2), &error);
+		//	ogg_file1 = op_open_memory(ready_to_convert2, sizeof(ready_to_convert2), &error);
 	}
 	if(i == 3){
 		printf("at %d\n", i);
-	//	ogg_file1 = op_open_memory(ready_to_convert3, sizeof(ready_to_convert3), &error);		
+		//	ogg_file1 = op_open_memory(ready_to_convert3, sizeof(ready_to_convert3), &error);		
 	}
 	opus_int16 pcm[5600] = {0};
 	for(; ;){
@@ -295,6 +306,7 @@ void opus_audio_opus_decode_thread(void* param){
 		printf("time_total is %d\n", total_tim);
 		op_free(ogg_file1);
     }
+	GDMA_flag = 1;
     vTaskDelete(NULL);
 }
 

@@ -10,6 +10,7 @@ Table of Contents
 ~~~~~~~~~~~~~~~~~
  - Description
  - Setup Guide
+ - Parameter Setting and Configuration
  - Result description
  - Supported List
 
@@ -36,34 +37,15 @@ Setup Guide
         2. Enable CONFIG_EXAMPLE_CJSON in [platform_opts.h]
         /* For cJSON example */
         #define CONFIG_EXAMPLE_CJSON     1
+        
 
-        3. Add example_cJSON() to [example_entry.c]
-        #if defined(CONFIG_EXAMPLE_CJSON) && CONFIG_EXAMPLE_CJSON
-        #include <cJSON/example_cJSON.h>
-        #endif
-        void example_entry(void)
-        {
-        #if defined(CONFIG_EXAMPLE_CJSON) && CONFIG_EXAMPLE_CJSON
-            example_cJSON();
-        #endif
-        }
-        
-        4. Add cJSON lib to project
-        (a) For IAR project, add cJson source code to group <utilities> 
-            $PROJ_DIR$\..\..\..\component\common\utilities\cJSON.c
-        (b) For GCC project, add cJSON source file to utilities Makefile
-            CSRC += $(DIR)/cJSON.c
-        
-        5. Add cJSON example source files to project
-        (a) For IAR project, add cJSON example to group <example> 
-            $PROJ_DIR$\..\..\..\component\common\example\cJSON\example_cJSON.c
-        (b) For GCC project, add cJSON example to example Makefile
-            CSRC += $(DIR)/cJSON/example_cJSON.c
+Parameter Setting and Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Modify generate_json_data() to specific data structure and parse it in handle_json_data().
 
-        
 Result description
 ~~~~~~~~~~~~~~~~~~
-        The data structure you defined display on the screen after booting.
+    The data structure you defined display on the screen after booting.
 
 
 Supported List

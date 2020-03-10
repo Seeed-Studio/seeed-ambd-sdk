@@ -12,6 +12,7 @@
 void gpio_touch_irq_handler (uint32_t id, gpio_irq_event event)
 {
 	GUI_TOUCH_Exec();
+	GUI_TOUCH_Exec();
 }
 
 
@@ -28,6 +29,9 @@ int main(void)
 	gpio_irq_set(&gpio_btn, IRQ_FALL, 1);   
 	gpio_irq_enable(&gpio_btn);
   
+	/*debounce need to be disable, because touch pulse width may be less than 2 debounce clk*/
+	GPIO_INTMode(INT_PIN, ENABLE, GPIO_INT_Trigger_EDGE, GPIO_INT_POLARITY_ACTIVE_LOW, GPIO_INT_DEBOUNCE_DISABLE);
+
 	if (xTaskCreate((TaskFunction_t )MainTask,(const char*)"MainTask", 4096, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(MainTask) failed", __FUNCTION__);
 	

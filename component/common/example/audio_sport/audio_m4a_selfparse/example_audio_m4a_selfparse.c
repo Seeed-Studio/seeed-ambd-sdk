@@ -1,5 +1,4 @@
 #include "example_audio_m4a_selfparse.h"
-#include "platform/platform_stdlib.h"
 #include "wifi_conf.h"
 #include "lwip/arch.h"
 #include "ff.h"
@@ -7,12 +6,9 @@
 #include <disk_if/inc/sdcard.h>
 #include "section_config.h"
 #include "libAACdec/include/aacdecoder_lib.h"
-#include <libavformat/avformat.h>
-#include <libavformat/url.h>
 #include "rl6548.h"
-
+#ifdef CONFIG_EXAMPLE_AUDIO_M4A_SELFPARSE
 #define BITS_PER_CHANNEL	WL_16
-
 #define FILE_NAME "AudioSDTest.m4a"    //Specify the file name you wish to play that is present in the SDCARD
 
 //***global variables start***//
@@ -28,6 +24,8 @@ typedef struct {
 } stsc_t;
 stsc_t stsc_tab[MAX_STSC_NUM];
 int stsc_num;
+
+static int GDMA_flag = 0; 
 
 int m4a_len = 0;
 //char m4a_buf[BUF_LEN];
@@ -57,8 +55,8 @@ HANDLE_AACDECODER handle;
 void *wav = NULL;
 AAC_DECODER_ERROR err;
 
-uint8_t input_buf[1600];
-int16_t decode_buf[4096];
+__attribute__((aligned(4))) uint8_t input_buf[1600];
+__attribute__((aligned(4))) int16_t decode_buf[4096];
 int frame_size = 0;
 CStreamInfo *m4ainfo;
 int first_frame = 1;
@@ -71,8 +69,10 @@ static SP_GDMA_STRUCT SPGdmaStruct;
 static SP_OBJ sp_obj;
 static SP_TX_INFO sp_tx_info;
 
-static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM];
-static u8 sp_zero_buf[SP_ZERO_BUF_SIZE];
+//The size of this buffer should be multiples of 32 and its head address should align to 32 
+//to prevent problems that may occur when CPU and DMA access this area simultaneously. 
+static u8 sp_tx_buf[SP_DMA_PAGE_SIZE*SP_DMA_PAGE_NUM]__attribute__((aligned(32)));
+static u8 sp_zero_buf[SP_ZERO_BUF_SIZE]__attribute__((aligned(32)));
 //****global variables end****//
 
 typedef void (*sample_cb_t)(int offset, int len, FIL m_file);
@@ -176,7 +176,6 @@ void check_m4a_file(FIL	*file)
 			break;
 		}
 		
-	
 		char* pos = (char*)memmem(m4a_buf, m4a_len, "stsd", 4);
 		if (pos)
 		{
@@ -409,7 +408,6 @@ void parse_stco(FIL	*file)
 			printf("file Break!\n");
 			break;
 		}
-		
 		char* pos = memmem(m4a_buf, m4a_len, "stco", 4);
 		int i;
 		if (pos)
@@ -469,7 +467,7 @@ void iterate_samples_from_stsc(sample_cb_t sample_cb, FIL m_file)
     }
 }
 
-u8 *sp_get_free_tx_page(void)
+static u8 *sp_get_free_tx_page(void)
 {
 	pTX_BLOCK ptx_block = &(sp_tx_info.tx_block[sp_tx_info.tx_usr_cnt]);
 	
@@ -480,7 +478,7 @@ u8 *sp_get_free_tx_page(void)
 	}	
 }
 
-void sp_write_tx_page(u8 *src, u32 length)
+static void sp_write_tx_page(u8 *src, u32 length)
 {
 	pTX_BLOCK ptx_block = &(sp_tx_info.tx_block[sp_tx_info.tx_usr_cnt]);
 	
@@ -493,7 +491,7 @@ void sp_write_tx_page(u8 *src, u32 length)
 	}
 }
 
-void sp_release_tx_page(void)
+static void sp_release_tx_page(void)
 {
 	pTX_BLOCK ptx_block = &(sp_tx_info.tx_block[sp_tx_info.tx_gdma_cnt]);
 	
@@ -508,7 +506,7 @@ void sp_release_tx_page(void)
 	}
 }
 
-u8 *sp_get_ready_tx_page(void)
+static u8 *sp_get_ready_tx_page(void)
 {
 	pTX_BLOCK ptx_block = &(sp_tx_info.tx_block[sp_tx_info.tx_gdma_cnt]);
 	
@@ -522,7 +520,7 @@ u8 *sp_get_ready_tx_page(void)
 	}
 }
 
-u32 sp_get_ready_tx_length(void)
+static u32 sp_get_ready_tx_length(void)
 {
 	pTX_BLOCK ptx_block = &(sp_tx_info.tx_block[sp_tx_info.tx_gdma_cnt]);
 
@@ -534,7 +532,7 @@ u32 sp_get_ready_tx_length(void)
 	}
 }
 
-void sp_tx_complete(void *Data)
+static void sp_tx_complete(void *Data)
 {
 	SP_GDMA_STRUCT *gs = (SP_GDMA_STRUCT *) Data;
 	PGDMA_InitTypeDef GDMA_InitStruct;
@@ -549,13 +547,21 @@ void sp_tx_complete(void *Data)
 	sp_release_tx_page();
 	tx_addr = (u32)sp_get_ready_tx_page();
 	tx_length = sp_get_ready_tx_length();
-	GDMA_SetSrcAddr(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr);
-	GDMA_SetBlkSize(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_length>>2);
 	
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, ENABLE);
+	if(GDMA_flag == 0) {
+		AUDIO_SP_TXGDMA_Restart(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, tx_addr, tx_length);
+	} else {
+		GDMA_ChnlFree(SPGdmaStruct.SpTxGdmaInitStruct.GDMA_Index, SPGdmaStruct.SpTxGdmaInitStruct.GDMA_ChNum);
+		AUDIO_SP_TdmaCmd(AUDIO_SPORT_DEV, DISABLE);
+		AUDIO_SP_TxStart(AUDIO_SPORT_DEV, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_AUDIOC, APBPeriph_AUDIOC_CLOCK, DISABLE);
+		RCC_PeriphClockCmd(APBPeriph_SPORT, APBPeriph_SPORT_CLOCK, DISABLE);
+		CODEC_DeInit(APP_LINE_OUT);		
+		PLL_PCM_Set(DISABLE);		
+	}
 }
 
-void sp_rx_complete(void *data, char* pbuf)
+static void sp_rx_complete(void *data, char* pbuf)
 {
 	//
 }
@@ -693,7 +699,6 @@ static void audio_play_pcm(char *buf, uint32_t len)
 		}
 	}
 }
-
 void adts_cb(int offset, int len, FIL m_file)
 {
 	int packet_size = 0;
@@ -701,11 +706,10 @@ void adts_cb(int offset, int len, FIL m_file)
 	uint8_t *ptr = input_buf;
 	int i = 0;
 	u32 read_length = 0;
-	
 	char head[7];
 	int ret;
 
-	get_adts_head(head, len);   
+	get_adts_head(head, len);
 	memcpy(input_buf, head, 7);
 	f_lseek(&m_file, offset);
 	f_read(&m_file, m4a_buf, len,(UINT*)&read_length);
@@ -798,7 +802,6 @@ void audio_play_sd_m4a_selfparse(u8* filename)
 	file_size = (&m_file)->fsize;
 	bytes_left = file_size;
 	printf("File size is %d\n",file_size);
-        
 	check_m4a_file(&m_file);
 	parse_esds(&m_file);
 	parse_stsc(&m_file);
@@ -813,12 +816,15 @@ void audio_play_sd_m4a_selfparse(u8* filename)
 	if(res){
 		printf("close file (%s) fail.\n", filename);
 	}
-
+	
 umount:
+	GDMA_flag = 1;
 	if(f_mount(NULL, logical_drv, 1) != FR_OK){
 		printf("FATFS unmount logical drive fail.\n");
 	}
-
+	Psram_reserve_free(m4a_buf);
+	Psram_reserve_free(sample_size_tab);
+	Psram_reserve_free(chunk_offset_tab);
 unreg:	
 	if(FATFS_UnRegisterDiskDriver(drv_num))	
 	printf("Unregister disk driver from FATFS fail.\n");
@@ -826,9 +832,13 @@ unreg:
 
 void example_audio_m4a_selfparse_thread(void)
 {
-
 	printf("Audio codec m4a selfparse demo begin......\n");
-	audio_play_sd_m4a_selfparse(FILE_NAME);
+	for(int i = 0; i< 30; i++){
+		audio_play_sd_m4a_selfparse(FILE_NAME);
+		first_frame = 1;
+		vTaskDelay(1000);
+		GDMA_flag = 0;
+	}		
 exit:
 	vTaskDelete(NULL);
 }
@@ -838,4 +848,4 @@ void example_audio_m4a_selfparse(void)
 	if(xTaskCreate(example_audio_m4a_selfparse_thread, ((const char*)"example_audio_m4a_selfparse_thread"), 4000, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(example_audio_m4a_selfparse_thread) failed", __FUNCTION__);
 }
-
+#endif

@@ -15,6 +15,7 @@
 #include <FreeRTOS.h>
 #include <task.h>
 #endif
+#include <wifi_constants.h>
 
 #define PORT	443
 #define HOST	"192.168.1.100"  //"m-apps.oss-cn-shenzhen.aliyuncs.com"
@@ -25,8 +26,12 @@
 void https_update_ota_task(void *param){
 	(void)param;
 	
-	printf("\n\r\n\r\n\r\n\r<<<<<<Waiting for 1 minute to connect Wi-Fi>>>>>>>\n\r\n\r\n\r\n\r");
-	vTaskDelay(60*1000);
+	printf("\n\r\n\r\n\r\n\r<<<<<<OTA HTTPS Example start...>>>>>>>\n\r\n\r\n\r\n\r");
+
+	 while(wifi_is_ready_to_transceive(RTW_STA_INTERFACE) != RTW_SUCCESS){
+    		printf("Wait for WIFI connection ...\n");
+    		vTaskDelay(1000);
+  	}
 	int ret = -1;
 	
 	ret = https_update_ota(HOST, PORT, RESOURCE);

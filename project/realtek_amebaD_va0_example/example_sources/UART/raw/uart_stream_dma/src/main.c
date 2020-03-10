@@ -20,10 +20,8 @@
 #define UART_RX    _PA_19  //UART0  RX
 #define UART_DEV  UART0_DEV
 
-#define SRX_BUF_SZ 100
-
-SRAM_NOCACHE_DATA_SECTION
-char rx_buf[SRX_BUF_SZ];
+#define SRX_BUF_SZ 32*5      /*note that dma mode buffer length should be integral multiple of 32 bytes*/
+char rx_buf[SRX_BUF_SZ]__attribute__((aligned(32)))={0};  /*note that dma mode buffer address should be 32 bytes aligned*/
 
 volatile uint32_t tx_busy=0;
 volatile uint32_t rx_done=0;
@@ -59,8 +57,9 @@ void uart_send_string_done(void)
 	tx_busy = 0;
 }
 
-void uart_recv_string_done(void)
+void uart_recv_string_done(void *data)
 {
+	DCache_Invalidate((u32)rx_buf, SRX_BUF_SZ);  /*!!!To solve the cache consistency problem, DMA mode need it!!!*/
 	dma_free();
 	rx_done = 1;
 }
@@ -107,7 +106,7 @@ void uart_send_string(char *pstr)
 	uart_dma_send(pstr,_strlen(pstr));
 }
 
-void main(void)
+void maintask(void)
 {
 	int ret;
 	int i=0;
@@ -143,7 +142,7 @@ void main(void)
 		if (rx_done) {
 			uart_send_string(rx_buf);            
 			rx_done = 0;            
-            		len = (i+4) & 0x0f;
+            		len = (i+3)%15+1;
            	 	i++;
 	    		if(len == 0) {
 	        		len = 1;
@@ -160,5 +159,15 @@ void main(void)
 			}
 		}
 	}
+}
+
+void main(void)
+{
+	if (pdTRUE != xTaskCreate( (TaskFunction_t)maintask, "RAW_GTIMER_DEMO_TASK", (2048 /4), (void *)NULL, (tskIDLE_PRIORITY + 1), NULL))
+	{
+		DiagPrintf("Create RAW_GTIMER_DEMO_TASK Err!!\n");
+	}
+	
+	vTaskStartScheduler();
 }
 
