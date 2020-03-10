@@ -603,13 +603,9 @@ void fATWx(void *arg)
 		}
 	}
 
-#if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1) && (configUSE_STATS_FORMATTING_FUNCTIONS == 1)
-	{
-		signed char pcWriteBuffer[1024];
-		vTaskList((char *) pcWriteBuffer);
-		printf("\n\rTask List: \n\r%s", pcWriteBuffer);
-	}
-#endif
+	#if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
+	trace_task();
+	#endif
 
 #if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	if (ret != RTW_SUCCESS)
@@ -3043,8 +3039,9 @@ log_item_t at_wifi_items[] = {
 	{"ATXP", fATXP, {NULL, NULL}},
 #endif
 #endif
+
 #elif ATCMD_VER == ATVER_2	// uart at command
-#if CONFIG_WLAN
+	#if CONFIG_WLAN
 	{"ATPA", fATPA,},	// set AP
 	{"ATPN", fATPN,},	// connect to Network
 	{"ATPH", fATPH,},	// set DHCP mode
@@ -3056,11 +3053,14 @@ log_item_t at_wifi_items[] = {
 	{"ATWD", fATWD,},
 	{"ATWS", fATWS,},
 	{"ATW?", fATWx,},
-#if (CONFIG_INCLUDE_SIMPLE_CONFIG)
+
+	#if (CONFIG_INCLUDE_SIMPLE_CONFIG)
 	{"ATWQ", fATWQ,},
-#endif				// #if (CONFIG_INCLUDE_SIMPLE_CONFIG)
-#endif				// #if CONFIG_WLAN
-#endif				// end of #if ATCMD_VER == ATVER_1
+	#endif// #if (CONFIG_INCLUDE_SIMPLE_CONFIG)
+
+	#endif// #if CONFIG_WLAN
+
+#endif//end of #if ATCMD_VER == ATVER_2
 };
 
 #if ATCMD_VER == ATVER_2

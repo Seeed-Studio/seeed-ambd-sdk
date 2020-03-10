@@ -262,5 +262,10 @@ int atcmd_wifi_restore_from_flash(void);
 #define at_print_data(data, size) do{__rtl_memDump(data, size, NULL);}while(0)
 #endif//#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 
+
+#if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
+int trace_task(void);
+#endif
+
 #endif//__ATCMD_WIFI_H__
 
