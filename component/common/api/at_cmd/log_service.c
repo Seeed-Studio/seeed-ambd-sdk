@@ -234,8 +234,23 @@ void *log_handler(char *cmd)
 	token = strtok(copy, "=");
 	param = strtok(NULL, "\0");
 #endif
+
 	if (token) {
+		int size;
+
 		strcpy(tok, token);
+
+		// esp compatible
+		size = strlen(tok) - 1;
+		if (size >= 4 && tok[size] == '?') {
+			tok[size++] = '\0';
+
+			if (param == NULL) {
+				param = &buf[size];
+				buf[size++] = '?';
+				buf[size] = '\0';
+			}
+		}
 	} else {
 		//printf("\n\rAT Cmd format error!\n");
 		return NULL;
@@ -254,12 +269,12 @@ int parse_param(char *buf, char **argv)
 {
 
 	int argc = 1;
-	char str_buf[LOG_SERVICE_BUFLEN];
-	memset(str_buf, 0, LOG_SERVICE_BUFLEN);
+	char str_buf[LOG_SERVICE_BUFLEN] = {0};
 	int str_count = 0;
 	int buf_cnt = 0;
 	static char temp_buf[LOG_SERVICE_BUFLEN];
 	char *buf_pos = temp_buf;
+
 	memset(temp_buf, 0, sizeof(temp_buf));
 
 	if (buf == NULL)
@@ -268,22 +283,20 @@ int parse_param(char *buf, char **argv)
 
 	while ((argc < MAX_ARGC) && (*buf_pos != '\0')) {
 		while ((*buf_pos == ',') || (*buf_pos == '[') || (*buf_pos == ']')) {
-			if ((*buf_pos == ',') && (*(buf_pos + 1) == ',')) {
-				argv[argc] = NULL;
-				argc++;
+			if ((*buf_pos == ',') && (buf_pos[1] == ',')) {
+				argv[argc++] = NULL;
 			}
-			*buf_pos = '\0';
-			buf_pos++;
+			*buf_pos++ = '\0';
 		}
 
 		if (*buf_pos == '\0')
 			break;
+
 		else if (*buf_pos == '"') {
 			memset(str_buf, '\0', LOG_SERVICE_BUFLEN);
 			str_count = 0;
 			buf_cnt = 0;
-			*buf_pos = '\0';
-			buf_pos++;
+			*buf_pos++ = '\0';
 			if (*buf_pos == '\0')
 				break;
 			argv[argc] = buf_pos;
@@ -292,10 +305,8 @@ int parse_param(char *buf, char **argv)
 					buf_pos++;
 					buf_cnt++;
 				}
-				str_buf[str_count] = *buf_pos;
-				str_count++;
+				str_buf[str_count++] = *buf_pos++;
 				buf_cnt++;
-				buf_pos++;
 			}
 			*buf_pos = '\0';
 			memcpy(buf_pos - buf_cnt, str_buf, buf_cnt);
@@ -331,15 +342,13 @@ void legency_interactive_handler(unsigned char argc, unsigned char **argv)
 	/* To avoid gcc warnings */
 	(void) argc;
 	(void) argv;
-#if 0				//defined(CONFIG_PLATFORM_8195A)
+#if 0//defined(CONFIG_PLATFORM_8195A)
 	if (argc < 1) {
 		DiagPrintf("Wrong argument number!\r\n");
 		return;
 	}
 
-
 	DiagPrintf("Wlan Normal Mode\n");
-
 	WlanNormal(argc, argv);
 #else
 	strncpy(uart_buf, log_buf, 63);	//uart_buf[64]
