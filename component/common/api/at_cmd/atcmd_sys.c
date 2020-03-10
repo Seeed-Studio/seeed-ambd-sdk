@@ -121,6 +121,7 @@ void fATGMR(void *arg)
 void fATRST(void *arg) {
 	(void) arg;
 	sys_reset();
+	at_printf(STR_RESP_OK);
 	return;
 }
 

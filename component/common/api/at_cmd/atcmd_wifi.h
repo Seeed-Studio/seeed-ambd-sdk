@@ -266,6 +266,7 @@ int atcmd_wifi_restore_from_flash(void);
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
 int trace_task(void);
 #endif
+extern u8 key_2char2num(u8 hch, u8 lch);
 
 #endif//__ATCMD_WIFI_H__
 
