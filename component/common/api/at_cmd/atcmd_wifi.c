@@ -2999,6 +2999,56 @@ void fATCWMODE(void* arg) {
 	return;
 }
 
+void fATCWDHCP(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int mode, enable;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		mode  = dhcp_mode_sta == 2? 0: 1;
+		mode |= dhcp_mode_ap << 1;
+		at_printf("+CWDHCP:%d\r\n", mode);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	enable = atoi(argv[1]);
+	if (enable > 1 || argv[2] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	mode = atoi(argv[2]);
+
+	if (enable) {
+		if (mode & 0x1)
+			dhcp_mode_sta = 1;
+		if (mode & 0x2)
+			dhcp_mode_ap  = 1;
+	} else {
+		if (mode & 0x1)
+			dhcp_mode_sta = 0;
+		if (mode & 0x2)
+			dhcp_mode_ap  = 2;
+	}
+
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 
 
 
@@ -3109,6 +3159,7 @@ log_item_t at_wifi_items[] = {
 #endif//end of #if ATCMD_VER == ATVER_2
 
 	{"AT+CWMODE", fATCWMODE,},
+	{"AT+CWDHCP", fATCWDHCP,},
 };
 
 #if ATCMD_VER == ATVER_2
