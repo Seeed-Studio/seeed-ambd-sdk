@@ -268,5 +268,12 @@ int trace_task(void);
 #endif
 extern u8 key_2char2num(u8 hch, u8 lch);
 
+
+#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+#define _EN_EXPORT_ATCMD 1
+#else
+#define _EN_EXPORT_ATCMD 0
+#endif
+
 #endif//__ATCMD_WIFI_H__
 

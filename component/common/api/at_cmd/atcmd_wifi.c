@@ -122,9 +122,15 @@ extern int cmd_wifi_p2p_auto_go_start(int argc, char **argv);
 extern int airkiss_start(rtw_network_info_t *);
 extern int airkiss_stop(void);
 #endif
+
 #if CONFIG_LWIP_LAYER
 extern struct netif xnetif[NET_IF_NUM];
+	#ifdef  CONFIG_CONCURRENT_MODE
+	#define NETIF_AP (&xnetif[0])
+	#define NETIF_STA (&xnetif[1])
+	#endif
 #endif
+
 #if CONFIG_WOWLAN_SERVICE
 extern void cmd_wowlan_service(int argc, char **argv);
 #endif
@@ -147,16 +153,16 @@ int security = -1;
 #endif
 
 #if ATCMD_VER == ATVER_2 || WIFI_LOGO_CERTIFICATION_CONFIG
-unsigned char sta_ip[4] = { 192, 168, 1, 80 }, sta_netmask[4] = {
-255, 255, 255, 0}, sta_gw[4] = {
-192, 168, 1, 1};
+unsigned char sta_ip[4]      = { 192, 168, 1, 80 },
+	      sta_netmask[4] = {255, 255, 255, 0},
+	      sta_gw[4]      = {192, 168, 1, 1};
 #endif
 
 #if ATCMD_VER == ATVER_2
 unsigned char dhcp_mode_sta = 1, dhcp_mode_ap = 1;
-unsigned char ap_ip[4] = { 192, 168, 43, 1 }, ap_netmask[4] = {
-255, 255, 255, 0}, ap_gw[4] = {
-192, 168, 43, 1};
+unsigned char ap_ip[4]      = { 192, 168, 43, 1 },
+	      ap_netmask[4] = {255, 255, 255, 0},
+	      ap_gw[4]      = {192, 168, 43, 1};
 
 static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *userdata);
 #endif
@@ -184,7 +190,7 @@ static void init_wifi_struct(void)
 
 static void print_scan_result(rtw_scan_result_t * record)
 {
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+	#if _EN_EXPORT_ATCMD
 	at_printf("%s,%d,%s,%d," MAC_FMT "", record->SSID.val, record->channel,
 		  (record->security == RTW_SECURITY_OPEN) ? "Open" :
 		  (record->security == RTW_SECURITY_WEP_PSK) ? "WEP" :
@@ -195,7 +201,7 @@ static void print_scan_result(rtw_scan_result_t * record)
 		  (record->security == RTW_SECURITY_WPA2_MIXED_PSK) ? "WPA2 Mixed" :
 		  (record->security == RTW_SECURITY_WPA_WPA2_MIXED) ? "WPA/WPA2 AES" : "Unknown",
 		  record->signal_strength, MAC_ARG(record->BSSID.octet));
-#else
+	#else
 	RTW_API_INFO("%s\t ", (record->bss_type == RTW_BSS_TYPE_ADHOC) ? "Adhoc" : "Infra");
 	RTW_API_INFO(MAC_FMT, MAC_ARG(record->BSSID.octet));
 	RTW_API_INFO(" %d\t ", record->signal_strength);
@@ -209,14 +215,14 @@ static void print_scan_result(rtw_scan_result_t * record)
 		     (record->security == RTW_SECURITY_WPA2_TKIP_PSK) ? "WPA2 TKIP" :
 		     (record->security == RTW_SECURITY_WPA2_MIXED_PSK) ? "WPA2 Mixed" :
 		     (record->security == RTW_SECURITY_WPA_WPA2_MIXED) ? "WPA/WPA2 AES" :
-#ifdef CONFIG_SAE_SUPPORT
+	#ifdef CONFIG_SAE_SUPPORT
 		     (record->security == RTW_SECURITY_WPA3_AES_PSK) ? "WP3-SAE AES" :
-#endif
+	#endif
 		     "Unknown");
 
 	RTW_API_INFO(" %s ", record->SSID.val);
 	RTW_API_INFO("\r\n");
-#endif
+	#endif
 }
 
 static rtw_result_t app_scan_result_handler(rtw_scan_handler_result_t * malloced_scan_result)
@@ -227,30 +233,32 @@ static rtw_result_t app_scan_result_handler(rtw_scan_handler_result_t * malloced
 		rtw_scan_result_t *record = &malloced_scan_result->ap_details;
 		record->SSID.val[record->SSID.len] = 0;	/* Ensure the SSID is null terminated */
 
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+		#if _EN_EXPORT_ATCMD
 		at_printf("\r\nAP : %d,", ++ApNum);
-#else
+		#else
 		RTW_API_INFO("%d\t ", ++ApNum);
-#endif
+		#endif
 		print_scan_result(record);
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+
+		#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 		if (malloced_scan_result->user_data)
 			memcpy((void *) ((char *) malloced_scan_result->user_data +
 					 (ApNum - 1) * sizeof(rtw_scan_result_t)), (char *) record,
 			       sizeof(rtw_scan_result_t));
-#endif
+		#endif
 	} else {
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+		#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 		inic_c2h_msg("ATWS", RTW_SUCCESS, (char *) malloced_scan_result->user_data,
 			     ApNum * sizeof(rtw_scan_result_t));
 		if (malloced_scan_result->user_data)
 			free(malloced_scan_result->user_data);
 		inic_c2h_msg("ATWS", RTW_SUCCESS, NULL, 0);
-#endif
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+		#endif
+
+		#if _EN_EXPORT_ATCMD
 		at_printf("\r\n[ATWS] OK");
 		at_printf(STR_END_OF_ATCMD_RET);
-#endif
+		#endif
 		ApNum = 0;
 	}
 	return RTW_SUCCESS;
@@ -302,15 +310,15 @@ void fATWD(void *arg)
 	}
 	printf("\n\r");
 
-#if CONFIG_LWIP_LAYER
+	#if CONFIG_LWIP_LAYER
 	LwIP_ReleaseIP(WLAN0_IDX);
-#endif
+	#endif
 exit:
 
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	if (ret != RTW_SUCCESS)
 		inic_c2h_msg("ATWD", ret, NULL, 0);
-#endif
+	#endif
 	init_wifi_struct();
 	#if ATCMD_VER == ATVER_2
 	if (error_no == 0)
@@ -321,9 +329,9 @@ exit:
 	return;
 
 exit_success:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATWD", RTW_SUCCESS, NULL, 0);
-#endif
+	#endif
 	init_wifi_struct();
 
 	#if ATCMD_VER == ATVER_2
@@ -428,7 +436,8 @@ void fATWS(void *arg)
 			goto exit;
 		}
 	}
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_scan_buf = malloc(65 * sizeof(rtw_scan_result_t));
 	if (inic_scan_buf == NULL) {
 		ret = RTW_BUFFER_UNAVAILABLE_TEMPORARY;
@@ -439,21 +448,24 @@ void fATWS(void *arg)
 		printf("[ATWS]ERROR: wifi scan failed\n\r");
 		goto exit;
 	}
-#else
+	#else
 	if ((ret = wifi_scan_networks(app_scan_result_handler, NULL)) != RTW_SUCCESS) {
 		printf("[ATWS]ERROR: wifi scan failed\n\r");
 		error_no = 5;
 		goto exit;
 	}
-#endif
+	#endif
+
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	if (ret != RTW_SUCCESS) {
 		if (inic_scan_buf)
 			free(inic_scan_buf);
 		inic_c2h_msg("ATWS", ret, NULL, 0);
 	}
-#endif
+	#endif
+
 	#if ATCMD_VER == ATVER_2
 	if (error_no)
 		at_printf("\r\n[ATWS] ERROR:%d", error_no);
@@ -484,31 +496,34 @@ void fATWx(void *arg)
 	(void) arg;
 
 	int i = 0;
-#if CONFIG_LWIP_LAYER
+
+	#if CONFIG_LWIP_LAYER
 	u8 *mac = LwIP_GetMAC(&xnetif[0]);
 	u8 *ip = LwIP_GetIP(&xnetif[0]);
 	u8 *gw = LwIP_GetGW(&xnetif[0]);
 	u8 *msk = LwIP_GetMASK(&xnetif[0]);
-#endif
+	#endif
 	u8 *ifname[2] = { (u8 *) WLAN0_NAME, (u8 *) WLAN1_NAME };
 	rtw_wifi_setting_t setting;
 
 	printf("[ATW?]: _AT_WLAN_INFO_\n\r");
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	int ret = RTW_SUCCESS;
 	int info_sz = 0;
 	u8 *info = malloc(NET_IF_NUM * sizeof(rtw_wifi_setting_t) + 3 * sizeof(rtw_mac_t));
 	if (info == NULL)
 		ret = RTW_BUFFER_UNAVAILABLE_TEMPORARY;
-#endif
+	#endif
 	for (i = 0; i < NET_IF_NUM; i++) {
 		if (rltk_wlan_running(i)) {
-#if CONFIG_LWIP_LAYER
+
+			#if CONFIG_LWIP_LAYER
 			mac = LwIP_GetMAC(&xnetif[i]);
 			ip = LwIP_GetIP(&xnetif[i]);
 			gw = LwIP_GetGW(&xnetif[i]);
 			msk = LwIP_GetMASK(&xnetif[i]);
-#endif
+			#endif
 			printf("\n\r\nWIFI %s Status: Running", ifname[i]);
 			printf("\n\r==============================");
 
@@ -516,26 +531,28 @@ void fATWx(void *arg)
 
 			wifi_get_setting((const char *) ifname[i], &setting);
 			wifi_show_setting((const char *) ifname[i], &setting);
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+
+			#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 			if (info) {
 				memcpy(info + info_sz, (void *) &setting, sizeof(rtw_wifi_setting_t));
 				info_sz += sizeof(rtw_wifi_setting_t);
 			}
-#endif
+			#endif
 
-#if CONFIG_LWIP_LAYER
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+			#if CONFIG_LWIP_LAYER
+			#if _EN_EXPORT_ATCMD
 			at_printf("%02x:%02x:%02x:%02x:%02x:%02x,", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 			at_printf("%d.%d.%d.%d,", ip[0], ip[1], ip[2], ip[3]);
 			at_printf("%d.%d.%d.%d", gw[0], gw[1], gw[2], gw[3]);
-#endif
+			#endif
 			printf("\n\rInterface (%s)", ifname[i]);
 			printf("\n\r==============================");
 			printf("\n\r\tMAC => %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 			printf("\n\r\tIP  => %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 			printf("\n\r\tGW  => %d.%d.%d.%d", gw[0], gw[1], gw[2], gw[3]);
 			printf("\n\r\tmsk  => %d.%d.%d.%d\n\r", msk[0], msk[1], msk[2], msk[3]);
-#endif
+			#endif
+
 			if (setting.mode == RTW_MODE_AP || i == 1) {
 				int client_number;
 				struct {
@@ -557,28 +574,31 @@ void fATWx(void *arg)
 						printf("\n\rClient %d:", client_number + 1);
 						printf("\n\r\tMAC => " MAC_FMT "",
 						       MAC_ARG(client_info.mac_list[client_number].octet));
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+
+						#if _EN_EXPORT_ATCMD
 						at_printf("\r\nCLIENT : %d," MAC_FMT "", client_number + 1,
 							  MAC_ARG(client_info.mac_list[client_number].octet));
-#endif
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+						#endif
+
+						#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 						if (info) {
 							memcpy(info + info_sz,
 							       (void *) &client_info.mac_list[client_number],
 							       sizeof(rtw_mac_t));
 							info_sz += sizeof(rtw_mac_t);
 						}
-#endif
+						#endif
 					}
 					printf("\n\r");
 				}
 			}
 		}
-// show the ethernet interface info
+
+		// show the ethernet interface info
 		else {
-#if CONFIG_ETHERNET
+			#if CONFIG_ETHERNET
 			if (i == NET_IF_NUM - 1) {
-#if CONFIG_LWIP_LAYER
+				#if CONFIG_LWIP_LAYER
 				mac = LwIP_GetMAC(&xnetif[i]);
 				ip = LwIP_GetIP(&xnetif[i]);
 				gw = LwIP_GetGW(&xnetif[i]);
@@ -588,9 +608,9 @@ void fATWx(void *arg)
 				       mac[4], mac[5]);
 				printf("\n\r\tIP  => %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 				printf("\n\r\tGW  => %d.%d.%d.%d\n\r", gw[0], gw[1], gw[2], gw[3]);
-#endif				// end CONFIG_LWIP_LAYER
+				#endif	// end CONFIG_LWIP_LAYER
 			}
-#endif				// end CONFIG_ETHERNET
+			#endif	// end CONFIG_ETHERNET
 		}
 	}
 
@@ -598,7 +618,7 @@ void fATWx(void *arg)
 	trace_task();
 	#endif
 
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	if (ret != RTW_SUCCESS)
 		inic_c2h_msg("ATW?", ret, NULL, 0);
 	else
@@ -607,11 +627,11 @@ void fATWx(void *arg)
 	if (info)
 		free(info);
 	info = NULL;
-#endif
+	#endif
 
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)
+	#if _EN_EXPORT_ATCMD
 	at_printf("\r\n[ATW?] OK");
-#endif
+	#endif
 
 }
 
@@ -629,9 +649,9 @@ void fATW0(void *arg)
 	strcpy((char *) wifi.ssid.val, (char *) arg);
 	wifi.ssid.len = strlen((char *) arg);
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW0", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -646,20 +666,20 @@ void fATW1(void *arg)
 	}
 	printf("[ATW1]: _AT_WLAN_SET_PASSPHRASE_ [%s]\n\r", (char *) arg);
 
-#ifdef CONFIG_SAE_SUPPORT
+	#ifdef CONFIG_SAE_SUPPORT
 	if (strlen((char *) arg) > 63) {
 		printf("[ATW1]: Error: password input(%d) > 63 \n\r", strlen((char *) arg));
 		goto exit;
 	}
-#endif
+	#endif
 
 	strcpy((char *) password, (char *) arg);
 	wifi.password = password;
 	wifi.password_len = strlen((char *) arg);
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW1", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -680,9 +700,9 @@ void fATW2(void *arg)
 	}
 	wifi.key_id = atoi((const char *) (arg));
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW2", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -707,9 +727,9 @@ void fATW3(void *arg)
 
 	printf("[ATW3]: _AT_WLAN_AP_SET_SSID_ [%s]\n\r", ap.ssid.val);
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW3", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -727,9 +747,9 @@ void fATW4(void *arg)
 	ap.password_len = strlen((char *) arg);
 	printf("[ATW4]: _AT_WLAN_AP_SET_SEC_KEY_ [%s]\n\r", ap.password);
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW4", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -745,9 +765,9 @@ void fATW5(void *arg)
 	ap.channel = (unsigned char) atoi((const char *) arg);
 	printf("[ATW5]: _AT_WLAN_AP_SET_CHANNEL_ [channel %d]\n\r", ap.channel);
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW5", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -767,9 +787,9 @@ void fATW6(void *arg)
 	for (i = 0; i < ETH_ALEN; i++)
 		wifi.bssid.octet[i] = (u8) mac[i] & 0xFF;
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW6", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 
@@ -790,9 +810,9 @@ void fATW7(void *arg)
 	}
 	security = atoi((const char *) (arg));
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW7", ret, NULL, 0);
-#endif
+	#endif
 	return;
 }
 #endif
@@ -801,12 +821,12 @@ void fATWA(void *arg)
 {
 	/* To avoid gcc warnings */
 	(void) arg;
-#if CONFIG_LWIP_LAYER
+	#if CONFIG_LWIP_LAYER
 	struct ip_addr ipaddr;
 	struct ip_addr netmask;
 	struct ip_addr gw;
 	struct netif *pnetif = &xnetif[0];
-#endif
+	#endif
 	int timeout = 20;
 	volatile int ret = RTW_SUCCESS;
 	printf("[ATWA]: _AT_WLAN_AP_ACTIVATE_\n\r");
@@ -835,11 +855,11 @@ void fATWA(void *arg)
 				}
 			}
 		}
-#ifdef CONFIG_FPGA
+		#ifdef CONFIG_FPGA
 		else if (ap.password_len == 5) {
 			ap.security_type = RTW_SECURITY_WEP_PSK;
 		}
-#endif
+		#endif
 		else {
 			printf("[ATWA]Error: password should be 64 hex characters or 8-63 ASCII characters\n\r");
 			ret = RTW_INVALID_KEY;
@@ -1311,21 +1331,21 @@ void fATWB(void *arg)
 		vTaskDelay(1 * configTICK_RATE_HZ);
 		timeout--;
 	}
-#if CONFIG_LWIP_LAYER
+	#if CONFIG_LWIP_LAYER
 	LwIP_UseStaticIP(&xnetif[1]);
-#ifdef CONFIG_DONT_CARE_TP
+	#ifdef CONFIG_DONT_CARE_TP
 	pnetiff->flags |= NETIF_FLAG_IPSWITCH;
-#endif
+	#endif
 	dhcps_init(pnetiff);
-#endif
+	#endif
 
-#if defined( CONFIG_ENABLE_AP_POLLING_CLIENT_ALIVE )&&( CONFIG_ENABLE_AP_POLLING_CLIENT_ALIVE == 1 )
+	#if defined( CONFIG_ENABLE_AP_POLLING_CLIENT_ALIVE )&&( CONFIG_ENABLE_AP_POLLING_CLIENT_ALIVE == 1 )
 	wifi_set_ap_polling_sta(1);
-#endif
+	#endif
       exit:
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_wifi_info("ATWB", ret);
-#endif
+	#endif
 	init_wifi_struct();
 }
 #endif
@@ -1339,9 +1359,9 @@ void fATWM(void *arg)
 	printf("[ATWM]: _AT_WLAN_PROMISC_\n\r");
 	if (!arg) {
 		printf("[ATWM]Usage: ATWM=DURATION_SECONDS[with_len]");
-#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
+		#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 		inic_c2h_msg("ATWM", RTW_BADARG, NULL, 0);
-#endif
+		#endif
 		return;
 	}
 	if ((argc = parse_param(arg, argv)) > 1) {
@@ -3049,6 +3069,88 @@ void fATCWDHCP(void* arg) {
 	return;
 }
 
+void fATCIPMUX(void* arg) {
+	(void) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATCWLAPOPT(void* arg) {
+	(void) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATCIPSTATUS(void* arg) {
+	if (arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATCIPAP(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		at_printf("+CIPAP:ip:\"%s\"\r\n",      ip_ntoa(&NETIF_AP->ip_addr));
+		at_printf("+CIPAP:gateway:\"%s\"\r\n", ip_ntoa(&NETIF_AP->gw));
+		at_printf("+CIPAP:netmask:\"%s\"\r\n", ip_ntoa(&NETIF_AP->netmask));
+		at_printf(STR_RESP_OK);
+		return;
+	}
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATCIPAPMAC(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		u8 *mac = LwIP_GetMAC(NETIF_AP);
+
+		at_printf("+CIPAPMAC:\"%02x:%02x:%02x:%02x:%02x:%02x\"\r\n",
+				mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void fATCIPDINFO(void* arg) {
+	(void) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 
 
 
@@ -3160,6 +3262,10 @@ log_item_t at_wifi_items[] = {
 
 	{"AT+CWMODE", fATCWMODE,},
 	{"AT+CWDHCP", fATCWDHCP,},
+	{"AT+CIPMUX", fATCIPMUX,},
+	{"AT+CIPAP" , fATCIPAP ,},
+	{"AT+CIPAPMAC", fATCIPAPMAC,},
+	{"AT+CIPDINFO", fATCIPDINFO,},
 };
 
 #if ATCMD_VER == ATVER_2
