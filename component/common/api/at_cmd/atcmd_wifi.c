@@ -126,8 +126,8 @@ extern int airkiss_stop(void);
 #if CONFIG_LWIP_LAYER
 extern struct netif xnetif[NET_IF_NUM];
 	#ifdef  CONFIG_CONCURRENT_MODE
-	#define NETIF_AP (&xnetif[0])
-	#define NETIF_STA (&xnetif[1])
+	#define NETIF_AP (&xnetif[WLAN0_IDX])
+	#define NETIF_STA (&xnetif[WLAN1_IDX])
 	#endif
 #endif
 
@@ -2983,7 +2983,7 @@ void fATWU(void *arg)
 
 
 
-
+/* Set the WiFi Mode (Station/AP/Station+AP) */
 void fATCWMODE(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
@@ -3019,6 +3019,7 @@ void fATCWMODE(void* arg) {
 	return;
 }
 
+/* Enables or Disables DHCP */
 void fATCWDHCP(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
@@ -3069,18 +3070,65 @@ void fATCWDHCP(void* arg) {
 	return;
 }
 
-void fATCIPMUX(void* arg) {
+/* Disconnect from the AP */
+void fATCWQAP(void* arg) {
+	char essid[33];
+	int timeout;
+	int err = RTW_SUCCESS;
+
 	(void) arg;
-	at_printf(STR_RESP_OK);
+
+	if (wext_get_ssid(WLAN0_NAME, (unsigned char *) essid) < 0) {
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+
+	if ((err = wifi_disconnect()) < 0) {
+		goto __ret;
+	}
+
+	for (timeout = 8; timeout; timeout--) {
+		if (wext_get_ssid(WLAN0_NAME, (uint8_t*) essid) < 0) {
+			break;
+		}
+
+		vTaskDelay(1 * configTICK_RATE_HZ);
+	}
+
+	if (timeout <= 0) {
+		err = RTW_TIMEOUT;
+	}
+	LwIP_ReleaseIP(WLAN0_IDX);
+
+__ret:
+	init_wifi_struct();
+	if (err == RTW_SUCCESS) {
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	printf("AT+CWQAP ERROR: %d\r\n", err);
+	at_printf(STR_RESP_FAIL);
 	return;
 }
 
+/* Set the Configuration for command AT+CWLAP */
 void fATCWLAPOPT(void* arg) {
 	(void) arg;
 	at_printf(STR_RESP_OK);
 	return;
 }
 
+/* Enable/Disable Multiple Connections */
+void fATCIPMUX(void* arg) {
+	(void) arg;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+/* Get the Connection Status */
 void fATCIPSTATUS(void* arg) {
 	if (arg) {
 		at_printf(STR_RESP_FAIL);
@@ -3090,6 +3138,7 @@ void fATCIPSTATUS(void* arg) {
 	return;
 }
 
+/* Get/Set the IP Address of AP */
 void fATCIPAP(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
@@ -3117,6 +3166,7 @@ void fATCIPAP(void* arg) {
 	return;
 }
 
+/* Get/Set the Mac Address of AP */
 void fATCIPAPMAC(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
@@ -3145,6 +3195,7 @@ void fATCIPAPMAC(void* arg) {
 	return;
 }
 
+/* Show the Remote IP & Port with "+IPD" */
 void fATCIPDINFO(void* arg) {
 	(void) arg;
 	at_printf(STR_RESP_OK);
@@ -3262,6 +3313,8 @@ log_item_t at_wifi_items[] = {
 
 	{"AT+CWMODE", fATCWMODE,},
 	{"AT+CWDHCP", fATCWDHCP,},
+	{"AT+CWLAPOPT", fATCWLAPOPT},
+	{"AT+CWQAP",  fATCWQAP},
 	{"AT+CIPMUX", fATCIPMUX,},
 	{"AT+CIPAP" , fATCIPAP ,},
 	{"AT+CIPAPMAC", fATCIPAPMAC,},
