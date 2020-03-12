@@ -3070,6 +3070,69 @@ void fATCWDHCP(void* arg) {
 	return;
 }
 
+static rtw_result_t cwlap_result_handler2(rtw_scan_handler_result_t * result)
+{
+	int ecn;
+
+	if (result->scan_complete != RTW_TRUE) {
+		rtw_scan_result_t *record = &result->ap_details;
+		record->SSID.val[record->SSID.len] = 0;	/* Ensure the SSID is null terminated */
+
+		switch (record->security) {
+		case RTW_SECURITY_OPEN:
+			ecn = 0; break;
+		case RTW_SECURITY_WEP_PSK:
+			ecn = 1; break;
+		case RTW_SECURITY_WPA_TKIP_PSK:
+		case RTW_SECURITY_WPA_AES_PSK:
+			ecn = 2; break;
+		case RTW_SECURITY_WPA2_AES_PSK:
+		case RTW_SECURITY_WPA2_TKIP_PSK:
+		case RTW_SECURITY_WPA2_MIXED_PSK:
+			ecn = 3; break;
+		case RTW_SECURITY_WPA_WPA2_MIXED:
+			ecn = 4; break;
+		default:
+			/* TODO: Enterprise or Unkown ? */
+			ecn = 5; break;
+		}
+		at_printf("+CWLAP:(%d,\"%s\",%d,\"" MAC_FMT "\",%d)\r\n",
+				ecn,
+				record->SSID.val,
+				record->signal_strength,
+				MAC_ARG(record->BSSID.octet),
+				record->channel);
+	} else {
+		at_printf(STR_RESP_OK);
+	}
+	return RTW_SUCCESS;
+}
+
+
+
+/* List the Available APs */
+void fATCWLAP(void* arg) {
+	int argc = 0;
+	char *argv[MAX_ARGC] = { 0 };
+	int err = RTW_SUCCESS;
+
+	if (arg) {
+		argc = parse_param(arg, argv);
+		if (argc < 2 || argv[1] == NULL) {
+			at_printf(STR_RESP_FAIL);
+			return;
+		}
+	}
+
+	if ((err = wifi_scan_networks(cwlap_result_handler2, NULL)) != RTW_SUCCESS) {
+		printf("+CWLAP: scan error %d\n\r", err);
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	return;
+}
+
 /* Disconnect from the AP */
 void fATCWQAP(void* arg) {
 	char essid[33];
@@ -3105,11 +3168,10 @@ void fATCWQAP(void* arg) {
 __ret:
 	init_wifi_struct();
 	if (err == RTW_SUCCESS) {
-		at_printf(STR_RESP_OK);
 		return;
 	}
 
-	printf("AT+CWQAP ERROR: %d\r\n", err);
+	printf("+CWQAP: ERROR %d\r\n", err);
 	at_printf(STR_RESP_FAIL);
 	return;
 }
@@ -3186,7 +3248,7 @@ void fATCIPAPMAC(void* arg) {
 	if (*argv[1] == '?') {
 		u8 *mac = LwIP_GetMAC(NETIF_AP);
 
-		at_printf("+CIPAPMAC:\"%02x:%02x:%02x:%02x:%02x:%02x\"\r\n",
+		at_printf("+CIPAPMAC:\"" MAC_FMT "\"\r\n",
 				mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 		at_printf(STR_RESP_OK);
 		return;
@@ -3314,6 +3376,7 @@ log_item_t at_wifi_items[] = {
 	{"AT+CWMODE", fATCWMODE,},
 	{"AT+CWDHCP", fATCWDHCP,},
 	{"AT+CWLAPOPT", fATCWLAPOPT},
+	{"AT+CWLAP",  fATCWLAP},
 	{"AT+CWQAP",  fATCWQAP},
 	{"AT+CIPMUX", fATCIPMUX,},
 	{"AT+CIPAP" , fATCIPAP ,},
