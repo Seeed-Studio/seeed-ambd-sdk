@@ -39,6 +39,7 @@
 #if defined(IS_USI_SPI) && IS_USI_SPI
 	#define USE_USI_SPI_SLAVE  1
 	#include "rtl8721d_usi_ssi.h"
+	#include "lwip/pbuf.h"
 #else
 	#define USE_USI_SPI_SLAVE  0
 #endif
@@ -86,7 +87,6 @@ extern _sema log_rx_interrupt_sema;
 #define LOG_TX_BUFFER_SIZE 1024
 u8 log_tx_buffer[LOG_TX_BUFFER_SIZE];
 volatile uint32_t log_tx_tail = 0;
-volatile uint32_t log_tx_hdr = 0;
 
 /**** DATA FORMAT ****/
 #define PREAMBLE_COMMAND     0x6000
@@ -176,6 +176,7 @@ void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 * data
 	return;
 }
 
+#if ! USE_USI_SPI_SLAVE
 /* AT cmd V2 API */
 void spi_at_send_buf(u8 * buf, u32 len)
 {
@@ -206,7 +207,6 @@ void spi_at_send_buf(u8 * buf, u32 len)
 	}
 }
 
-#if ! USE_USI_SPI_SLAVE
 /* IRQ handler called when SPI TX/RX finish */
 void master_trx_done_callback(void *pdata, SpiIrq event)
 {
@@ -655,6 +655,15 @@ enum {
 	SPT_ERR_DEC_SPC = 0x01,
 };
 
+typedef struct at_pbuf_s {
+	struct pbuf* pb;
+	int iter;
+} at_pbuf_t;
+
+#define ATPB_W (&at_pbufs[0])
+#define ATPB_R (&at_pbufs[1])
+static at_pbuf_t at_pbufs[2];
+
 /* Complete Flag of TRx */
 volatile int SlaveTxDone;
 volatile int SlaveRxDone;
@@ -822,6 +831,39 @@ int uspi_slave_tx_wait(u8* buf, u16 len) {
 	return len;
 }
 
+
+void spi_at_send_buf(uint8_t* buf, uint32_t size) {
+	int old_mask = 0;
+	struct pbuf* pb;
+
+	if (size >= UINT16_MAX || !(pb = pbuf_alloc(PBUF_RAW, size, PBUF_RAM))) {
+		printf("L%d at tx overflow size=%u\n", __LINE__, size);
+		return;
+	}
+
+	pbuf_take(pb, buf, size);
+
+	// should protect the pbuf list
+	if (__get_IPSR()) {
+		old_mask = taskENTER_CRITICAL_FROM_ISR();
+	} else {
+		taskENTER_CRITICAL();
+	}
+
+	if (ATPB_W->pb == NULL) {
+		ATPB_W->pb = pb;
+	} else {
+		pbuf_cat(ATPB_W->pb, pb);
+	}
+
+	if (__get_IPSR()) {
+		taskEXIT_CRITICAL_FROM_ISR(old_mask);
+	} else {
+		taskEXIT_CRITICAL();
+	}
+	return;
+}
+
 static void spi_trx_thread(void *param)
 {
 	union {
@@ -888,8 +930,33 @@ _repeat:
 
 		} else
 		if (cmd == SPT_TAG_RD) { /* The master read from this slave */
-			if (len > log_tx_tail - log_tx_hdr) {
-				len = log_tx_tail - log_tx_hdr;
+
+			// Move the pbuf list from Writing Slot
+			// to Reading Slot.
+			if (ATPB_R->pb == NULL) {
+				if (ATPB_W->pb != NULL) {
+					taskENTER_CRITICAL();
+
+					ATPB_R->pb = ATPB_W->pb;
+					ATPB_W->pb = NULL;
+					taskEXIT_CRITICAL();
+
+					ATPB_R->iter = 0;
+				}
+			}
+
+			// Preparing data & length to send.
+			if (ATPB_R->pb == NULL) {
+				len = 0;
+			} else if (len > ATPB_R->pb->tot_len - ATPB_R->iter){
+				len = ATPB_R->pb->tot_len - ATPB_R->iter;
+			}
+			if (len > sizeof log_tx_buffer) {
+				len = sizeof log_tx_buffer;
+			}
+
+			if (len) {
+				pbuf_copy_partial(ATPB_R->pb, log_tx_buffer, len, ATPB_R->iter);
 			}
 
 			u.v8[0] = SPT_TAG_ACK;
@@ -899,12 +966,13 @@ _repeat:
 			spi_get_fifo_intr_status(status + 2);
 
 			if (len) {
-				uspi_slave_tx_wait(log_tx_buffer + log_tx_hdr, len);
+				uspi_slave_tx_wait(log_tx_buffer, len);
 
-				log_tx_hdr += len;
-				if (log_tx_hdr >= log_tx_tail) {
-					/* clear log_tx_buffer */
-					log_tx_hdr = log_tx_tail = 0;
+				ATPB_R->iter += len;
+				if (ATPB_R->iter >= ATPB_R->pb->tot_len) {
+					/* Free the pbuf not required anymore */
+					pbuf_free(ATPB_R->pb);
+					ATPB_R->pb = NULL;
 				}
 			}
 			spi_get_fifo_intr_status(status + 3);
