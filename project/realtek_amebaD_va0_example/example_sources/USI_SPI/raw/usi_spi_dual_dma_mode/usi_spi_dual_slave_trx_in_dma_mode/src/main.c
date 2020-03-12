@@ -55,6 +55,20 @@ volatile int RxCompleteFlag;
 volatile int TxCompleteFlag;
 
 
+/* To Empty Rx FIFO */
+void USISsiFlushRxFifo(P_USISSI_OBJ pHalSsiAdaptor)
+{
+	u32 rx_fifo_level;
+	u32 i;
+
+	while(USI_SSI_Readable(pHalSsiAdaptor->usi_dev)){
+		rx_fifo_level = USI_SSI_GetRxCount(pHalSsiAdaptor->usi_dev);
+		for(i = 0; i < rx_fifo_level; i++) {
+			USI_SSI_ReadData(pHalSsiAdaptor->usi_dev);
+		}
+	}
+}
+
 BOOL USISsiDataCompare(u8 *pSrc, u8 *pDst, u32 Length)
 {
 	int Index;
@@ -230,6 +244,7 @@ void usi_spi_dma_task(void* param)
 
 		RxCompleteFlag = 0;
 		TxCompleteFlag = 0;
+		USISsiFlushRxFifo(pUSISsiObj);
 
 		USISsiSlaveReadStreamDma(pUSISsiObj, SlaveRxBuf, TEST_BUF_SIZE);
 		USISsiSlaveWriteStreamDma(pUSISsiObj, SlaveTxBuf, TEST_BUF_SIZE);

@@ -157,8 +157,8 @@ void USISsiMasterWriteReadStreamDma(P_USISSI_OBJ pUSISsiObj, char *tx_buffer, ch
 	pUSISsiObj->TxLength = length;
 	pUSISsiObj->TxData = (void*)tx_buffer;
 	
-	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_TX_DMA_ENABLE);
 	USI_SSI_TXGDMA_Init(0, &pUSISsiObj->USISsiTxGdmaInitStruct, pUSISsiObj, (IRQ_FUN)USISsiDmaTxIrqHandle, tx_buffer, length);
+	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_TX_DMA_ENABLE);
 }
 
 
@@ -224,6 +224,16 @@ void usi_spi_dma_task(void* param)
 	Pinmux_Config(USI_SPI_CS, PINMUX_FUNCTION_SPIM);
 	Pinmux_Config(USI_SPI_SCLK, PINMUX_FUNCTION_SPIM);
 
+	if (SclkPolarity == USI_SPI_SCPOL_INACTIVE_IS_LOW) {
+		/* CS pull high, CLK pull low */
+		PAD_PullCtrl(USI_SPI_CS, GPIO_PuPd_UP);
+		PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_DOWN);
+	} else {
+		/* CS pull high, CLK pull high */
+		PAD_PullCtrl(USI_SPI_CS, GPIO_PuPd_UP);
+		PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_UP);
+	}
+
 	USI_SSI_StructInit(&USI_SSI_InitStruct);	
 	USI_SSI_InitStruct.USI_SPI_Role = USI_SPI_MASTER;
 	USI_SSI_InitStruct.USI_SPI_ClockDivider = ClockDivider;
@@ -235,6 +245,10 @@ void usi_spi_dma_task(void* param)
 	P_USISSI_OBJ pUSISsiObj = &USISsiObj;
 	pUSISsiObj->usi_dev = USI0_DEV;
 
+	LOG_MASK(LEVEL_ERROR, -1UL);
+
+
+	for (int k = 0; k < 2; k++){
 
 	_memset(MasterTxBuf, 0, TEST_BUF_SIZE);
 	_memset(MasterRxBuf, 0, TEST_BUF_SIZE);
@@ -250,6 +264,7 @@ void usi_spi_dma_task(void* param)
 
 		RxCompleteFlag = 0;
 		TxCompleteFlag = 0;
+		USISsiFlushRxFifo(pUSISsiObj);
 
 		USISsiMasterWriteReadStreamDma(pUSISsiObj, MasterTxBuf, MasterRxBuf, TEST_BUF_SIZE);
 
@@ -288,16 +303,18 @@ void usi_spi_dma_task(void* param)
 				break;
 			}
 		}
+		USI_SSI_TRxPath_Cmd(pUSISsiObj->usi_dev, USI_SPI_TX_ENABLE, ENABLE);
 
 		//USISsiPrint(MasterTxBuf, MasterRxBuf, TEST_BUF_SIZE);
 		result2 = USISsiDataCompare(MasterTxBuf, MasterRxBuf, TEST_BUF_SIZE);
 
 
+	DBG_8195A("\r\nMaster Result is %s\r\n", (result1 && result2) ? "success" : "fail");
 	/* free USI_SPI */
 	USISsiFree(pUSISsiObj);
+	}
 
 	DBG_8195A("USI SPI Master Demo Finished.\n");
-	DBG_8195A("\r\nMaster Result is %s\r\n", (result1 && result2) ? "success" : "fail");
 
 	vTaskDelete(NULL);
 
