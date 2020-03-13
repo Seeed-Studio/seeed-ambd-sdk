@@ -1867,6 +1867,10 @@ void fATPA(void *arg)
 	struct ip_addr netmask;
 	struct ip_addr gw;
 	struct netif *pnetif;
+
+	(void) ipaddr;
+	(void) netmask;
+	(void) gw;
 #endif
 	int timeout = 20;
 	unsigned char hidden_ssid = 0;
@@ -3133,6 +3137,18 @@ void fATCWLAP(void* arg) {
 	return;
 }
 
+
+static void cwqap_wifi_disconn_handler(char *buf, int buf_len, int flags, void *userdata)
+{
+	(void) buf;
+	(void) buf_len;
+	(void) flags;
+	(void) userdata;
+
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 /* Disconnect from the AP */
 void fATCWQAP(void* arg) {
 	char essid[33];
@@ -3146,7 +3162,7 @@ void fATCWQAP(void* arg) {
 		return;
 	}
 
-	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler);
 
 	if ((err = wifi_disconnect()) < 0) {
 		goto __ret;
@@ -3248,8 +3264,7 @@ void fATCIPAPMAC(void* arg) {
 	if (*argv[1] == '?') {
 		u8 *mac = LwIP_GetMAC(NETIF_AP);
 
-		at_printf("+CIPAPMAC:\"" MAC_FMT "\"\r\n",
-				mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+		at_printf("+CIPAPMAC:\"" MAC_FMT "\"\r\n", MAC_ARG(mac));
 		at_printf(STR_RESP_OK);
 		return;
 	}
