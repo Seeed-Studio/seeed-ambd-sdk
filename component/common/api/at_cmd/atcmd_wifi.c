@@ -148,6 +148,8 @@ static rtw_network_info_t wifi = { 0 };
 static rtw_ap_info_t ap = { 0 };
 static unsigned char password[65] = { 0 };
 
+char at_string[ATSTRING_LEN];
+
 #ifdef CONFIG_FPGA
 int security = -1;
 #endif

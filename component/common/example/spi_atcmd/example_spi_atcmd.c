@@ -79,8 +79,6 @@ int spi_state = SPI_STATE_MISO;
 _sema spi_check_trx_sema;
 
 /**** LOG SERVICE ****/
-char at_string[ATSTRING_LEN];
-
 extern char log_buf[LOG_SERVICE_BUFLEN];
 extern _sema log_rx_interrupt_sema;
 

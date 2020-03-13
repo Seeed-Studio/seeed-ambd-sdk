@@ -35,7 +35,6 @@ extern int atcmd_wifi_restore_from_flash(void);
 extern int atcmd_lwip_restore_from_flash(void);
 
 serial_t at_cmd_sobj;
-char at_string[ATSTRING_LEN];
 //_sema at_printf_sema;
 _sema uart_at_dma_tx_sema;
 unsigned char gAT_Echo = 1; // default echo on
