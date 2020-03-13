@@ -662,6 +662,8 @@ typedef struct at_pbuf_s {
 #define ATPB_R (&at_pbufs[1])
 static at_pbuf_t at_pbufs[2];
 
+static uint8_t spi_rx_buf[LOG_SERVICE_BUFLEN];
+
 /* Complete Flag of TRx */
 volatile int SlaveTxDone;
 volatile int SlaveRxDone;
@@ -862,6 +864,37 @@ void spi_at_send_buf(uint8_t* buf, uint32_t size) {
 	return;
 }
 
+int spi_rx_char(int c) {
+	static uint8_t cmd_buf[ATSTRING_LEN];
+	static int idx = 0;
+
+	/* not empty line or \r\n */
+	if (idx == 0) {
+		if (c == '\r' || c == '\n') return;
+	}
+
+	/* process all \r, \n, \r\n */
+	if (c == '\n') c = '\r';
+	cmd_buf[idx] = c;
+	if (idx < sizeof cmd_buf - 1) {
+		idx++;
+	} else {
+		printf("L%d at rx overflow\n", __LINE__);
+	}
+
+	if (idx > 1 && c == '\r') {
+		cmd_buf[idx] = 0;
+		strcpy(log_buf, cmd_buf);
+
+		atcmd_check_special_case(log_buf);
+		rtw_up_sema(&log_rx_interrupt_sema);
+
+		idx = 0;
+	}
+
+	return 0;
+}
+
 static void spi_trx_thread(void *param)
 {
 	union {
@@ -904,6 +937,9 @@ _repeat:
 
 		/* TODO, check len */
 		if (cmd == SPT_TAG_WR) { /* The master write to this slave */
+			if (len > sizeof spi_rx_buf) {
+				len = sizeof spi_rx_buf;
+			}
 			u.v8[0] = SPT_TAG_ACK;
 			u.v8[1] = SPT_ERR_OK;
 			u.v16[1] = htons(len);
@@ -911,17 +947,16 @@ _repeat:
 			spi_get_fifo_intr_status(status + 2);
 
 			if (len) {
-				uspi_slave_rx_wait((uint8_t*)log_buf, len);
+				uspi_slave_rx_wait(spi_rx_buf, len);
 			}
 			spi_get_fifo_intr_status(status + 3);
 
 			if (len) {
-				log_buf[len] = 0;
-
-				atcmd_check_special_case(log_buf);
-				rtw_up_sema(&log_rx_interrupt_sema);
-
-				// debug_buf("[", (char*)log_buf, len);
+				// debug_buf("[", (char*)spi_rx_buf, len);
+				// spi_rx_buf[len] = 0;
+				for (int i = 0; i < len; i++) {
+					spi_rx_char(spi_rx_buf[i]);
+				}
 			}
 
 			DBG_PRINTF(MODULE_SPI, LEVEL_TRACE, "L%dI=%08X\n", __LINE__, status[0]);
