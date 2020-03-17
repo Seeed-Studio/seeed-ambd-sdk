@@ -70,9 +70,6 @@ static void* disconnect_sema = NULL;
 rtw_mode_t wifi_mode = RTW_MODE_STA;
 int error_flag = RTW_UNKNOWN;
 uint32_t rtw_join_status;
-#if ATCMD_VER == ATVER_2
-extern unsigned char dhcp_mode_sta;
-#endif
 /* The flag to check if wifi init is completed */
 static int _wifi_is_on = 0;
 /******************************************************
@@ -2444,28 +2441,28 @@ static void wifi_autoreconnect_thread(void *param)
 	RTW_API_INFO("\n\rauto reconnect ...\n");
 	ret = wifi_connect(reconnect_param->ssid, reconnect_param->security_type, reconnect_param->password,
 	                   reconnect_param->ssid_len, reconnect_param->password_len, reconnect_param->key_id, NULL);
-#if CONFIG_LWIP_LAYER
+	#if CONFIG_LWIP_LAYER
 	if(ret == RTW_SUCCESS) {
-#if ATCMD_VER == ATVER_2
-		if (dhcp_mode_sta == 2){
+		#if ATCMD_VER == ATVER_2
+		if (dhcp_mode_sta == DHCP_MODE_AS_SERVER){
 			struct netif * pnetif = &xnetif[0];
 			LwIP_UseStaticIP(pnetif);
 			dhcps_init(pnetif);
 		}
 		else
-#endif
+		#endif
 		{
 			LwIP_DHCP(0, DHCP_START);
-#if LWIP_AUTOIP
+			#if LWIP_AUTOIP
 			uint8_t *ip = LwIP_GetIP(&xnetif[0]);
 			if((ip[0] == 0) && (ip[1] == 0) && (ip[2] == 0) && (ip[3] == 0)) {
 				RTW_API_INFO("\n\nIPv4 AUTOIP ...");
 				LwIP_AUTOIP(&xnetif[0]);
 			}
-#endif
+			#endif
 		}
 	}
-#endif //#if CONFIG_LWIP_LAYER
+	#endif //#if CONFIG_LWIP_LAYER
 	vTaskDelete(NULL);
 }
 

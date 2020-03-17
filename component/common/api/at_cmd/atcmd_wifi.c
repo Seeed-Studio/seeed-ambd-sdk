@@ -161,7 +161,7 @@ unsigned char sta_ip[4]      = { 192, 168, 1, 80 },
 #endif
 
 #if ATCMD_VER == ATVER_2
-unsigned char dhcp_mode_sta = 1, dhcp_mode_ap = 1;
+int dhcp_mode_sta = DHCP_MODE_ENABLE, dhcp_mode_ap = DHCP_MODE_ENABLE;
 unsigned char ap_ip[4]      = { 192, 168, 43, 1 },
 	      ap_netmask[4] = {255, 255, 255, 0},
 	      ap_gw[4]      = {192, 168, 43, 1};
@@ -2245,7 +2245,7 @@ void fATPN(void *arg)
 		goto exit;
 	}
 #if CONFIG_LWIP_LAYER
-	if (dhcp_mode_sta == 2) {
+	if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
 		struct netif *pnetif = &xnetif[0];
 		LwIP_UseStaticIP(pnetif);
 		dhcps_init(pnetif);
@@ -2987,7 +2987,7 @@ void fATWU(void *arg)
 
 
 
-/* Set the WiFi Mode (Station/AP/Station+AP) */
+/* Set the WiFi Mode (Station, AP, Station+AP) */
 void fATCWMODE(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
@@ -3018,7 +3018,11 @@ void fATCWMODE(void* arg) {
 		return;
 	}
 
-	wifi_mode = mode;
+	if (wifi_set_mode(mode) != RTW_SUCCESS) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
 	at_printf(STR_RESP_OK);
 	return;
 }
@@ -3042,8 +3046,8 @@ void fATCWDHCP(void* arg) {
 
 	// Query
 	if (*argv[1] == '?') {
-		mode  = dhcp_mode_sta == 2? 0: 1;
-		mode |= dhcp_mode_ap << 1;
+		mode  = dhcp_mode_sta != DHCP_MODE_DISABLE;
+		mode |= (dhcp_mode_ap != DHCP_MODE_DISABLE) << 1;
 		at_printf("+CWDHCP:%d\r\n", mode);
 		at_printf(STR_RESP_OK);
 		return;
@@ -3060,14 +3064,14 @@ void fATCWDHCP(void* arg) {
 
 	if (enable) {
 		if (mode & 0x1)
-			dhcp_mode_sta = 1;
+			dhcp_mode_sta = DHCP_MODE_ENABLE;
 		if (mode & 0x2)
-			dhcp_mode_ap  = 1;
+			dhcp_mode_ap  = DHCP_MODE_ENABLE;
 	} else {
 		if (mode & 0x1)
-			dhcp_mode_sta = 0;
+			dhcp_mode_sta = DHCP_MODE_DISABLE;
 		if (mode & 0x2)
-			dhcp_mode_ap  = 2;
+			dhcp_mode_ap  = DHCP_MODE_DISABLE;
 	}
 
 	at_printf(STR_RESP_OK);

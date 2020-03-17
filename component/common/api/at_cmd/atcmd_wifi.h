@@ -66,6 +66,16 @@
 #define AP_GW_ADDR3   1  
 #endif
 
+#define BSSID_LEN               17
+
+enum {
+	DHCP_MODE_DISABLE = 0,
+	DHCP_MODE_ENABLE  = 1,
+	DHCP_MODE_AS_CLIENT = DHCP_MODE_ENABLE,
+	DHCP_MODE_AS_SERVER,
+};
+extern int dhcp_mode_sta;
+
 
 
 
