@@ -3188,6 +3188,167 @@ __ret:
 	return;
 }
 
+/* Connect to the AP */
+void fATCWJAP(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	rtw_wifi_setting_t setting[1];
+	uint8_t bssid[BSSID_LEN] = { 0 };
+	const char* ifname;
+	int r = 0;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	ifname = wifi_get_ifname(RTW_STA_INTERFACE);
+
+	// Query
+	if (*argv[1] == '?') {
+		int rssi;
+
+		r = wifi_get_setting(ifname, setting);
+		(void) r;
+
+		wifi_get_rssi(&rssi);
+
+		wifi_get_ap_bssid(bssid);
+		at_printf("+CWJAP:\"%s\",\"" MAC_FMT "\",%d,%d\r\n",
+				setting->ssid, MAC_ARG(bssid), setting->channel, rssi);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Connect action
+	if ((wifi_mode != RTW_MODE_STA) && (wifi_mode != RTW_MODE_STA_AP)) {
+		r = -1;
+		goto __ret;
+	}
+
+	//SSID
+	strcpy((char *) wifi.ssid.val, (char *)argv[1]);
+	wifi.ssid.len = strlen((char *)argv[1]);
+	wifi.security_type = RTW_SECURITY_OPEN;
+
+	//PASSWORD
+	if (argv[2] != NULL) {
+		int pwd_len = strlen(argv[2]);
+		if (pwd_len > 64 || (pwd_len < 8 && pwd_len != 5)) {
+			printf("+CWJAP: PASSWORD format error\r\n");
+			r = -2;
+			goto __ret;
+		}
+		strcpy((char *) password, (char *) argv[2]);
+		wifi.password = password;
+		wifi.password_len = strlen((char *) argv[2]);
+		wifi.security_type = RTW_SECURITY_WPA2_AES_PSK;
+	}
+	//KEYID
+	wifi.key_id = 0;
+	// wifi.security_type = RTW_SECURITY_WEP_PSK;
+
+	//BSSID
+	char assoc_by_bssid = 0;
+	if (argv[3] != NULL) {
+		if (strlen(argv[3]) != 12) {
+			printf("+CWJAP: BSSID format error");
+			r = -3;
+			goto __ret;
+		}
+		for (int i = 0, j = 0; i < ETH_ALEN; i++, j += 2) {
+			wifi.bssid.octet[i] = key_2char2num(argv[4][j], argv[4][j + 1]);
+			assoc_by_bssid = 1;
+		}
+	}
+
+	// MODE must already changed by AT+CWMODE
+	#if 0
+	//Check if in AP mode
+	int mode;
+	wext_get_mode(ifname, &mode);
+	if (mode == IW_MODE_MASTER) {
+		dhcps_deinit();
+		wifi_off();
+		vTaskDelay(20);
+		if (wifi_on(RTW_MODE_STA) < 0) {
+			r = -4;
+			goto __ret;
+		}
+	}
+	#endif
+
+	u8 connect_channel;
+	/************************************************************
+	*    Get security mode from scan list, if it's WEP and key_id isn't set by user,
+	*    system will use default key_id = 0
+	************************************************************/
+	//the keyID may be not set for WEP which may be confued with WPA2
+	if ((wifi.security_type == RTW_SECURITY_UNKNOWN) || (wifi.security_type == RTW_SECURITY_WPA2_AES_PSK)) {
+		int security_retry_count = 0;
+		while (1) {
+			if (_get_ap_security_mode((char *) wifi.ssid.val, &wifi.security_type, &connect_channel))
+				break;
+			security_retry_count++;
+			if (security_retry_count >= 3) {
+				printf("Can't get AP security mode and channel.\n");
+				r = -5;
+				goto __ret;
+			}
+		}
+		if (wifi.security_type == RTW_SECURITY_WEP_PSK || wifi.security_type == RTW_SECURITY_WEP_SHARED)
+			wifi.key_id = (wifi.key_id < 0 || wifi.key_id > 3) ? 0 : wifi.key_id;
+	}
+
+	u8 pscan_config = PSCAN_ENABLE;
+	if (connect_channel > 0 && connect_channel < 14)
+		wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
+
+	int ret;
+	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	if (assoc_by_bssid) {
+		ret = wifi_connect_bssid(wifi.bssid.octet, (char *) wifi.ssid.val, wifi.security_type,
+				        (char *) wifi.password, ETH_ALEN, wifi.ssid.len, wifi.password_len, wifi.key_id,
+				        NULL);
+	} else {
+		ret = wifi_connect((char *) wifi.ssid.val, wifi.security_type, (char *) wifi.password, wifi.ssid.len,
+				   wifi.password_len, wifi.key_id, NULL);
+	}
+
+	if (ret != RTW_SUCCESS) {
+		r = -1000 + ret;
+		goto __ret;
+	}
+
+	if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
+		struct netif *pnetif = &xnetif[0];
+		LwIP_UseStaticIP(pnetif);
+		dhcps_init(pnetif);
+	} else if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
+		ret = LwIP_DHCP(0, DHCP_START);
+		if (ret != DHCP_ADDRESS_ASSIGNED) {
+			r = -2000 + ret;
+		}
+	}
+
+__ret:
+	init_wifi_struct();
+	if (r) {
+		printf("+CWJAP: ERROR %d\r\n", r);
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl, NULL);
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 /* Set the Configuration for command AT+CWLAP */
 void fATCWLAPOPT(void* arg) {
 	(void) arg;
@@ -3397,8 +3558,9 @@ log_item_t at_wifi_items[] = {
 	{"AT+CWLAPOPT", fATCWLAPOPT},
 	{"AT+CWLAP",  fATCWLAP},
 	{"AT+CWQAP",  fATCWQAP},
+	{"AT+CWJAP",  fATCWJAP},
 	{"AT+CIPMUX", fATCIPMUX,},
-	{"AT+CIPAP" , fATCIPAP ,},
+	{"AT+CIPAP" , fATCIPAP,},
 	{"AT+CIPAPMAC", fATCIPAPMAC,},
 	{"AT+CIPDINFO", fATCIPDINFO,},
 };
