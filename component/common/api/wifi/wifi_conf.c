@@ -2932,4 +2932,62 @@ int wifi_set_tx_pause_data(unsigned int NewState)
 	}else
 		return rltk_set_tx_pause(txpause_value);
 }
+
+int wifi_get_index(rtw_interface_t interface)
+{
+	int r;
+
+	switch (interface) {
+	case RTW_AP_INTERFACE:
+		switch (wifi_mode) {
+		case RTW_MODE_STA_AP:
+			r = WLAN1_IDX;
+			break;
+		case RTW_MODE_AP:
+			r = WLAN0_IDX;
+			break;
+		default:
+			r = WLAN_UNDEF;
+			break;
+		}
+		break;
+
+	case RTW_STA_INTERFACE:
+		r = (wifi_mode != RTW_MODE_AP)? WLAN0_IDX: WLAN_UNDEF;
+		break;
+
+	default:
+		r = WLAN_UNDEF;
+		break;
+	}
+
+	if (r != WLAN_UNDEF && !rltk_wlan_running(r)) {
+		r = WLAN_UNDEF;
+	}
+
+	if (r == WLAN_UNDEF) {
+		printf("=== warning, %s() return undefined index\r\n", __func__);
+	}
+	return r;
+}
+
+const char* wifi_get_ifname(rtw_interface_t interface) {
+	const char* ifnames[] = { WLAN0_NAME, WLAN1_NAME };
+	int i = wifi_get_index(interface);
+
+	if (i >= WLAN0_IDX) {
+		return ifnames[i];
+	}
+	return ifnames[0];
+}
+
+struct netif* wifi_get_netif(rtw_interface_t interface) {
+	int i = wifi_get_index(interface);
+
+	if (i >= WLAN0_IDX) {
+		return &xnetif[i];
+	}
+	return &xnetif[0];
+}
+
 #endif	//#if CONFIG_WLAN

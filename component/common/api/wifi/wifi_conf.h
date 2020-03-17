@@ -1114,6 +1114,22 @@ extern u32 rtw_get_tsf(u32 Port);
 WL_BAND_TYPE wifi_get_band_type(void);
 
 
+/*
+ * @brief get wifi/wlan index, to call functions rltk_wlan_XXXXXX
+ */
+int wifi_get_index(rtw_interface_t interface);
+
+/*
+ * @brief get wifi/wlan ifname, to call functions wext_XXXXXX
+ */
+const char* wifi_get_ifname(rtw_interface_t interface);
+
+/*
+ * @brief get wifi/wlan netif, to call functions LwIP_XXXXXX
+ */
+struct netif* wifi_get_netif(rtw_interface_t interface);
+
+
 #ifdef __cplusplus
   }
 #endif

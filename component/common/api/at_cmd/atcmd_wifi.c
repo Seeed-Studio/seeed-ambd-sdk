@@ -123,14 +123,6 @@ extern int airkiss_start(rtw_network_info_t *);
 extern int airkiss_stop(void);
 #endif
 
-#if CONFIG_LWIP_LAYER
-extern struct netif xnetif[NET_IF_NUM];
-	#ifdef  CONFIG_CONCURRENT_MODE
-	#define NETIF_AP (&xnetif[WLAN0_IDX])
-	#define NETIF_STA (&xnetif[WLAN1_IDX])
-	#endif
-#endif
-
 #if CONFIG_WOWLAN_SERVICE
 extern void cmd_wowlan_service(int argc, char **argv);
 #endif
@@ -3224,6 +3216,7 @@ void fATCIPSTATUS(void* arg) {
 void fATCIPAP(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
+	struct netif* pn;
 
 	if (!arg) {
 		at_printf(STR_RESP_FAIL);
@@ -3236,11 +3229,13 @@ void fATCIPAP(void* arg) {
 		return;
 	}
 
+	pn = wifi_get_netif(RTW_AP_INTERFACE);
+
 	// Query
 	if (*argv[1] == '?') {
-		at_printf("+CIPAP:ip:\"%s\"\r\n",      ip_ntoa(&NETIF_AP->ip_addr));
-		at_printf("+CIPAP:gateway:\"%s\"\r\n", ip_ntoa(&NETIF_AP->gw));
-		at_printf("+CIPAP:netmask:\"%s\"\r\n", ip_ntoa(&NETIF_AP->netmask));
+		at_printf("+CIPAP:ip:\"%s\"\r\n",      ip_ntoa(&pn->ip_addr));
+		at_printf("+CIPAP:gateway:\"%s\"\r\n", ip_ntoa(&pn->gw));
+		at_printf("+CIPAP:netmask:\"%s\"\r\n", ip_ntoa(&pn->netmask));
 		at_printf(STR_RESP_OK);
 		return;
 	}
@@ -3252,6 +3247,7 @@ void fATCIPAP(void* arg) {
 void fATCIPAPMAC(void* arg) {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
+	struct netif* pn;
 
 	if (!arg) {
 		at_printf(STR_RESP_FAIL);
@@ -3264,14 +3260,18 @@ void fATCIPAPMAC(void* arg) {
 		return;
 	}
 
+	pn = wifi_get_netif(RTW_AP_INTERFACE);
+
 	// Query
 	if (*argv[1] == '?') {
-		u8 *mac = LwIP_GetMAC(NETIF_AP);
+		u8 *mac = LwIP_GetMAC(pn);
 
 		at_printf("+CIPAPMAC:\"" MAC_FMT "\"\r\n", MAC_ARG(mac));
 		at_printf(STR_RESP_OK);
 		return;
 	}
+
+	// Set
 	at_printf(STR_RESP_OK);
 	return;
 }
