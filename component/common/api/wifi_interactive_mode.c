@@ -159,9 +159,6 @@ extern void cmd_p2p_connect(int argc, char **argv);
 extern u32 CmdDumpWord(IN u16 argc, IN u8 * argv[]);
 extern u32 CmdWriteWord(IN u16 argc, IN u8 * argv[]);
 #endif
-#if CONFIG_LWIP_LAYER
-extern struct netif xnetif[NET_IF_NUM];
-#endif
 #ifdef  CONFIG_CONCURRENT_MODE
 static void cmd_wifi_sta_and_ap(int argc, char **argv)
 {

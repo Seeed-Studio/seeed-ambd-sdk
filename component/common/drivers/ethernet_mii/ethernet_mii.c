@@ -32,8 +32,6 @@ extern volatile u32 ethernet_unplug;
 volatile u32 ethernet_unplug = 0;
 #endif
 
-extern struct netif  xnetif[NET_IF_NUM];
-
 static u8 TX_BUFFER[1536];
 static u8 RX_BUFFER[1536];
 

@@ -101,6 +101,7 @@ int wext_get_drv_ability(const char *ifname, __u32 *ability);
 int wext_enable_forwarding(const char *ifname);
 int wext_disable_forwarding(const char *ifname);
 int wext_set_ch_deauth(const char *ifname, __u8 enable);
+int wext_set_pmk_cache_enable(const char *ifname, __u8 value);
 
 #ifdef CONFIG_WOWLAN
 int wext_wowlan_ctrl(const char *ifname, int enable);

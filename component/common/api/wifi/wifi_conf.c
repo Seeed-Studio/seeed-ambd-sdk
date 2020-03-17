@@ -58,10 +58,6 @@ extern u8 rtw_get_band_type(void);
  *               Variables Declarations
  ******************************************************/
 
-#if !defined(CONFIG_MBED_ENABLED)
-extern struct netif xnetif[NET_IF_NUM];
-#endif
-
 /******************************************************
  *               Variables Definitions
  ******************************************************/
@@ -71,10 +67,7 @@ static unsigned char ap_bssid[6];
 #if CONFIG_WIFI_IND_USE_THREAD
 static void* disconnect_sema = NULL;
 #endif
-#if defined(CONFIG_MBED_ENABLED)
 rtw_mode_t wifi_mode = RTW_MODE_STA;
-#endif
-extern rtw_mode_t wifi_mode;
 int error_flag = RTW_UNKNOWN;
 uint32_t rtw_join_status;
 #if ATCMD_VER == ATVER_2
@@ -1770,6 +1763,12 @@ void wifi_scan_done_hdl( char* buf, int buf_len, int flags, void* userdata)
 
 void wifi_scan_done_hdl_mcc( char* buf, int buf_len, int flags, void* userdata)
 {
+	/* To avoid gcc warnings */
+	( void ) buf;
+	( void ) buf_len;
+	( void ) flags;
+	( void ) userdata;
+
 #if SCAN_USE_SEMAPHORE
 	rtw_up_sema(&scan_result_handler_ptr.scan_semaphore);
 #else
@@ -2110,9 +2109,6 @@ int wifi_get_setting(const char *ifname, rtw_wifi_setting_t *pSetting)
 	int ret = 0;
 	int mode = 0;
 	unsigned short security = 0;
-#ifdef CONFIG_SAE_SUPPORT
-	unsigned short auth_alg = 0;
-#endif
 
 	memset(pSetting, 0, sizeof(rtw_wifi_setting_t));
 	if(wext_get_mode(ifname, &mode) < 0)

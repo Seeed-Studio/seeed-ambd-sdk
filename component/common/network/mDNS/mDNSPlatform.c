@@ -1,6 +1,6 @@
 #include <lwip/sockets.h>
 #include <lwip/netif.h>
-extern struct netif xnetif[];
+#include "lwip_netconf.h"
 
 /*-----------------------------------------------------------------------
  * Mandatory functions

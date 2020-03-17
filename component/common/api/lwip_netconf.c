@@ -105,7 +105,6 @@ struct netif xnetif[NET_IF_NUM]; /* network interface structure */
   */
 #if CONFIG_WLAN
 extern  int error_flag;
-extern rtw_mode_t wifi_mode;
 #endif
 
 int lwip_init_done = 0;
@@ -134,7 +133,7 @@ void LwIP_Init(void)
 	your ethernet netif interface. The following code illustrates it's use.*/
 	//printf("NET_IF_NUM:%d\n\r",NET_IF_NUM);
 	for(idx=0;idx<NET_IF_NUM;idx++){
-#if LWIP_VERSION_MAJOR >= 2
+		#if LWIP_VERSION_MAJOR >= 2
 		if(idx==0){
 			IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
 			IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
@@ -145,7 +144,7 @@ void LwIP_Init(void)
 			IP4_ADDR(ip_2_ip4(&netmask), AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
 			IP4_ADDR(ip_2_ip4(&gw), AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
 		}
-#else
+		#else
 		if(idx==0){
 			IP4_ADDR(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
 			IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
@@ -156,45 +155,51 @@ void LwIP_Init(void)
 			IP4_ADDR(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
 			IP4_ADDR(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
 		}
-#endif
-#if CONFIG_ETHERNET
-    if(idx == NET_IF_NUM - 1)
-    {
-#if LWIP_VERSION_MAJOR >= 2
+		#endif
+
+		#if CONFIG_ETHERNET
+		if(idx == NET_IF_NUM - 1)
+		{
+			#if LWIP_VERSION_MAJOR >= 2
 			IP4_ADDR(ip_2_ip4(&ipaddr), ETH_IP_ADDR0, ETH_IP_ADDR1, ETH_IP_ADDR2, ETH_IP_ADDR3);
 			IP4_ADDR(ip_2_ip4(&netmask), ETH_NETMASK_ADDR0, ETH_NETMASK_ADDR1 , ETH_NETMASK_ADDR2, ETH_NETMASK_ADDR3);
 			IP4_ADDR(ip_2_ip4(&gw), ETH_GW_ADDR0, ETH_GW_ADDR1, ETH_GW_ADDR2, ETH_GW_ADDR3);
-#else
+			#else
 			IP4_ADDR(&ipaddr, ETH_IP_ADDR0, ETH_IP_ADDR1, ETH_IP_ADDR2, ETH_IP_ADDR3);
 			IP4_ADDR(&netmask, ETH_NETMASK_ADDR0, ETH_NETMASK_ADDR1 , ETH_NETMASK_ADDR2, ETH_NETMASK_ADDR3);
 			IP4_ADDR(&gw, ETH_GW_ADDR0, ETH_GW_ADDR1, ETH_GW_ADDR2, ETH_GW_ADDR3);    	
-#endif
-    }
-#endif
+			#endif
+		}
+		#endif
 		xnetif[idx].name[0] = 'r';
 		xnetif[idx].name[1] = '0'+idx;
-#if LWIP_VERSION_MAJOR >= 2
-#if CONFIG_ETHERNET
-		if(idx == NET_IF_NUM - 1)
-			netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_mii_init, &tcpip_input);
-		else
-			netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_init, &tcpip_input);
-#else
-		netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_init, &tcpip_input);
-#endif
-#else	
-		
-#if CONFIG_ETHERNET
-    if(idx == NET_IF_NUM - 1)
-      netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_mii_init, &tcpip_input);
-    else
-      netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &tcpip_input);
-#else
-    netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &tcpip_input);
-#endif
-#endif
-    printf("interface %d is initialized\n", idx);
 
+		#if CONFIG_ETHERNET
+		if(idx == NET_IF_NUM - 1) { // Ethernet MII
+			#if LWIP_VERSION_MAJOR >= 2
+			netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_mii_init, &tcpip_input);
+			#else
+			netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_mii_init, &tcpip_input);
+			#endif
+		} else { // WiFi AP/STA
+			#if LWIP_VERSION_MAJOR >= 2
+			netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_init, &tcpip_input);
+			#else
+			netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &tcpip_input);
+			#endif
+		}
+		#else
+
+		// All WiFi AP/STA
+		#if LWIP_VERSION_MAJOR >= 2
+		netif_add(&xnetif[idx], ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw), NULL, &ethernetif_init, &tcpip_input);
+		#else
+		netif_add(&xnetif[idx], &ipaddr, &netmask, &gw, NULL, &ethernetif_init, &tcpip_input);
+		#endif
+
+		#endif
+
+		printf("interface %d is initialized\n", idx);
 	}
 	
 	/*  Registers the default network interface. */
@@ -207,7 +212,7 @@ void LwIP_Init(void)
 		netif_set_up(&xnetif[idx]); 
 	#endif
 
-	lwip_init_done = 1;	 
+	lwip_init_done = 1;
 }
 
 #if defined(CONFIG_FAST_DHCP) && CONFIG_FAST_DHCP

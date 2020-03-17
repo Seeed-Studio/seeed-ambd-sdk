@@ -29,9 +29,6 @@
 //----- ------------------------------------------------------------------
 // External Reference
 //----- ------------------------------------------------------------------
-#if (CONFIG_LWIP_LAYER == 1)
-extern struct netif xnetif[];			//LWIP netif
-#endif
 
 /**
  *      rltk_wlan_set_netif_info - set netif hw address and register dev pointer to netif device

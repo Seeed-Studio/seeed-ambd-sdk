@@ -53,6 +53,7 @@ err_t dhcp_release_unicast(struct netif *netif);
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
+extern struct netif xnetif[NET_IF_NUM];
 /* Exported macro ------------------------------------------------------------*/
 /* Exported functions ------------------------------------------------------- */
 void LwIP_Init(void);

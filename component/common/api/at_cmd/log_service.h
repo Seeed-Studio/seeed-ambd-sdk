@@ -112,6 +112,8 @@ typedef struct _at_command_item_{
 	struct list_head node;
 }log_item_t;
 
+extern char log_buf[LOG_SERVICE_BUFLEN];
+
 void log_service_add_table(log_item_t *tbl, int len);
 int parse_param(char *buf, char **argv);
 void at_set_debug_mask(unsigned int newDbgFlag);

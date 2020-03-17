@@ -870,7 +870,7 @@ int spi_rx_char(int c) {
 
 	/* not empty line or \r\n */
 	if (idx == 0) {
-		if (c == '\r' || c == '\n') return;
+		if (c == '\r' || c == '\n') return 0;
 	}
 
 	/* process all \r, \n, \r\n */

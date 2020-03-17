@@ -146,7 +146,7 @@ extern int wifi_set_beacon_mode(int mode);
 static rtw_network_info_t wifi = { 0 };
 
 static rtw_ap_info_t ap = { 0 };
-static unsigned char password[65] = { 0 };
+static uint8_t password[65] = { 0 };
 
 char at_string[ATSTRING_LEN];
 
@@ -168,8 +168,6 @@ unsigned char ap_ip[4]      = { 192, 168, 43, 1 },
 
 static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *userdata);
 #endif
-
-rtw_mode_t wifi_mode = RTW_MODE_STA;
 
 static void init_wifi_struct(void)
 {
@@ -990,7 +988,7 @@ static int _find_ap_from_scan_buf(char *buf, int buflen, char *target_ssid, void
 	return 0;
 }
 
-static int _get_ap_security_mode(IN char *ssid, OUT rtw_security_t * security_mode, OUT u8 * channel)
+int _get_ap_security_mode(IN char *ssid, OUT rtw_security_t * security_mode, OUT u8 * channel)
 {
 	rtw_wifi_setting_t wifi;
 	u32 scan_buflen = 1000;
@@ -1057,7 +1055,7 @@ void fATWC(void *arg)
 #if CONFIG_INIC_EN		//get security mode from scan list
 	u8 connect_channel;
 	u8 pscan_config;
-	//the keyID may be not set for WEP which may be confued with WPA2 
+	//the keyID may be not set for WEP which may be confued with WPA2
 	if ((wifi.security_type == RTW_SECURITY_UNKNOWN) || (wifi.security_type == RTW_SECURITY_WPA2_AES_PSK)) {
 		int security_retry_count = 0;
 		while (1) {

@@ -14,7 +14,6 @@
 #if CONFIG_ETHERNET
 extern int dhcp_ethernet_mii;
 extern int ethernet_if_default;
-extern struct netif xnetif[NET_IF_NUM];
 
 void fATE0(void *arg)
 {

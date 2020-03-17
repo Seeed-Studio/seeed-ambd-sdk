@@ -19,6 +19,9 @@
 #endif
 #include "osdep_service.h"
 
+
+char log_buf[LOG_SERVICE_BUFLEN];
+
 #if SUPPORT_LOG_SERVICE
 //======================================================
 struct list_head log_hash[ATC_INDEX_NUM];
@@ -41,7 +44,6 @@ extern void at_cloud_init(void);
 #endif
 void at_log_init(void);
 
-char log_buf[LOG_SERVICE_BUFLEN];
 #if CONFIG_LOG_HISTORY
 char log_history[LOG_HISTORY_LEN][LOG_SERVICE_BUFLEN];
 static unsigned int log_history_count = 0;
@@ -267,7 +269,6 @@ void *log_handler(char *cmd)
 
 int parse_param(char *buf, char **argv)
 {
-
 	int argc = 1;
 	char str_buf[LOG_SERVICE_BUFLEN] = {0};
 	int str_count = 0;

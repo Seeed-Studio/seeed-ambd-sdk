@@ -69,7 +69,6 @@ int hwaddr_aton(const char *txt, u8 *addr)
 
 int wifi_start_p2p_go(char *ssid, char *passphrase, u8 channel)
 {
-	extern struct netif xnetif[NET_IF_NUM];
 	struct netif * pnetif = &xnetif[0];
 	struct ip_addr ipaddr;
 	struct ip_addr netmask;
@@ -114,7 +113,6 @@ void app_callback(char *msg)
 
 void cmd_wifi_p2p_start(int argc, char **argv)
 {
-	extern struct netif xnetif[NET_IF_NUM];
 	int listen_ch = 1;
 	int op_ch = 5;
 	int go_intent = 1;

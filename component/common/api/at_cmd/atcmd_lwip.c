@@ -29,9 +29,6 @@
 #define ATCP_STACK_SIZE		512//2048
 #define ATCP_SSL_STACK_SIZE		2048
 
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern struct netif xnetif[NET_IF_NUM]; 
-
 static unsigned char _tx_buffer[MAX_BUFFER];
 static unsigned char _rx_buffer[MAX_BUFFER];
 static unsigned char *tx_buffer = _tx_buffer;
@@ -2956,8 +2953,6 @@ log_module_init(at_transport_init);
 #define ATCP_STACK_SIZE		512//2048
 #define ATCP_SSL_STACK_SIZE		2048
 
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern struct netif xnetif[NET_IF_NUM]; 
 
 static unsigned char _tx_buffer[MAX_BUFFER];
 static unsigned char _rx_buffer[MAX_BUFFER];

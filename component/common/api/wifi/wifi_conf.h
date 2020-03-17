@@ -133,6 +133,9 @@ typedef struct {
     void *join_sema;
 } internal_join_result_t;
 
+
+extern rtw_mode_t wifi_mode;
+
 /******************************************************
  *               Function Declarations
  ******************************************************/

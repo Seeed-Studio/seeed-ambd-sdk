@@ -57,7 +57,6 @@ unsigned char g_ssid[33];
 int g_ssid_len;
 
 extern int promisc_get_fixed_channel( void *, u8 *, int* );
-extern struct netif xnetif[NET_IF_NUM];
 
 #if CONFIG_EXAMPLE_WLAN_FAST_CONNECT
 typedef int (*init_done_ptr)(void);
