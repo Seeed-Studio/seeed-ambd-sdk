@@ -3426,6 +3426,72 @@ void fATCIPSTATUS(void* arg) {
 	return;
 }
 
+/* Get/Set the IP Address of Station */
+void fATCIPSTA(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	struct netif* pn;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	pn = wifi_get_netif(RTW_STA_INTERFACE);
+
+	// Query
+	if (*argv[1] == '?') {
+		at_printf("+CIPSTA:ip:\"%s\"\r\n",      ip_ntoa(&pn->ip_addr));
+		at_printf("+CIPSTA:gateway:\"%s\"\r\n", ip_ntoa(&pn->gw));
+		at_printf("+CIPSTA:netmask:\"%s\"\r\n", ip_ntoa(&pn->netmask));
+		at_printf(STR_RESP_OK);
+		return;
+	}
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+/* Get/Set the Mac Address of Station */
+void fATCIPSTAMAC(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	struct netif* pn;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	pn = wifi_get_netif(RTW_STA_INTERFACE);
+
+	// Query
+	if (*argv[1] == '?') {
+		u8 *mac = LwIP_GetMAC(pn);
+
+		at_printf("+CIPSTAMAC:\"" MAC_FMT "\"\r\n", MAC_ARG(mac));
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+
+
 /* Get/Set the IP Address of AP */
 void fATCIPAP(void* arg) {
 	int argc;
@@ -3613,9 +3679,12 @@ log_item_t at_wifi_items[] = {
 	{"AT+CWQAP",  fATCWQAP},
 	{"AT+CWJAP",  fATCWJAP},
 	{"AT+CIPMUX", fATCIPMUX,},
+	{"AT+CIPSTA", fATCIPSTA},
+	{"AT+CIPSTAMAC", fATCIPSTAMAC},
 	{"AT+CIPAP" , fATCIPAP,},
 	{"AT+CIPAPMAC", fATCIPAPMAC,},
 	{"AT+CIPDINFO", fATCIPDINFO,},
+	{"AT+CIPSTATUS",fATCIPSTATUS,},
 };
 
 #if ATCMD_VER == ATVER_2
