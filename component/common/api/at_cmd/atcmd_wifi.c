@@ -161,6 +161,40 @@ unsigned char ap_ip[4]      = { 192, 168, 43, 1 },
 static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *userdata);
 #endif
 
+static _sema at_printf_sema = NULL;
+
+unsigned at_prt_lock(void) {
+	unsigned mask = 0;
+
+	// should protect the at_printf buffer
+	if (__get_IPSR()) {
+		mask = taskENTER_CRITICAL_FROM_ISR();
+	} else {
+		// taskENTER_CRITICAL();
+		rtw_down_sema(&at_printf_sema);
+	}
+	return mask;
+}
+
+int at_prt_unlock(unsigned mask) {
+	if (__get_IPSR()) {
+		taskEXIT_CRITICAL_FROM_ISR(mask);
+	} else {
+		// taskEXIT_CRITICAL();
+		rtw_up_sema(&at_printf_sema);
+	}
+	return 0;
+}
+
+int at_prt_lock_init(void) {
+	rtw_init_sema(&at_printf_sema, 1);
+	return 0;
+}
+
+
+
+
+
 static void init_wifi_struct(void)
 {
 	memset(wifi.ssid.val, 0, sizeof(wifi.ssid.val));

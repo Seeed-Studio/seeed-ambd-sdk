@@ -31,7 +31,6 @@ extern init_done_ptr p_wlan_init_done_callback;
 extern void serial_rx_fifo_level(serial_t *obj, SerialFifoLevel FifoLv);
 
 serial_t at_cmd_sobj;
-//_sema at_printf_sema;
 _sema uart_at_dma_tx_sema;
 unsigned char gAT_Echo = 1; // default echo on
 
@@ -345,21 +344,7 @@ void uart_at_send_buf(u8 *buf, u32 len)
 	}
 #endif
 }
-/*
-void uart_at_lock(void)
-{
-	rtw_down_sema(&at_printf_sema);
-}
 
-void uart_at_unlock(void)
-{
-	rtw_up_sema(&at_printf_sema);
-}
-
-void uart_at_lock_init(){
-	rtw_init_sema(&at_printf_sema, 1);
-}
-*/
 void uart_irq(uint32_t id, SerialIrq event)
 {
 	serial_t    *sobj = (serial_t *)id;
@@ -532,8 +517,6 @@ void uart_atcmd_main(void)
 	else
 		serial_set_flow_control(&at_cmd_sobj, FlowControlNone, rxflow, txflow);
 
-	/*uart_at_lock_init();*/
-
 #if UART_AT_USE_DMA_TX
 	rtw_init_sema(&uart_at_dma_tx_sema, 1);
 #endif
@@ -578,6 +561,7 @@ void example_uart_atcmd(void)
 {
 	//if(xTaskCreate(uart_atcmd_thread, ((const char*)"uart_atcmd_thread"), 1024, NULL, tskIDLE_PRIORITY + 1 , NULL) != pdPASS)
 	//	printf("\n\r%s xTaskCreate(uart_atcmd_thread) failed", __FUNCTION__);
+	at_prt_lock_init();
 	p_wlan_init_done_callback = uart_atcmd_module_init;
 	return;
 }

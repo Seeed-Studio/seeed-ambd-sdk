@@ -46,8 +46,6 @@
 #define KEY_ESC			0x1B
 #define KEY_LBRKT		0x5B
 
-void uart_at_lock(void);
-void uart_at_unlock(void);
 void uart_at_send_string(char *str);
 void uart_at_send_buf(u8 *buf, u32 len);
 void example_uart_atcmd(void);

@@ -1057,6 +1057,7 @@ int spi_atcmd_module_init(void)
 
 void example_spi_atcmd(void)
 {
+	at_prt_lock_init();
 	p_wlan_init_done_callback = spi_atcmd_module_init;
 	return;
 }

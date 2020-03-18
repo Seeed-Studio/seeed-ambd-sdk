@@ -77,6 +77,11 @@ enum {
 extern int dhcp_mode_sta;
 
 
+int at_prt_lock_init(void);
+unsigned at_prt_lock(void);
+int at_prt_unlock(unsigned mask);
+
+
 
 
 
@@ -157,8 +162,6 @@ extern void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8
 extern char at_string[ATSTRING_LEN];
 
 extern unsigned char gAT_Echo; // default echo on
-//extern void uart_at_lock(void);
-//extern void uart_at_unlock(void);
 extern void uart_at_send_buf(u8 *buf, u32 len);
 
 #define at_printf(fmt, args...)  do{\
@@ -248,11 +251,12 @@ extern char at_string[ATSTRING_LEN];
 
 extern void spi_at_send_buf(u8 *buf, u32 len);
 
-#define at_printf(fmt, args...)  do{\
-			/*spi_at_lock();*/\
-			snprintf(at_string, ATSTRING_LEN, fmt, ##args); \
+#define at_printf(fmt, args...)  do{       \
+			unsigned m;        \
+			m = at_prt_lock(); \
+			snprintf(at_string, ATSTRING_LEN, fmt, ##args);    \
 			spi_at_send_buf((u8*)at_string, strlen(at_string));\
-			/*spi_at_unlock();*/\
+			at_prt_unlock(m);  \
 	}while(0)
 #define at_print_data(data, size)  do{\
 			/*spi_at_lock();*/\
