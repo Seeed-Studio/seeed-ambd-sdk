@@ -28,11 +28,7 @@
 
 typedef int (*init_done_ptr)(void);
 extern init_done_ptr p_wlan_init_done_callback;
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern xSemaphoreHandle log_rx_interrupt_sema;
 extern void serial_rx_fifo_level(serial_t *obj, SerialFifoLevel FifoLv);
-extern int atcmd_wifi_restore_from_flash(void);
-extern int atcmd_lwip_restore_from_flash(void);
 
 serial_t at_cmd_sobj;
 //_sema at_printf_sema;
@@ -440,7 +436,7 @@ void uart_irq(uint32_t id, SerialIrq event)
 					data_cmd_sz = 0;
 					buf_count=0;
 					last_tickcnt = 0;
-					rtw_up_sema_from_isr((_sema *)(&log_rx_interrupt_sema));
+					rtw_up_sema_from_isr(&log_rx_interrupt_sema);
 				}
 				return;			
 			}
@@ -466,7 +462,7 @@ void uart_irq(uint32_t id, SerialIrq event)
 			if(buf_count>0){
 				rtw_memset(log_buf,'\0',LOG_SERVICE_BUFLEN);
 				strncpy(log_buf,(char *)&temp_buf[0],buf_count);
-				rtw_up_sema_from_isr((_sema *)(&log_rx_interrupt_sema));
+				rtw_up_sema_from_isr(&log_rx_interrupt_sema);
 				rtw_memset(temp_buf,'\0',buf_count);
 				is_data_cmd = _FALSE;
 				data_sz = 0;

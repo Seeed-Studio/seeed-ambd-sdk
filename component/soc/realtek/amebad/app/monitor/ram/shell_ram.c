@@ -30,11 +30,9 @@ extern COMMAND_TABLE    shell_cmd_table[];
 xSemaphoreHandle	shell_sema = NULL;
 
 #if defined(CONFIG_WIFI_NORMAL)
-#if SUPPORT_LOG_SERVICE
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern _sema log_rx_interrupt_sema;
-extern void log_service_init(void);
-#endif
+  #if SUPPORT_LOG_SERVICE
+    #include "log_service.h"
+  #endif
 #endif
 
 static monitor_cmd_handler shell_get_cmd(char* argv)
@@ -74,7 +72,7 @@ u32 shell_cmd_exec(u8  argc, u8  **argv)
 	}
 	
 #if SUPPORT_LOG_SERVICE
-	rtw_up_sema((_sema *)&log_rx_interrupt_sema);
+	rtw_up_sema(&log_rx_interrupt_sema);
 #endif
 	shell_array_init(argv[0], sizeof(argv[0]) ,0);
 	

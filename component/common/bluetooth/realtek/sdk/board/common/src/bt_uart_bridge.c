@@ -6,13 +6,10 @@
 #include "log_service.h"
 #include <stdbool.h>
 #include "hci_uart.h"
-#include "osdep_service.h"
 
 #define KEY_NL			0xa // '\n'
 #define KEY_ENTER		0xd // '\r'
 
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern xSemaphoreHandle log_rx_interrupt_sema;
 
 #ifdef CONFIG_PLATFORM_8710C
 extern hal_uart_adapter_t log_uart;
@@ -230,7 +227,7 @@ static void _bt_uart_bridge_irq(u32 id,u32 event)
 				strncpy(log_buf,close_cmd_buf,strlen(close_cmd_buf));
 				check_byte_num=0;
 				set_hci_uart_out(false);
-				rtw_up_sema_from_isr((_sema*)&log_rx_interrupt_sema);
+				rtw_up_sema_from_isr(&log_rx_interrupt_sema);
 			}
 
 		}
@@ -311,7 +308,7 @@ static void _bt_uart_bridge_irq(void * data)
 				check_byte_num=0;
 				set_hci_uart_out(false);
 				UserIrqFunTable[UART_LOG_IRQ_LP] = (IRQ_FUN)UartBkFunc;
-				rtw_up_sema_from_isr((_sema*)&log_rx_interrupt_sema);
+				rtw_up_sema_from_isr(&log_rx_interrupt_sema);
 			}
 		}
 		else

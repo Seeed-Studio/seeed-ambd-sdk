@@ -11,6 +11,8 @@
 #include "platform_stdlib.h"
 #endif
 
+#include "osdep_service.h"
+
 /*
 //#ifdef __ICCARM__
 //#define STRINGIFY(s) #s
@@ -113,7 +115,9 @@ typedef struct _at_command_item_{
 }log_item_t;
 
 extern char log_buf[LOG_SERVICE_BUFLEN];
+extern _sema log_rx_interrupt_sema;
 
+extern void log_service_init(void);
 void log_service_add_table(log_item_t *tbl, int len);
 int parse_param(char *buf, char **argv);
 void at_set_debug_mask(unsigned int newDbgFlag);

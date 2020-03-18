@@ -79,9 +79,6 @@ int spi_state = SPI_STATE_MISO;
 _sema spi_check_trx_sema;
 
 /**** LOG SERVICE ****/
-extern char log_buf[LOG_SERVICE_BUFLEN];
-extern _sema log_rx_interrupt_sema;
-
 #define LOG_TX_BUFFER_SIZE 1024
 u8 log_tx_buffer[LOG_TX_BUFFER_SIZE];
 volatile uint32_t log_tx_tail = 0;
