@@ -81,6 +81,9 @@ int at_prt_lock_init(void);
 unsigned at_prt_lock(void);
 int at_prt_unlock(unsigned mask);
 
+int at_bin2hex(u8* target, int tsz, const u8* src, int ssz, u8 delim);
+int at_hex2bin(u8* target, int tsz, const u8* src, int ssz);
+
 
 
 
@@ -280,7 +283,6 @@ int atcmd_wifi_restore_from_flash(void);
 #if defined(configUSE_TRACE_FACILITY) && (configUSE_TRACE_FACILITY == 1)
 int trace_task(void);
 #endif
-extern u8 key_2char2num(u8 hch, u8 lch);
 
 
 #if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD) || (defined(CONFIG_EXAMPLE_SPI_ATCMD) && CONFIG_EXAMPLE_SPI_ATCMD)

@@ -192,6 +192,48 @@ int at_prt_lock_init(void) {
 }
 
 
+int at_bin2hex(u8* target, int tsz, const u8* src, int ssz, u8 delim) {
+	int si, ti;
+
+	if (!src || ssz == 0 || !target || tsz == 0) {
+		return -1;
+	}
+	for (si = 0, ti = 0; si < ssz && ti < tsz - 1; si++) {
+		ti += sprintf((char*)target + ti, "%02X", src[si]);
+		if (delim && ti < tsz && si != ssz - 1) {
+			target[ti++] = delim;
+		}
+	}
+	if (si < ssz) {
+		return -2;
+	}
+	return 0;
+}
+
+int at_hex2bin(u8* target, int tsz, const u8* src, int ssz) {
+	int si, ti;
+
+	if (!src || ssz == 0 || !target || tsz == 0) {
+		return -1;
+	}
+
+	si = 0;
+	while (src[si] && !isxdigit(src[si])) si++;
+	for (ti = 0; si < ssz - 1 && ti < tsz;) {
+		int v;
+		sscanf(&src[si], "%2x", &v);
+		si += 2;
+		target[ti++] = v;
+		if (src[si] && src[si] == ':') si++;
+	}
+
+	if (ti < tsz) {
+		return -2;
+	}
+	return 0;
+}
+
+
 
 
 
@@ -567,13 +609,13 @@ void fATWx(void *arg)
 
 			#if CONFIG_LWIP_LAYER
 			#if _EN_EXPORT_ATCMD
-			at_printf("%02x:%02x:%02x:%02x:%02x:%02x,", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+			at_printf(MAC_FMT ",", MAC_ARG(mac));
 			at_printf("%d.%d.%d.%d,", ip[0], ip[1], ip[2], ip[3]);
 			at_printf("%d.%d.%d.%d", gw[0], gw[1], gw[2], gw[3]);
 			#endif
 			printf("\n\rInterface (%s)", ifname[i]);
 			printf("\n\r==============================");
-			printf("\n\r\tMAC => %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+			printf("\n\r\tMAC => " MAC_FMT, MAC_ARG(mac));
 			printf("\n\r\tIP  => %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 			printf("\n\r\tGW  => %d.%d.%d.%d", gw[0], gw[1], gw[2], gw[3]);
 			printf("\n\r\tmsk  => %d.%d.%d.%d\n\r", msk[0], msk[1], msk[2], msk[3]);
@@ -630,8 +672,7 @@ void fATWx(void *arg)
 				gw = LwIP_GetGW(&xnetif[i]);
 				printf("\n\rInterface ethernet\n");
 				printf("\n\r==============================");
-				printf("\n\r\tMAC => %02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3],
-				       mac[4], mac[5]);
+				printf("\n\r\tMAC => " MAC_FMT, MAC_ARG(mac));
 				printf("\n\r\tIP  => %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
 				printf("\n\r\tGW  => %d.%d.%d.%d\n\r", gw[0], gw[1], gw[2], gw[3]);
 				#endif	// end CONFIG_LWIP_LAYER
@@ -809,10 +850,9 @@ void fATW6(void *arg)
 		goto exit;
 	}
 	printf("[ATW6]: _AT_WLAN_SET_BSSID_ [%s]\n\r", (char *) arg);
-	sscanf(arg, MAC_FMT, mac, mac + 1, mac + 2, mac + 3, mac + 4, mac + 5);
-	for (i = 0; i < ETH_ALEN; i++)
-		wifi.bssid.octet[i] = (u8) mac[i] & 0xFF;
-      exit:
+	at_hex2bin(wifi.bssid.octet, ETH_ALEN, arg, strlen(arg));
+
+exit:
 	#if defined(CONFIG_INIC_CMD_RSP) && CONFIG_INIC_CMD_RSP
 	inic_c2h_msg("ATW6", ret, NULL, 0);
 	#endif
@@ -870,11 +910,8 @@ void fATWA(void *arg)
 				unsigned char i, j;
 				for (i = 0; i < 64; i++) {
 					j = ap.password[i];
-					if (!
-					    ((j >= '0' && j <= '9') || (j >= 'A' && j <= 'F')
-					     || (j >= 'a' && j <= 'f'))) {
-						printf
-						    ("[ATWA]Error: password should be 64 hex characters or 8-63 ASCII characters\n\r");
+					if (!((j >= '0' && j <= '9') || (j >= 'A' && j <= 'F') || (j >= 'a' && j <= 'f'))) {
+						printf("[ATWA]Error: password should be 64 hex characters or 8-63 ASCII characters\n\r");
 						ret = RTW_INVALID_KEY;
 						goto exit;
 					}
@@ -1099,29 +1136,14 @@ void fATWC(void *arg)
 #if 0				//implemented in wifi_connect()
 		//hex to ascii conversion
 		if (wifi.security_type == RTW_SECURITY_WEP_PSK) {
-			if (wifi.password_len == 10) {
-				u32 p[5];
-				u8 pwd[6], i = 0;
-				sscanf((const char *) wifi.password, "%02x%02x%02x%02x%02x", &p[0], &p[1], &p[2], &p[3],
-				       &p[4]);
-				for (i = 0; i < 5; i++)
-					pwd[i] = (u8) p[i];
-				pwd[5] = '\0';
-				memset(wifi.password, 0, 65);
-				strcpy((char *) wifi.password, (char *) pwd);
-				wifi.password_len = 5;
-			} else if (wifi.password_len == 26) {
-				u32 p[13];
-				u8 pwd[14], i = 0;
-				sscanf((const char *) wifi.password, "%02x%02x%02x%02x%02x%02x%02x"
-				       "%02x%02x%02x%02x%02x%02x", &p[0], &p[1], &p[2], &p[3], &p[4],
-				       &p[5], &p[6], &p[7], &p[8], &p[9], &p[10], &p[11], &p[12]);
-				for (i = 0; i < 13; i++)
-					pwd[i] = (u8) p[i];
-				pwd[13] = '\0';
-				memset(wifi.password, 0, 65);
+			u8 pwd[14];
+			if (at_hex2bin(pwd, 13, wifi.password, strlen(wifi.password)) >= 0) {
 				strcpy((char *) wifi.password, (char *) pwd);
 				wifi.password_len = 13;
+			} else
+			if (at_hex2bin(pwd, 5, wifi.password, strlen(wifi.password)) >= 0) {
+				strcpy((char *) wifi.password, (char *) pwd);
+				wifi.password_len = 5;
 			}
 		}
 #endif
@@ -2204,15 +2226,11 @@ void fATPN(void *arg)
 	}
 	//BSSID
 	if (argv[4] != NULL) {
-		if (strlen(argv[4]) != 12) {
-			//at_printf("\r\n[ATPN] ERROR : BSSID format error");
+		if (at_hex2bin(wifi.bssid.octet, ETH_ALEN, argv[4], strlen(argv[4])) < 0) {
 			error_no = 2;
 			goto exit;
 		}
-		for (i = 0, j = 0; i < ETH_ALEN; i++, j += 2) {
-			wifi.bssid.octet[i] = key_2char2num(argv[4][j], argv[4][j + 1]);
-			assoc_by_bssid = 1;
-		}
+		assoc_by_bssid = 1;
 	}
 	//Check if in AP mode
 	wext_get_mode(WLAN0_NAME, &mode);
@@ -2475,10 +2493,7 @@ void fATPF(void *arg)
 		goto exit;
 	}
 
-	ap_gw[0] = ap_ip[0];
-	ap_gw[1] = ap_ip[1];
-	ap_gw[2] = ap_ip[2];
-	ap_gw[3] = ap_ip[3];
+	memcpy(ap_gw, ap_ip, sizeof ap_ip);
 
 	ap_netmask[0] = 255;
 	ap_netmask[1] = 255;
@@ -3291,15 +3306,12 @@ void fATCWJAP(void* arg) {
 	//BSSID
 	char assoc_by_bssid = 0;
 	if (argv[3] != NULL) {
-		if (strlen(argv[3]) != 12) {
+		if (at_hex2bin(wifi.bssid.octet, ETH_ALEN, argv[3], strlen(argv[3])) < 0) {
 			printf("+CWJAP: BSSID format error");
 			r = -3;
 			goto __ret;
 		}
-		for (int i = 0, j = 0; i < ETH_ALEN; i++, j += 2) {
-			wifi.bssid.octet[i] = key_2char2num(argv[4][j], argv[4][j + 1]);
-			assoc_by_bssid = 1;
-		}
+		assoc_by_bssid = 1;
 	}
 
 	// MODE must already changed by AT+CWMODE
