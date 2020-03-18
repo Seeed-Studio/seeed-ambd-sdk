@@ -260,6 +260,7 @@ extern void spi_at_send_buf(u8 *buf, u32 len);
 			snprintf(at_string, ATSTRING_LEN, fmt, ##args);    \
 			spi_at_send_buf((u8*)at_string, strlen(at_string));\
 			at_prt_unlock(m);  \
+			/* printf(at_string); debug only*/                  \
 	}while(0)
 #define at_print_data(data, size)  do{\
 			/*spi_at_lock();*/\

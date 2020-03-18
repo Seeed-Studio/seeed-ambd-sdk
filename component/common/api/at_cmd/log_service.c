@@ -229,6 +229,9 @@ void *log_handler(char *cmd)
 #endif
 	strncpy(copy, cmd, LOG_SERVICE_BUFLEN - 1);
 
+	// debug only
+	// printf("$$$ =%s=\n", log_buf);
+
 #if defined(USE_STRSEP)
 	token = _strsep(&copy, "=");
 	param = copy;
