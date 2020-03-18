@@ -3191,6 +3191,7 @@ static void cwqap_wifi_disconn_handler(char *buf, int buf_len, int flags, void *
 	(void) userdata;
 
 	at_printf(STR_RESP_OK);
+	at_printf("\r\nWIFI DISCONNECT\r\n");
 	return;
 }
 
@@ -3357,7 +3358,7 @@ void fATCWJAP(void* arg) {
 		wifi_set_pscan_chan(&connect_channel, &pscan_config, 1);
 
 	int ret;
-	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler);
 	if (assoc_by_bssid) {
 		ret = wifi_connect_bssid(wifi.bssid.octet, (char *) wifi.ssid.val, wifi.security_type,
 				        (char *) wifi.password, ETH_ALEN, wifi.ssid.len, wifi.password_len, wifi.key_id,
@@ -3372,6 +3373,9 @@ void fATCWJAP(void* arg) {
 		goto __ret;
 	}
 
+	// esp compatible
+	at_printf("\r\nWIFI CONNECTED\r\n");
+
 	if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
 		struct netif *pnetif = &xnetif[0];
 		LwIP_UseStaticIP(pnetif);
@@ -3380,7 +3384,10 @@ void fATCWJAP(void* arg) {
 		ret = LwIP_DHCP(0, DHCP_START);
 		if (ret != DHCP_ADDRESS_ASSIGNED) {
 			r = -2000 + ret;
+			goto __ret;
 		}
+		// esp compatible
+		at_printf("\r\nWIFI GOT IP\r\n");
 	}
 
 __ret:
@@ -3390,7 +3397,7 @@ __ret:
 		at_printf(STR_RESP_FAIL);
 		return;
 	}
-	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl, NULL);
+	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler, NULL);
 	at_printf(STR_RESP_OK);
 	return;
 }

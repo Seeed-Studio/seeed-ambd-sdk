@@ -2433,26 +2433,28 @@ void wifi_autoreconnect_hdl(rtw_security_t security_type,
 #else
 static void wifi_autoreconnect_thread(void *param)
 {
-#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
+	#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
 	rtw_create_secure_context(configMINIMAL_SECURE_STACK_SIZE);
-#endif
+	#endif
 	int ret = RTW_ERROR;
 	struct wifi_autoreconnect_param *reconnect_param = (struct wifi_autoreconnect_param *) param;
 	RTW_API_INFO("\n\rauto reconnect ...\n");
 	ret = wifi_connect(reconnect_param->ssid, reconnect_param->security_type, reconnect_param->password,
 	                   reconnect_param->ssid_len, reconnect_param->password_len, reconnect_param->key_id, NULL);
+
 	#if CONFIG_LWIP_LAYER
 	if(ret == RTW_SUCCESS) {
-		#if ATCMD_VER == ATVER_2
+		// esp compatible
+		at_printf("\r\nWIFI CONNECTED\r\n");
+
 		if (dhcp_mode_sta == DHCP_MODE_AS_SERVER){
 			struct netif * pnetif = &xnetif[0];
 			LwIP_UseStaticIP(pnetif);
 			dhcps_init(pnetif);
-		}
-		else
-		#endif
-		{
-			LwIP_DHCP(0, DHCP_START);
+		} else
+		if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
+			ret = LwIP_DHCP(0, DHCP_START);
+
 			#if LWIP_AUTOIP
 			uint8_t *ip = LwIP_GetIP(&xnetif[0]);
 			if((ip[0] == 0) && (ip[1] == 0) && (ip[2] == 0) && (ip[3] == 0)) {
@@ -2460,6 +2462,11 @@ static void wifi_autoreconnect_thread(void *param)
 				LwIP_AUTOIP(&xnetif[0]);
 			}
 			#endif
+
+			if (ret == DHCP_ADDRESS_ASSIGNED) {
+				// esp compatible
+				at_printf("\r\nWIFI GOT IP\r\n");
+			}
 		}
 	}
 	#endif //#if CONFIG_LWIP_LAYER
