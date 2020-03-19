@@ -166,12 +166,14 @@ static _sema at_printf_sema = NULL;
 unsigned at_prt_lock(void) {
 	unsigned mask = 0;
 
-	// should protect the at_printf buffer
+	// protect the at_printf buffer
 	if (__get_IPSR()) {
+		// in interrupt routine
 		mask = taskENTER_CRITICAL_FROM_ISR();
 	} else {
-		// taskENTER_CRITICAL();
+		// or task environment
 		rtw_down_sema(&at_printf_sema);
+		// taskENTER_CRITICAL();
 	}
 	return mask;
 }
@@ -180,8 +182,8 @@ int at_prt_unlock(unsigned mask) {
 	if (__get_IPSR()) {
 		taskEXIT_CRITICAL_FROM_ISR(mask);
 	} else {
-		// taskEXIT_CRITICAL();
 		rtw_up_sema(&at_printf_sema);
+		// taskEXIT_CRITICAL();
 	}
 	return 0;
 }
@@ -191,7 +193,11 @@ int at_prt_lock_init(void) {
 	return 0;
 }
 
-
+/*
+ * translate strings such as
+ * "\xAA\xBB\xCC\xDD\xEE\xFF" to "AA:BB:CC:DD:EE:FF" if delim == ':'
+ * "\x01\xAB\xCD\xEF\x23\x45" to "01ABCDEF2345"      if delim == 0
+ */
 int at_bin2hex(u8* target, int tsz, const u8* src, int ssz, u8 delim) {
 	int si, ti;
 
@@ -210,6 +216,12 @@ int at_bin2hex(u8* target, int tsz, const u8* src, int ssz, u8 delim) {
 	return 0;
 }
 
+/*
+ * translate strings such as
+ * "AA:BB:CC:DD:EE:FF" to "\xAA\xBB\xCC\xDD\xEE\xFF"
+ * "01:bb:cc:dd:ee:ff" to "\x01\xBB\xCC\xDD\xEE\xFF"
+ * "  \" 01AbCDEF2345" to "\x01\xAB\xCD\xEF\x23\x45"
+ */
 int at_hex2bin(u8* target, int tsz, const u8* src, int ssz) {
 	int si, ti;
 
@@ -1136,7 +1148,7 @@ void fATWC(void *arg)
 #if 0				//implemented in wifi_connect()
 		//hex to ascii conversion
 		if (wifi.security_type == RTW_SECURITY_WEP_PSK) {
-			u8 pwd[14];
+			u8 pwd[14] = {0};
 			if (at_hex2bin(pwd, 13, wifi.password, strlen(wifi.password)) >= 0) {
 				strcpy((char *) wifi.password, (char *) pwd);
 				wifi.password_len = 13;
