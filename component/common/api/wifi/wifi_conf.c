@@ -2447,11 +2447,6 @@ static void wifi_autoreconnect_thread(void *param)
 		// esp compatible
 		at_printf("\r\nWIFI CONNECTED\r\n");
 
-		if (dhcp_mode_sta == DHCP_MODE_AS_SERVER){
-			struct netif * pnetif = &xnetif[0];
-			LwIP_UseStaticIP(pnetif);
-			dhcps_init(pnetif);
-		} else
 		if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
 			ret = LwIP_DHCP(0, DHCP_START);
 
@@ -2467,7 +2462,17 @@ static void wifi_autoreconnect_thread(void *param)
 				// esp compatible
 				at_printf("\r\nWIFI GOT IP\r\n");
 			}
+		} else {
+			struct netif *pn;
+			pn = wifi_get_netif(RTW_STA_INTERFACE);
+
+			LwIP_UseStaticIP(pn);
+			if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
+				dhcps_init(pn);
+			}
 		}
+		// esp compatible
+		at_printf("\r\nWIFI GOT IP\r\n");
 	}
 	#endif //#if CONFIG_LWIP_LAYER
 	vTaskDelete(NULL);

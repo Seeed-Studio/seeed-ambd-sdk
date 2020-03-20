@@ -11,6 +11,7 @@
 #if CONFIG_WLAN
 #include "wifi_ind.h"
 #endif
+#include "atcmd_wifi.h"
 
 #include <platform/platform_stdlib.h>
 

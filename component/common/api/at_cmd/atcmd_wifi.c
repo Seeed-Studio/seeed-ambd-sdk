@@ -147,19 +147,17 @@ int security = -1;
 #endif
 
 #if ATCMD_VER == ATVER_2 || WIFI_LOGO_CERTIFICATION_CONFIG
-unsigned char sta_ip[4]      = { 192, 168, 1, 80 },
+uint8_t       sta_ip[4]      = { 192, 168, 1, 80 },
 	      sta_netmask[4] = {255, 255, 255, 0},
 	      sta_gw[4]      = {192, 168, 1, 1};
 #endif
 
-#if ATCMD_VER == ATVER_2
 int dhcp_mode_sta = DHCP_MODE_ENABLE, dhcp_mode_ap = DHCP_MODE_ENABLE;
-unsigned char ap_ip[4]      = { 192, 168, 43, 1 },
+uint8_t       ap_ip[4]      = { 192, 168, 43, 1 },
 	      ap_netmask[4] = {255, 255, 255, 0},
 	      ap_gw[4]      = {192, 168, 43, 1};
 
 static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *userdata);
-#endif
 
 static _sema at_printf_sema = NULL;
 
@@ -1787,7 +1785,6 @@ void fATPE(void *arg)
 	int argc, error_no = 0;
 	char *argv[MAX_ARGC] = { 0 };
 	unsigned int ip_addr = 0;
-	//unsigned char sta_ip[4] = {192,168,3,80}, sta_netmask[4] = {255,255,255,0}, sta_gw[4] = {192,168,3,1};
 	struct ip_addr ipaddr;
 	struct ip_addr netmask;
 	struct ip_addr gw;
@@ -2382,7 +2379,6 @@ void fATPE(void *arg)
 	int argc, error_no = 0;
 	char *argv[MAX_ARGC] = { 0 };
 	unsigned int ip_addr = 0;
-	//unsigned char sta_ip[4] = {192,168,3,80}, sta_netmask[4] = {255,255,255,0}, sta_gw[4] = {192,168,3,1};
 
 	if (!arg) {
 		AT_DBG_MSG(AT_FLAG_WIFI, AT_DBG_ERROR, "\r\n[ATPE] Usage : ATPE=<ip>(,<gateway>,<mask>)");
@@ -2399,10 +2395,7 @@ void fATPE(void *arg)
 
 	if (argv[1] != NULL) {
 		ip_addr = inet_addr(argv[1]);
-		sta_ip[0] = (unsigned char) ip_addr & 0xff;
-		sta_ip[1] = (unsigned char) (ip_addr >> 8) & 0xff;
-		sta_ip[2] = (unsigned char) (ip_addr >> 16) & 0xff;
-		sta_ip[3] = (unsigned char) (ip_addr >> 24) & 0xff;
+		memcpy(sta_ip, &ip_addr, sizeof sta_ip);
 	} else {
 		//at_printf("\r\n[ATPE] ERROR : parameter format error");
 		error_no = 2;
@@ -2411,28 +2404,18 @@ void fATPE(void *arg)
 
 	if (argv[2] != NULL) {
 		ip_addr = inet_addr(argv[2]);
-		sta_gw[0] = (unsigned char) ip_addr & 0xff;
-		sta_gw[1] = (unsigned char) (ip_addr >> 8) & 0xff;
-		sta_gw[2] = (unsigned char) (ip_addr >> 16) & 0xff;
-		sta_gw[3] = (unsigned char) (ip_addr >> 24) & 0xff;
+		memcpy(sta_gw, &ip_addr, sizeof sta_gw);
 	} else {
-		sta_gw[0] = sta_ip[0];
-		sta_gw[1] = sta_ip[1];
-		sta_gw[2] = sta_ip[2];
+		memcpy(sta_gw, &sta_ip, sizeof sta_gw);
 		sta_gw[3] = 1;
 	}
 
 	if (argv[3] != NULL) {
 		ip_addr = inet_addr(argv[3]);
-		sta_netmask[0] = (unsigned char) ip_addr & 0xff;
-		sta_netmask[1] = (unsigned char) (ip_addr >> 8) & 0xff;
-		sta_netmask[2] = (unsigned char) (ip_addr >> 16) & 0xff;
-		sta_netmask[3] = (unsigned char) (ip_addr >> 24) & 0xff;
+		memcpy(sta_netmask, &ip_addr, sizeof sta_netmask);
 	} else {
-		sta_netmask[0] = 255;
-		sta_netmask[1] = 255;
-		sta_netmask[2] = 255;
-		sta_netmask[3] = 0;
+		ip_addr = 0x00FFFFFF;
+		memcpy(sta_netmask, &ip_addr, sizeof sta_netmask);
 	}
 
       exit:
@@ -2495,10 +2478,7 @@ void fATPF(void *arg)
 
 	if (argv[3] != NULL) {
 		ip_addr = inet_addr(argv[3]);
-		ap_ip[0] = (unsigned char) ip_addr & 0xff;
-		ap_ip[1] = (unsigned char) (ip_addr >> 8) & 0xff;
-		ap_ip[2] = (unsigned char) (ip_addr >> 16) & 0xff;
-		ap_ip[3] = (unsigned char) (ip_addr >> 24) & 0xff;
+		memcpy(ap_ip, &ip_addr, sizeof ap_ip);
 	} else {
 		//at_printf("\r\n[ATPF] ERROR : parameter format error");
 		error_no = 2;
@@ -2506,11 +2486,8 @@ void fATPF(void *arg)
 	}
 
 	memcpy(ap_gw, ap_ip, sizeof ap_ip);
-
-	ap_netmask[0] = 255;
-	ap_netmask[1] = 255;
-	ap_netmask[2] = 255;
-	ap_netmask[3] = 0;
+	ip_addr = 0x00FFFFFF;
+	memcpy(ap_netmask, &ip_addr, sizeof ap_netmask);
 
       exit:
 	if (error_no == 0)
@@ -3242,6 +3219,7 @@ void fATCWQAP(void* arg) {
 __ret:
 	init_wifi_struct();
 	if (err == RTW_SUCCESS) {
+		at_printf(STR_RESP_OK);
 		return;
 	}
 
@@ -3387,20 +3365,25 @@ void fATCWJAP(void* arg) {
 
 	// esp compatible
 	at_printf("\r\nWIFI CONNECTED\r\n");
+	at_printf(STR_RESP_OK);
 
-	if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
-		struct netif *pnetif = &xnetif[0];
-		LwIP_UseStaticIP(pnetif);
-		dhcps_init(pnetif);
-	} else if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
+	if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
 		ret = LwIP_DHCP(0, DHCP_START);
 		if (ret != DHCP_ADDRESS_ASSIGNED) {
 			r = -2000 + ret;
 			goto __ret;
 		}
-		// esp compatible
-		at_printf("\r\nWIFI GOT IP\r\n");
+	} else {
+		struct netif *pn;
+		pn = wifi_get_netif(RTW_STA_INTERFACE);
+
+		LwIP_UseStaticIP(pn);
+		if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
+			dhcps_init(pn);
+		}
 	}
+	// esp compatible
+	at_printf("\r\nWIFI GOT IP\r\n");
 
 __ret:
 	init_wifi_struct();
@@ -3410,7 +3393,6 @@ __ret:
 		return;
 	}
 	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler, NULL);
-	at_printf(STR_RESP_OK);
 	return;
 }
 
@@ -3465,6 +3447,19 @@ void fATCIPSTA(void* arg) {
 		at_printf(STR_RESP_OK);
 		return;
 	}
+
+	// Set
+	inet_aton(argv[1], &pn->ip_addr);
+	memcpy(sta_ip, &pn->ip_addr, sizeof sta_ip);
+	if (argc >= 3) {
+		inet_aton(argv[2], &pn->gw);
+		memcpy(sta_gw, &pn->gw, sizeof sta_gw);
+	}
+	if (argc >= 4) {
+		inet_aton(argv[3], &pn->netmask);
+		memcpy(sta_netmask, &pn->netmask, sizeof sta_netmask);
+	}
+
 	at_printf(STR_RESP_OK);
 	return;
 }
@@ -3498,6 +3493,7 @@ void fATCIPSTAMAC(void* arg) {
 	}
 
 	// Set
+	at_hex2bin(pn->hwaddr, NETIF_MAX_HWADDR_LEN, argv[1], strlen(argv[1]));
 	at_printf(STR_RESP_OK);
 	return;
 }
@@ -3530,6 +3526,18 @@ void fATCIPAP(void* arg) {
 		at_printf("+CIPAP:netmask:\"%s\"\r\n", ip_ntoa(&pn->netmask));
 		at_printf(STR_RESP_OK);
 		return;
+	}
+
+	// Set
+	inet_aton(argv[1], &pn->ip_addr);
+	memcpy(ap_ip, &pn->ip_addr, sizeof ap_ip);
+	if (argc >= 3) {
+		inet_aton(argv[2], &pn->gw);
+		memcpy(ap_gw, &pn->gw, sizeof ap_gw);
+	}
+	if (argc >= 4) {
+		inet_aton(argv[3], &pn->netmask);
+		memcpy(ap_netmask, &pn->netmask, sizeof ap_netmask);
 	}
 	at_printf(STR_RESP_OK);
 	return;
@@ -3564,6 +3572,7 @@ void fATCIPAPMAC(void* arg) {
 	}
 
 	// Set
+	at_hex2bin(pn->hwaddr, NETIF_MAX_HWADDR_LEN, argv[1], strlen(argv[1]));
 	at_printf(STR_RESP_OK);
 	return;
 }

@@ -19,51 +19,53 @@
 #endif  // end of NET_IF_NUM
 
 /*Static IP ADDRESS*/
+extern uint8_t sta_ip[], sta_gw[], sta_netmask[];
+
 #ifndef IP_ADDR0
-#define IP_ADDR0   192
-#define IP_ADDR1   168
-#define IP_ADDR2   1
-#define IP_ADDR3   80
+#define IP_ADDR0   sta_ip[0]
+#define IP_ADDR1   sta_ip[1]
+#define IP_ADDR2   sta_ip[2]
+#define IP_ADDR3   sta_ip[3]
 #endif
 
 /*NETMASK*/
 #ifndef NETMASK_ADDR0
-#define NETMASK_ADDR0   255
-#define NETMASK_ADDR1   255
-#define NETMASK_ADDR2   255
-#define NETMASK_ADDR3   0
+#define NETMASK_ADDR0   sta_netmask[0]
+#define NETMASK_ADDR1   sta_netmask[1]
+#define NETMASK_ADDR2   sta_netmask[2]
+#define NETMASK_ADDR3   sta_netmask[3]
 #endif
 
 /*Gateway Address*/
 #ifndef GW_ADDR0
-#define GW_ADDR0   192
-#define GW_ADDR1   168
-#define GW_ADDR2   1
-#define GW_ADDR3   1
+#define GW_ADDR0   sta_gw[0]
+#define GW_ADDR1   sta_gw[1]
+#define GW_ADDR2   sta_gw[2]
+#define GW_ADDR3   sta_gw[3]
 #endif
 
 /*Static IP ADDRESS*/
 #ifndef AP_IP_ADDR0
-#define AP_IP_ADDR0   192
-#define AP_IP_ADDR1   168
-#define AP_IP_ADDR2   43
-#define AP_IP_ADDR3   1
+#define AP_IP_ADDR0   ap_ip[0]
+#define AP_IP_ADDR1   ap_ip[1]
+#define AP_IP_ADDR2   ap_ip[2]
+#define AP_IP_ADDR3   ap_ip[3]
 #endif
    
 /*NETMASK*/
 #ifndef AP_NETMASK_ADDR0
-#define AP_NETMASK_ADDR0   255
-#define AP_NETMASK_ADDR1   255
-#define AP_NETMASK_ADDR2   255
-#define AP_NETMASK_ADDR3   0
+#define AP_NETMASK_ADDR0   ap_netmask[0]
+#define AP_NETMASK_ADDR1   ap_netmask[1]
+#define AP_NETMASK_ADDR2   ap_netmask[2]
+#define AP_NETMASK_ADDR3   ap_netmask[3]
 #endif
 
 /*Gateway Address*/
 #ifndef AP_GW_ADDR0
-#define AP_GW_ADDR0   192
-#define AP_GW_ADDR1   168
-#define AP_GW_ADDR2   43
-#define AP_GW_ADDR3   1  
+#define AP_GW_ADDR0   ap_gw[0]
+#define AP_GW_ADDR1   ap_gw[1]
+#define AP_GW_ADDR2   ap_gw[2]
+#define AP_GW_ADDR3   ap_gw[3]
 #endif
 
 #define BSSID_LEN               17
