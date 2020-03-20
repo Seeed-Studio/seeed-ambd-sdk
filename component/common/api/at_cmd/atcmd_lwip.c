@@ -5915,7 +5915,45 @@ void atcmd_lwip_set_rx_buffer(unsigned char * buf, int bufsize) {
 	rx_buffer_size = bufsize;
 }
 
-#endif	
+#endif
+
+/* DNS function, resolve domain name to ip address */
+void fATCIPDOMAIN(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	char *hostname;
+	struct in_addr addr;
+	struct hostent *host;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	hostname = argv[1];
+
+	if (inet_aton(hostname, &addr) == 0) {
+		host = gethostbyname(hostname);
+		if (!host) {
+			at_printf(STR_RESP_FAIL);
+			return;
+		}
+		rtw_memcpy(&addr, host->h_addr, 4);
+	}
+
+	// Query
+	at_printf("+CIPDOMAIN:\"%s\"\r\n", ip_ntoa(&addr));
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+
 
 #if CONFIG_TRANSPORT
 log_item_t at_transport_items[ ] = {
@@ -5945,6 +5983,7 @@ log_item_t at_transport_items[ ] = {
 	{"ATPU", fATPU,}, //transparent transmission mode
 	{"ATPL", fATPL,}, //lwip auto reconnect setting
 #endif
+	{"AT+CIPDOMAIN", fATCIPDOMAIN},
 };
 
 #if ATCMD_VER == ATVER_2
