@@ -139,6 +139,7 @@ static rtw_network_info_t wifi = { 0 };
 
 static rtw_ap_info_t ap = { 0 };
 static uint8_t password[65] = { 0 };
+static uint8_t ap_pwd_buf[65] = { 0 };
 
 char at_string[ATSTRING_LEN];
 
@@ -231,7 +232,7 @@ int at_hex2bin(u8* target, int tsz, const u8* src, int ssz) {
 	while (src[si] && !isxdigit(src[si])) si++;
 	for (ti = 0; si < ssz - 1 && ti < tsz;) {
 		int v;
-		sscanf(&src[si], "%2x", &v);
+		sscanf((char *)&src[si], "%2x", &v);
 		si += 2;
 		target[ti++] = v;
 		if (src[si] && src[si] == ':') si++;
@@ -1918,17 +1919,6 @@ void fATPA(void *arg)
 {
 	int argc, error_no = 0;
 	char *argv[MAX_ARGC] = { 0 };
-
-#if CONFIG_LWIP_LAYER
-	struct ip_addr ipaddr;
-	struct ip_addr netmask;
-	struct ip_addr gw;
-	struct netif *pnetif;
-
-	(void) ipaddr;
-	(void) netmask;
-	(void) gw;
-#endif
 	int timeout = 20;
 	unsigned char hidden_ssid = 0;
 	rtw_mode_t wifi_mode_copy;
@@ -1976,8 +1966,8 @@ void fATPA(void *arg)
 			error_no = 2;
 			goto exit;
 		}
-		strcpy((char *) password, (char *) argv[2]);
-		ap.password = password;
+		strcpy((char *) ap_pwd_buf, (char *) argv[2]);
+		ap.password = ap_pwd_buf;
 		ap.password_len = strlen((char *) argv[2]);
 		ap.security_type = RTW_SECURITY_WPA2_AES_PSK;
 	} else {
@@ -2043,41 +2033,28 @@ void fATPA(void *arg)
 		}
 	}
 
+	const char * ifname = wifi_get_ifname(RTW_AP_INTERFACE);
 	while (1) {
 		char essid[33];
-		if (wifi_mode_copy == RTW_MODE_AP) {
-			if (wext_get_ssid(WLAN0_NAME, (unsigned char *) essid) > 0) {
-				if (strcmp((const char *) essid, (const char *) ap.ssid.val) == 0) {
-					break;
-				}
-			}
-		} else if (wifi_mode_copy == RTW_MODE_STA_AP) {
-			if (wext_get_ssid(WLAN1_NAME, (unsigned char *) essid) > 0) {
-				if (strcmp((const char *) essid, (const char *) ap.ssid.val) == 0) {
-					break;
-				}
+		if (wext_get_ssid(ifname, (uint8_t*)essid) > 0) {
+			if (strcmp((char*)essid, (char*)ap.ssid.val) == 0) {
+				break;
 			}
 		}
-
-		if (timeout == 0) {
+		if (timeout-- == 0) {
 			//at_printf("\r\n[ATPA] ERROR : Start AP timeout");
 			error_no = 4;
 			break;
 		}
-
 		vTaskDelay(1 * configTICK_RATE_HZ);
-		timeout--;
 	}
 #if CONFIG_LWIP_LAYER
-	if (wifi_mode == RTW_MODE_STA_AP)
-		pnetif = &xnetif[1];
-	else
-		pnetif = &xnetif[0];
+	struct netif *pn;
+	pn = wifi_get_netif(RTW_AP_INTERFACE);
 
-	LwIP_UseStaticIP(pnetif);
-
-	if (dhcp_mode_ap == 1)
-		dhcps_init(pnetif);
+	LwIP_UseStaticIP(pn);
+	if (dhcp_mode_ap != DHCP_MODE_DISABLE)
+		dhcps_init(pn);
 #endif
 
       exit:
@@ -2173,7 +2150,6 @@ static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *user
 void fATPN(void *arg)
 {
 	int argc, error_no = 0;
-	int i, j;
 	char *argv[MAX_ARGC] = { 0 };
 
 	int mode, ret;
@@ -2235,7 +2211,7 @@ void fATPN(void *arg)
 	}
 	//BSSID
 	if (argv[4] != NULL) {
-		if (at_hex2bin(wifi.bssid.octet, ETH_ALEN, argv[4], strlen(argv[4])) < 0) {
+		if (at_hex2bin((u8*)wifi.bssid.octet, ETH_ALEN, (u8*)argv[4], strlen(argv[4])) < 0) {
 			error_no = 2;
 			goto exit;
 		}
@@ -3108,6 +3084,50 @@ void fATCWDHCP(void* arg) {
 	return;
 }
 
+int security_2_esp_ecn(int security) {
+	int ecn;
+
+	switch (security) {
+	case RTW_SECURITY_OPEN:
+		ecn = 0; break;
+	case RTW_SECURITY_WEP_PSK:
+		ecn = 1; break;
+	case RTW_SECURITY_WPA_TKIP_PSK:
+	case RTW_SECURITY_WPA_AES_PSK:
+		ecn = 2; break;
+	case RTW_SECURITY_WPA2_AES_PSK:
+	case RTW_SECURITY_WPA2_TKIP_PSK:
+	case RTW_SECURITY_WPA2_MIXED_PSK:
+		ecn = 3; break;
+	case RTW_SECURITY_WPA_WPA2_MIXED:
+		ecn = 4; break;
+	default:
+		/* TODO: Enterprise or Unkown ? */
+		ecn = 5; break;
+	}
+	return ecn;
+
+}
+
+int esp_ecn_2_security(int ecn) {
+	int security;
+
+	// security = RTW_SECURITY_UNKNOWN;
+	security = RTW_SECURITY_UNKNOWN;
+	switch (ecn) {
+	case 0:
+		security = RTW_SECURITY_OPEN; break;
+	case 2:
+		security = RTW_SECURITY_WPA_AES_PSK; break;
+	case 4:
+		security = RTW_SECURITY_WPA_WPA2_MIXED; break;
+	case 3:
+	default:
+		security = RTW_SECURITY_WPA2_AES_PSK; break;
+	}
+	return security;
+}
+
 static rtw_result_t cwlap_result_handler2(rtw_scan_handler_result_t * result)
 {
 	int ecn;
@@ -3115,25 +3135,8 @@ static rtw_result_t cwlap_result_handler2(rtw_scan_handler_result_t * result)
 	if (result->scan_complete != RTW_TRUE) {
 		rtw_scan_result_t *record = &result->ap_details;
 		record->SSID.val[record->SSID.len] = 0;	/* Ensure the SSID is null terminated */
+		ecn = security_2_esp_ecn(record->security);
 
-		switch (record->security) {
-		case RTW_SECURITY_OPEN:
-			ecn = 0; break;
-		case RTW_SECURITY_WEP_PSK:
-			ecn = 1; break;
-		case RTW_SECURITY_WPA_TKIP_PSK:
-		case RTW_SECURITY_WPA_AES_PSK:
-			ecn = 2; break;
-		case RTW_SECURITY_WPA2_AES_PSK:
-		case RTW_SECURITY_WPA2_TKIP_PSK:
-		case RTW_SECURITY_WPA2_MIXED_PSK:
-			ecn = 3; break;
-		case RTW_SECURITY_WPA_WPA2_MIXED:
-			ecn = 4; break;
-		default:
-			/* TODO: Enterprise or Unkown ? */
-			ecn = 5; break;
-		}
 		at_printf("+CWLAP:(%d,\"%s\",%d,\"" MAC_FMT "\",%d)\r\n",
 				ecn,
 				record->SSID.val,
@@ -3297,7 +3300,7 @@ void fATCWJAP(void* arg) {
 	//BSSID
 	char assoc_by_bssid = 0;
 	if (argv[3] != NULL) {
-		if (at_hex2bin(wifi.bssid.octet, ETH_ALEN, argv[3], strlen(argv[3])) < 0) {
+		if (at_hex2bin((u8*)wifi.bssid.octet, ETH_ALEN, (u8*)argv[3], strlen(argv[3])) < 0) {
 			printf("+CWJAP: BSSID format error");
 			r = -3;
 			goto __ret;
@@ -3393,6 +3396,177 @@ __ret:
 		return;
 	}
 	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler, NULL);
+	return;
+}
+
+/* Set/Get Soft AP info */
+void fATCWSAP(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	struct netif* pn;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	pn = wifi_get_netif(RTW_AP_INTERFACE);
+
+	// Query
+	if (*argv[1] == '?') {
+		rtw_bss_info_t bss_info[1];
+		rtw_security_t sec;
+		uint8_t ap_ssid[MAX_SSID_LEN + 1/*for NULL terminator */];
+
+		if (wifi_get_ap_info(bss_info, &sec) != RTW_SUCCESS) {
+			at_printf(STR_RESP_FAIL);
+			return;
+		}
+
+		memcpy(ap_ssid, bss_info->SSID, bss_info->SSID_len);
+		ap_ssid[bss_info->SSID_len] = '\0';
+		at_printf("+CWSAP:\"%s\",\"%s\",%d,%d,%d,%d\r\n",
+				ap_ssid,
+				ap_pwd_buf,
+				bss_info->channel,
+				security_2_esp_ecn(sec),
+				/* TODO */5,
+				0);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	int r = 0, r1;
+	int timeout = 20;
+	unsigned char hidden_ssid = 0;
+	rtw_mode_t wifi_mode_copy;
+
+	if ((wifi_mode != RTW_MODE_AP) && (wifi_mode != RTW_MODE_STA_AP)) {
+		r = -1;
+		goto __ret;
+	}
+	wifi_mode_copy = wifi_mode;
+
+	//SSID
+	ap.ssid.len = strlen((char *) argv[1]);
+	if (ap.ssid.len > MAX_SSID_LEN) {
+		r = -2;
+		goto __ret;
+	}
+	strcpy((char *)ap.ssid.val, (char *) argv[1]);
+
+	//PASSWORD
+	if (argv[2] != NULL) {
+		if ((strlen(argv[2]) < 8) || (strlen(argv[2]) > 64)) {
+			r = -4;
+			goto __ret;
+		}
+		strcpy((char *)ap_pwd_buf, (char *)argv[2]);
+		ap.password = ap_pwd_buf;
+		ap.password_len = strlen((char *)ap_pwd_buf);
+		ap.security_type = RTW_SECURITY_WPA2_AES_PSK;
+	} else {
+		ap_pwd_buf[0] = '\0';
+		ap.security_type = RTW_SECURITY_OPEN;
+	}
+
+	//CHANNEL
+	if (argv[3] != NULL) {
+		ap.channel = (uint8_t)atoi((const char *) argv[3]);
+		if ((ap.channel < 0) || (ap.channel > 11)) {
+			r = -5;
+			goto __ret;
+		}
+	}
+
+	//ECN(encryption type)
+	if (argv[4] != NULL) {
+		int ecn = atoi((char *)argv[4]);
+		ap.security_type = esp_ecn_2_security(ecn);
+	}
+
+	//MAX NUMBER OF STATION
+	if (argv[5] != NULL) {
+		unsigned char max_sta = atoi(argv[5]);
+		if (wext_set_sta_num(max_sta) != 0) {
+			r = -6;
+			goto __ret;
+		}
+	}
+
+	//HIDDEN SSID
+	if (argv[6] != NULL) {
+		if ((atoi(argv[6]) != 0) && (atoi(argv[6]) != 1)) {
+			r = -7;
+			goto __ret;
+		}
+		hidden_ssid = (uint8_t)atoi((char *) argv[6]);
+	}
+
+	dhcps_deinit();
+
+	wifi_unreg_event_handler(WIFI_EVENT_DISCONNECT, atcmd_wifi_disconn_hdl);
+
+	wifi_off();
+	vTaskDelay(20);
+
+	if (wifi_on(wifi_mode_copy) < 0) {
+		r = -8;
+		goto __ret;
+	}
+
+	if (hidden_ssid) {
+		if ((r1 = wifi_start_ap_with_hidden_ssid
+		    ((char*)ap.ssid.val, ap.security_type, (char*)ap.password, ap.ssid.len, ap.password_len,
+		     ap.channel)) < 0) {
+			r = -1000 + r1;
+			goto __ret;
+		}
+	} else {
+		if ((r1 = wifi_start_ap
+		    ((char*) ap.ssid.val, ap.security_type, (char*)ap.password, ap.ssid.len, ap.password_len,
+		     ap.channel)) < 0) {
+			r = -2000 + r1;
+			goto __ret;
+		}
+	}
+
+	const char* ifname = wifi_get_ifname(RTW_AP_INTERFACE);
+	while (1) {
+		char essid[33];
+		if (wext_get_ssid(ifname, (uint8_t*)essid) > 0) {
+			if (strcmp((char*)essid, (char*)ap.ssid.val) == 0) {
+				break;
+			}
+		}
+		if (timeout-- == 0) {
+			r = -11;
+			goto __ret;
+		}
+		vTaskDelay(1 * configTICK_RATE_HZ);
+	}
+	pn = wifi_get_netif(RTW_AP_INTERFACE);
+
+	LwIP_UseStaticIP(pn);
+	if (dhcp_mode_ap != DHCP_MODE_DISABLE)
+		dhcps_init(pn);
+
+__ret:
+	init_wifi_struct();
+	if (r >= 0) {
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	printf("+CWSAP: ERROR %d\r\n", r);
+	at_printf(STR_RESP_FAIL);
 	return;
 }
 
@@ -3699,6 +3873,7 @@ log_item_t at_wifi_items[] = {
 	{"AT+CWLAP",  fATCWLAP},
 	{"AT+CWQAP",  fATCWQAP},
 	{"AT+CWJAP",  fATCWJAP},
+	{"AT+CWSAP",  fATCWSAP},
 	{"AT+CIPMUX", fATCIPMUX,},
 	{"AT+CIPSTA", fATCIPSTA},
 	{"AT+CIPSTAMAC", fATCIPSTAMAC},
