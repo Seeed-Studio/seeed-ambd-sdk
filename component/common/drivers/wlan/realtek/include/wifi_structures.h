@@ -179,6 +179,7 @@ typedef struct {
     unsigned short      beacon_period;          /**< units are Kusec */
     unsigned short      capability;             /**< Capability information */
     unsigned char       SSID_len;
+#define MAX_SSID_LEN     (32)               /* ssid: 32 octets at most, not include NULL-terminated */
     unsigned char       SSID[32];
     unsigned char       channel;
 //    struct {
