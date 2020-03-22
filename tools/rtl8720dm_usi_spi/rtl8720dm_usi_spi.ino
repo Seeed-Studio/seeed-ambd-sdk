@@ -129,7 +129,7 @@ int at_cmd_read(uint8_t* buf, uint16_t len, int loop_wait = 50) {
   if (v != SPT_TAG_ACK) {
     /* device too slow between TAG_PRE and TAG_ACK */
     Serial.printf("No ACK, R%02X\r\n", v);
-    r = -1; 
+    r = -1;
     goto __ret;
   }
 
@@ -234,9 +234,19 @@ void loop() {
 
     for (i = 0; i < r; i++) {
       char obuf[0x10];
+      uint8_t b = s_buf[i];
+      int o;
 
-      sprintf(obuf, "R%02X %c", s_buf[i], s_buf[i]);
-      Serial.println(obuf);
+      o = 0;
+      if (b < 0x20 || b == '[' || b >= 0x7F) {
+        o += sprintf(obuf + o, "[%02X", s_buf[i]);
+      } else {
+        o += sprintf(obuf + o, "%c", s_buf[i]);
+      }
+      Serial.print(obuf);
+      if (b == 0x0A) {
+        Serial.println();
+      }
     }
     // Serial.println("Read OK");
   }
