@@ -24,19 +24,17 @@
 #include "at_cmd/atcmd_lwip.h"
 #include "pinmap.h"
 
-#if CONFIG_EXAMPLE_UART_ATCMD
-
 typedef int (*init_done_ptr)(void);
 extern init_done_ptr p_wlan_init_done_callback;
 extern void serial_rx_fifo_level(serial_t *obj, SerialFifoLevel FifoLv);
 
 serial_t at_cmd_sobj;
 _sema uart_at_dma_tx_sema;
-unsigned char gAT_Echo = 1; // default echo on
 
 #define UART_AT_MAX_DELAY_TIME_MS   20
 
-#define UART_AT_DATA		UART_SETTING_SECTOR
+#define UART_AT_DATA		ATPORT_SETTING_SECTOR
+#undef BACKUP_SECTOR
 #define BACKUP_SECTOR		FLASH_SYSTEM_DATA_ADDR-0x1000
 
 #define UART_AT_USE_DMA_TX 0
@@ -47,9 +45,9 @@ void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data,
 	u32 read_data;
 
 	switch(id){
-		case AT_PARTITION_UART:
-			size = UART_CONF_DATA_SIZE;
-			offset = UART_CONF_DATA_OFFSET;
+		case AT_PARTITION_ATPORT:
+			size = ATPORT_CONF_DATA_SIZE;
+			offset = ATPORT_CONF_DATA_OFFSET;
 			break;
 		case AT_PARTITION_WIFI:
 			size = WIFI_CONF_DATA_SIZE;
@@ -71,51 +69,54 @@ void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data,
 	device_mutex_lock(RT_DEV_LOCK_FLASH);
 
 	if(id == AT_PARTITION_ALL && ops == AT_PARTITION_ERASE){
-		flash_erase_sector(&flash, UART_SETTING_SECTOR);
+		flash_erase_sector(&flash, ATPORT_SETTING_SECTOR);
 		goto exit;
 	}
 	
 	if(ops == AT_PARTITION_READ){
-		flash_stream_read(&flash, UART_SETTING_SECTOR+offset, len, data);
+		flash_stream_read(&flash, ATPORT_SETTING_SECTOR+offset, len, data);
 		goto exit;
 	}
 
 	//erase BACKUP_SECTOR
-	flash_erase_sector(&flash, UART_SETTING_BACKUP_SECTOR);
+	flash_erase_sector(&flash, ATPORT_SETTING_BACKUP_SECTOR);
 
 	if(ops == AT_PARTITION_WRITE){
 		// backup new data
-		flash_stream_write(&flash, UART_SETTING_BACKUP_SECTOR+offset, len, data);
+		flash_stream_write(&flash, ATPORT_SETTING_BACKUP_SECTOR+offset, len, data);
 	}
 	
 	//backup front data to backup sector
 	for(i = 0; i < offset; i += sizeof(read_data)){
-		flash_read_word(&flash, UART_SETTING_SECTOR + i, &read_data);
-		flash_write_word(&flash, UART_SETTING_BACKUP_SECTOR + i,read_data);
+		flash_read_word(&flash, ATPORT_SETTING_SECTOR + i, &read_data);
+		flash_write_word(&flash, ATPORT_SETTING_BACKUP_SECTOR + i,read_data);
 	}
 	
 	//backup rear data
 	for(i = (offset + size); i < 0x1000; i += sizeof(read_data)){
-		flash_read_word(&flash, UART_SETTING_SECTOR + i, &read_data);
-		flash_write_word(&flash, UART_SETTING_BACKUP_SECTOR + i,read_data);
+		flash_read_word(&flash, ATPORT_SETTING_SECTOR + i, &read_data);
+		flash_write_word(&flash, ATPORT_SETTING_BACKUP_SECTOR + i,read_data);
 	}
 	
-	//erase UART_SETTING_SECTOR
-	flash_erase_sector(&flash, UART_SETTING_SECTOR);
+	//erase ATPORT_SETTING_SECTOR
+	flash_erase_sector(&flash, ATPORT_SETTING_SECTOR);
 	
-	//retore data to UART_SETTING_SECTOR from UART_SETTING_BACKUP_SECTOR
+	//retore data to ATPORT_SETTING_SECTOR from ATPORT_SETTING_BACKUP_SECTOR
 	for(i = 0; i < 0x1000; i+= sizeof(read_data)){
-		flash_read_word(&flash, UART_SETTING_BACKUP_SECTOR + i, &read_data);
-		flash_write_word(&flash, UART_SETTING_SECTOR + i,read_data);
+		flash_read_word(&flash, ATPORT_SETTING_BACKUP_SECTOR + i, &read_data);
+		flash_write_word(&flash, ATPORT_SETTING_SECTOR + i,read_data);
 	}
 	
 	//erase BACKUP_SECTOR
-	flash_erase_sector(&flash, UART_SETTING_BACKUP_SECTOR);
+	flash_erase_sector(&flash, ATPORT_SETTING_BACKUP_SECTOR);
 
 exit:
 	device_mutex_unlock(RT_DEV_LOCK_FLASH);
 	return;
 }
+
+
+#if CONFIG_EXAMPLE_UART_ATCMD
 
 int read_uart_atcmd_setting_from_system_data(UART_LOG_CONF* uartconf)
 {

@@ -2,6 +2,8 @@
 #define __ATCMD_WIFI_H__
 #include "main.h"
 #include "lwip_netconf.h"
+#include "wifi_structures.h"
+#include <wlan_fast_connect/example_wlan_fast_connect.h>
 
 #ifndef WLAN0_NAME
   #define WLAN0_NAME		"wlan0"
@@ -86,21 +88,6 @@ int at_prt_unlock(unsigned mask);
 int at_bin2hex(u8* target, int tsz, const u8* src, int ssz, u8 delim);
 int at_hex2bin(u8* target, int tsz, const u8* src, int ssz);
 
-
-
-
-
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && (CONFIG_EXAMPLE_UART_ATCMD))
-#include "wifi_structures.h"
-#include <wlan_fast_connect/example_wlan_fast_connect.h>
-typedef struct _UART_LOG_CONF_{
-	u32 BaudRate;
-	u8 DataBits;
-	u8 StopBits;
-	u8 Parity;
-	u8 FlowControl;
-}UART_LOG_CONF, *PUART_LOG_CONF;
-
 #define ATCMD_WIFI_CONN_STORE_MAX_NUM (1)
 struct atcmd_wifi_conf{
 	int32_t auto_enable;
@@ -120,6 +107,7 @@ struct atcmd_lwip_conn_info{
 	uint32_t local_port; //locale port, not used yet
 	uint32_t reserved; //reserve for further use
 };
+
 struct atcmd_lwip_conf {
 	int32_t enable; //enable or not
 	int32_t conn_num;
@@ -130,7 +118,7 @@ struct atcmd_lwip_conf {
 
 typedef enum {
 	AT_PARTITION_ALL = 0,
-	AT_PARTITION_UART = 1,
+	AT_PARTITION_ATPORT = 1, /* UART/SPI settings */
 	AT_PARTITION_WIFI = 2,
 	AT_PARTITION_LWIP = 3
 } AT_PARTITION;
@@ -141,32 +129,50 @@ typedef enum {
 	AT_PARTITION_ERASE = 2
 } AT_PARTITION_OP;
 
-//first segment for uart
-#if !defined(UART_SETTING_BACKUP_SECTOR)
-#define UART_SETTING_BACKUP_SECTOR		(0x8000)
-#endif
-
+//first segment for uart/spi
+#if !defined(ATPORT_SETTING_BACKUP_SECTOR)
 #if defined(CONFIG_PLATFORM_8721D)
-#define UART_SETTING_BACKUP_SECTOR		(0x2000)
+#define ATPORT_SETTING_BACKUP_SECTOR		(0x2000)
+#else
+#define ATPORT_SETTING_BACKUP_SECTOR		(0x8000)
+#endif
 #endif
 
-#define UART_CONF_DATA_OFFSET			(0)
-#define UART_CONF_DATA_SIZE				((((sizeof(UART_LOG_CONF)-1)>>2) + 1)<<2)
+
+//first segment for UART/SPI port setting
+#define ATPORT_CONF_DATA_OFFSET			(0)
+#define ATPORT_CONF_DATA_SIZE			(0x40)
 
 //second segment for wifi config
-#define WIFI_CONF_DATA_OFFSET			(UART_CONF_DATA_OFFSET+UART_CONF_DATA_SIZE)
+#define WIFI_CONF_DATA_OFFSET			(ATPORT_CONF_DATA_OFFSET+ATPORT_CONF_DATA_SIZE)
 #define WIFI_CONF_DATA_SIZE				((((sizeof(struct atcmd_wifi_conf)-1)>>2) + 1)<<2)
 
 //fouth segment for lwip config
 #define LWIP_CONF_DATA_OFFSET			(WIFI_CONF_DATA_OFFSET+WIFI_CONF_DATA_SIZE)
 #define LWIP_CONF_DATA_SIZE				((((sizeof(struct atcmd_lwip_conf)-1)>>2) + 1)<<2)
 
-extern void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data, u16 len);
+int atcmd_wifi_restore_from_flash(void);
+void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data, u16 len);
 
 #define ATSTRING_LEN 	(LOG_SERVICE_BUFLEN)
 extern char at_string[ATSTRING_LEN];
-
 extern unsigned char gAT_Echo; // default echo on
+
+
+
+
+
+#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && (CONFIG_EXAMPLE_UART_ATCMD))
+typedef struct _UART_LOG_CONF_{
+	u32 BaudRate;
+	u8 DataBits;
+	u8 StopBits;
+	u8 Parity;
+	u8 FlowControl;
+}UART_LOG_CONF, *PUART_LOG_CONF;
+// make sure the flash storage enough
+extern char atport_conf_data_size_check [ATPORT_CONF_DATA_SIZE < sizeof(UART_LOG_CONF)? -1: 1];
+
 extern void uart_at_send_buf(u8 *buf, u32 len);
 
 #define at_printf(fmt, args...)  do{\
@@ -187,72 +193,14 @@ extern void uart_at_send_buf(u8 *buf, u32 len);
 
 #elif (defined(CONFIG_EXAMPLE_SPI_ATCMD) && (CONFIG_EXAMPLE_SPI_ATCMD))
 
-#include "wifi_structures.h"
-#include <wlan_fast_connect/example_wlan_fast_connect.h>
-
 typedef struct _SPI_LOG_CONF_{
     int frequency;
     int bits;
     int mode;
 }SPI_LOG_CONF, *PSPI_LOG_CONF;
+// make sure the flash storage enough
+extern char atport_conf_data_size_check [ATPORT_CONF_DATA_SIZE < sizeof(SPI_LOG_CONF)? -1: 1];
 
-#define ATCMD_WIFI_CONN_STORE_MAX_NUM (1)
-struct atcmd_wifi_conf{
-	int32_t auto_enable;
-	rtw_wifi_setting_t setting;
-	int32_t reconn_num;
-	int32_t reconn_last_index;	
-	struct wlan_fast_reconnect reconn[ATCMD_WIFI_CONN_STORE_MAX_NUM];
-};
-
-#define ATCMD_LWIP_CONN_STORE_MAX_NUM (1)
-struct atcmd_lwip_conn_info{
-	int32_t role; //client, server or seed
-	uint32_t protocol; //tcp or udp
-	uint32_t remote_addr; //remote ip
-	uint32_t remote_port; //remote port
-	uint32_t local_addr; //locale ip, not used yet
-	uint32_t local_port; //locale port, not used yet
-	uint32_t reserved; //reserve for further use
-};
-struct atcmd_lwip_conf {
-	int32_t enable; //enable or not
-	int32_t conn_num;
-	int32_t last_index;
-	int32_t reserved; //reserve for further use
-	struct atcmd_lwip_conn_info conn[ATCMD_LWIP_CONN_STORE_MAX_NUM];
-};
-
-typedef enum {
-	AT_PARTITION_ALL = 0,
-	AT_PARTITION_SPI = 1,
-	AT_PARTITION_WIFI = 2,
-	AT_PARTITION_LWIP = 3
-} AT_PARTITION;
-
-typedef enum {
-	AT_PARTITION_READ = 0,
-	AT_PARTITION_WRITE = 1,
-	AT_PARTITION_ERASE = 2
-} AT_PARTITION_OP;
-
-//first segment for uart
-#define SPI_SETTING_BACKUP_SECTOR		(0x8000)
-#define SPI_CONF_DATA_OFFSET			(0)
-#define SPI_CONF_DATA_SIZE				((((sizeof(SPI_LOG_CONF)-1)>>2) + 1)<<2)
-
-//second segment for wifi config
-#define WIFI_CONF_DATA_OFFSET			(SPI_CONF_DATA_OFFSET+SPI_CONF_DATA_SIZE)
-#define WIFI_CONF_DATA_SIZE				((((sizeof(struct atcmd_wifi_conf)-1)>>2) + 1)<<2)
-
-//fouth segment for lwip config
-#define LWIP_CONF_DATA_OFFSET			(WIFI_CONF_DATA_OFFSET+WIFI_CONF_DATA_SIZE)
-#define LWIP_CONF_DATA_SIZE				((((sizeof(struct atcmd_lwip_conf)-1)>>2) + 1)<<2)
-
-extern void atcmd_update_partition_info(AT_PARTITION id, AT_PARTITION_OP ops, u8 *data, u16 len);
-
-#define ATSTRING_LEN 	(LOG_SERVICE_BUFLEN)
-extern char at_string[ATSTRING_LEN];
 
 extern void spi_at_send_buf(u8 *buf, u32 len);
 
@@ -269,8 +217,6 @@ extern void spi_at_send_buf(u8 *buf, u32 len);
 			spi_at_send_buf((u8*)data, size);\
 			/*spi_at_unlock();*/\
 	}while(0)
-
-int atcmd_wifi_restore_from_flash(void);
 
 
 
@@ -293,6 +239,7 @@ int trace_task(void);
 #else
 #define _EN_EXPORT_ATCMD 0
 #endif
+
 
 #endif//__ATCMD_WIFI_H__
 

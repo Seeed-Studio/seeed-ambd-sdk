@@ -147,11 +147,9 @@ char at_string[ATSTRING_LEN];
 int security = -1;
 #endif
 
-#if ATCMD_VER == ATVER_2 || WIFI_LOGO_CERTIFICATION_CONFIG
 uint8_t       sta_ip[4]      = { 192, 168, 1, 80 },
 	      sta_netmask[4] = {255, 255, 255, 0},
 	      sta_gw[4]      = {192, 168, 1, 1};
-#endif
 
 int dhcp_mode_sta = DHCP_MODE_ENABLE, dhcp_mode_ap = DHCP_MODE_ENABLE;
 uint8_t       ap_ip[4]      = { 192, 168, 43, 1 },
