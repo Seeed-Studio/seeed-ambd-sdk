@@ -35,7 +35,7 @@ extern void example_entry(void);
 #define ATVER_1 1 // For First AT command
 #define ATVER_2 2 // For UART Module AT command
 
-//#define ATCMD_VER ATVER_2
+#define ATCMD_VER ATVER_2
 #ifndef ATCMD_VER
   #if CONFIG_EXAMPLE_UART_ATCMD
     #define ATCMD_VER ATVER_2
