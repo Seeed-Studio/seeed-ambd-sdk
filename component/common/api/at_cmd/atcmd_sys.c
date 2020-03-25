@@ -125,6 +125,59 @@ void fATRST(void *arg) {
 	return;
 }
 
+void fATGPIO(void* arg) {
+	gpio_t gpio_ctrl;
+	int r = 0;
+	int argc = 0, val;
+	char *argv[MAX_ARGC] = {0}, port, num;
+	PinName pin = NC;
+
+	if (!arg || (argc = parse_param(arg, argv)) < 3) {
+		printf(" +GPIO: Usage AT+GPIO=<R/W>,<PORT>,<DATA>,<PULL>");
+		r = -1;
+		goto __ret;
+	}
+
+	port = argv[2][1] - 'A';
+	num = strtoul(&argv[2][2], NULL, 0);
+	pin = (port << 4 | num);
+	if (gpio_set(pin) == 0xFF) {
+		r = -2;
+		goto __ret;
+	}
+
+	gpio_init(&gpio_ctrl, pin);
+	if (argv[4]) {
+		int pull = atoi(argv[4]);
+		gpio_mode(&gpio_ctrl, pull);
+	}
+
+	if (argv[1][0] == 'R') {
+		gpio_dir(&gpio_ctrl, PIN_INPUT);
+		val = gpio_read(&gpio_ctrl);
+		at_printf("+GPIO:%d\r\n", val);
+	}
+	else if (argv[1][0] == 'W') {
+		if (!argv[3]) {
+			r = -3;
+			goto __ret;
+		}
+		val = atoi(argv[3]);
+		gpio_dir(&gpio_ctrl, PIN_OUTPUT);
+		gpio_write(&gpio_ctrl, val);
+	}
+
+__ret:
+	if (r) {
+		printf("+GPIO: ERROR %d\r\n", r);
+		at_printf(STR_RESP_FAIL);
+	} else {
+		at_printf(STR_RESP_OK);
+	}
+	return;
+}
+
+
 
 
 
@@ -1591,6 +1644,7 @@ log_item_t at_sys_items[] = {
 	{"AT+SYSLOG", fATSYSLOG, {NULL,NULL}},
 	{"AT+GMR",    fATGMR,    {NULL,NULL}}, // show version info
 	{"AT+RST",    fATRST,    {NULL,NULL}}, // reset the system
+	{"AT+GPIO",   fATGPIO,   {NULL,NULL}}, // Read/Write the gpio pin
 #if ATCMD_VER == ATVER_1
 #if defined(CONFIG_PLATFORM_8710C)
 	{"ATXX", fATXX,{NULL,NULL}},
