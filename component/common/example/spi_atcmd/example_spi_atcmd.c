@@ -798,7 +798,7 @@ int spi_rx_char(int c) {
 	/* process all \r, \n, \r\n */
 	if (c == '\n') c = '\r';
 	cmd_buf[idx] = c;
-	if (idx < sizeof cmd_buf - 1) {
+	if (idx < (int)(sizeof cmd_buf - 1)) {
 		idx++;
 	} else {
 		printf("L%d at rx overflow\n", __LINE__);
@@ -806,7 +806,7 @@ int spi_rx_char(int c) {
 
 	if (idx > 1 && c == '\r') {
 		cmd_buf[idx] = 0;
-		strcpy(log_buf, cmd_buf);
+		strcpy(log_buf, (char*)cmd_buf);
 
 		atcmd_check_special_case(log_buf);
 		rtw_up_sema(&log_rx_interrupt_sema);

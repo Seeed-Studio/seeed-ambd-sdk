@@ -130,7 +130,6 @@ extern void cmd_wowlan_service(int argc, char **argv);
 extern void inic_c2h_wifi_info(const char *atcmd, char status);
 extern void inic_c2h_msg(const char *atcmd, u8 status, char *msg, u16 msg_len);
 #endif
-extern int wifi_set_beacon_mode(int mode);
 
 /* fastconnect use wifi AT command. Not init_wifi_struct when log service disabled
  * static initialize all values for using fastconnect when log service disabled

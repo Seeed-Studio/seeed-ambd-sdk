@@ -1130,6 +1130,9 @@ const char* wifi_get_ifname(rtw_interface_t interface);
 struct netif* wifi_get_netif(rtw_interface_t interface);
 
 
+int wifi_set_beacon_mode(int mode);
+
+
 #ifdef __cplusplus
   }
 #endif
