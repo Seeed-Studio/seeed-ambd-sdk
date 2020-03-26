@@ -2468,9 +2468,9 @@ static void wifi_autoreconnect_thread(void *param)
 			if (dhcp_mode_sta == DHCP_MODE_AS_SERVER) {
 				dhcps_init(pn);
 			}
+			// esp compatible
+			at_printf("\r\nWIFI GOT IP\r\n");
 		}
-		// esp compatible
-		at_printf("\r\nWIFI GOT IP\r\n");
 	}
 	#endif //#if CONFIG_LWIP_LAYER
 	vTaskDelete(NULL);
