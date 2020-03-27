@@ -3295,13 +3295,47 @@ void fATCWJAP(void* arg) {
 	// wifi.security_type = RTW_SECURITY_WEP_PSK;
 
 	//BSSID
-	char assoc_by_bssid = 0;
 	if (argv[3] != NULL) {
 		if (at_hex2bin((u8*)wifi.bssid.octet, ETH_ALEN, (u8*)argv[3], strlen(argv[3])) < 0) {
+			memset(wifi.bssid.octet, '\0', sizeof wifi.bssid.octet);
 			printf("+CWJAP: BSSID format error");
 			r = -3;
 			goto __ret;
 		}
+	}
+
+	extern void task_connect_to_ap(void *param);
+	#if 1
+	/* Asynchronized the connection process */
+	r = xTaskCreate(task_connect_to_ap, "conn-to-ap", 1024, NULL, tskIDLE_PRIORITY + 5, NULL);
+	if (r == pdPASS) {
+		r = 0;
+	} else {
+		r = -2000 + r;
+	}
+	#else
+	/* Synchronized connection process */
+	task_connect_to_ap(&r);
+	#endif
+
+__ret:
+	if (r) {
+		printf("+CWJAP: ERROR %d\r\n", r);
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+void task_connect_to_ap(void *param) {
+	int r = 0;
+
+	/* To avoid gcc warnings */
+	(void) param;
+
+	char assoc_by_bssid = 0;
+	if (memcmp(wifi.bssid.octet, "\0\0\0\0\0\0", sizeof wifi.bssid.octet)) {
 		assoc_by_bssid = 1;
 	}
 
@@ -3365,7 +3399,6 @@ void fATCWJAP(void* arg) {
 
 	// esp compatible
 	at_printf("\r\nWIFI CONNECTED\r\n");
-	at_printf(STR_RESP_OK);
 
 	if (dhcp_mode_sta == DHCP_MODE_AS_CLIENT) {
 		ret = LwIP_DHCP(0, DHCP_START);
@@ -3387,12 +3420,14 @@ void fATCWJAP(void* arg) {
 
 __ret:
 	init_wifi_struct();
-	if (r) {
-		printf("+CWJAP: ERROR %d\r\n", r);
-		at_printf(STR_RESP_FAIL);
+	if (!r) {
+		wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler, NULL);
+	}
+	if (param) {
+		*(int*)param = r;
 		return;
 	}
-	wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, cwqap_wifi_disconn_handler, NULL);
+	vTaskDelete(NULL);
 	return;
 }
 
