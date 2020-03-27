@@ -146,6 +146,9 @@ void fATGPIO(void* arg) {
 		goto __ret;
 	}
 
+	/* set the pinmux to gpio mode, avoid other driver modified */
+	Pinmux_Config(port * (_PB_0 - _PA_0) + num, PINMUX_FUNCTION_GPIO);
+
 	gpio_init(&gpio_ctrl, pin);
 	if (argv[4]) {
 		int pull = atoi(argv[4]);
