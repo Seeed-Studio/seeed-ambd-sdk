@@ -80,6 +80,15 @@ enum {
 };
 extern int dhcp_mode_sta;
 
+enum {
+	ESP_IPSTAT_UNKNOWN   = 0,
+	ESP_IPSTAT_AP_AND_IP = 2,
+	ESP_IPSTAT_CONN_CREATED,
+	ESP_IPSTAT_DISCONN,
+	ESP_IPSTAT_NO_AP,
+};
+int at_set_ipstatus(int esp_ipstat/* be enum value ESP_IPSTAT_XXX */);
+
 
 int at_prt_lock_init(void);
 unsigned at_prt_lock(void);

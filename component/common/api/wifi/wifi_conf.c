@@ -2459,6 +2459,7 @@ static void wifi_autoreconnect_thread(void *param)
 			if (ret == DHCP_ADDRESS_ASSIGNED) {
 				// esp compatible
 				at_printf("\r\nWIFI GOT IP\r\n");
+				at_set_ipstatus(ESP_IPSTAT_AP_AND_IP);
 			}
 		} else {
 			struct netif *pn;
@@ -2470,6 +2471,7 @@ static void wifi_autoreconnect_thread(void *param)
 			}
 			// esp compatible
 			at_printf("\r\nWIFI GOT IP\r\n");
+			at_set_ipstatus(ESP_IPSTAT_AP_AND_IP);
 		}
 	}
 	#endif //#if CONFIG_LWIP_LAYER

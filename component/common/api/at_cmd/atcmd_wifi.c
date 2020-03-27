@@ -155,6 +155,8 @@ uint8_t       ap_ip[4]      = { 192, 168, 43, 1 },
 	      ap_netmask[4] = {255, 255, 255, 0},
 	      ap_gw[4]      = {192, 168, 43, 1};
 
+static int esp_ipstatus = ESP_IPSTAT_NO_AP;
+
 static void atcmd_wifi_disconn_hdl(char *buf, int buf_len, int flags, void *userdata);
 
 static _sema at_printf_sema = NULL;
@@ -241,8 +243,9 @@ int at_hex2bin(u8* target, int tsz, const u8* src, int ssz) {
 	return 0;
 }
 
-
-
+int at_set_ipstatus(int esp_ipstat) {
+	return esp_ipstatus = esp_ipstat;
+}
 
 
 static void init_wifi_struct(void)
@@ -3181,6 +3184,7 @@ static void cwqap_wifi_disconn_handler(char *buf, int buf_len, int flags, void *
 
 	at_printf(STR_RESP_OK);
 	at_printf("\r\nWIFI DISCONNECT\r\n");
+	at_set_ipstatus(ESP_IPSTAT_NO_AP);
 	return;
 }
 
@@ -3417,6 +3421,7 @@ void task_connect_to_ap(void *param) {
 	}
 	// esp compatible
 	at_printf("\r\nWIFI GOT IP\r\n");
+	at_set_ipstatus(ESP_IPSTAT_AP_AND_IP);
 
 __ret:
 	init_wifi_struct();
@@ -3622,6 +3627,7 @@ void fATCIPSTATUS(void* arg) {
 		at_printf(STR_RESP_FAIL);
 		return;
 	}
+	at_printf("STATUS:%d\r\n", esp_ipstatus);
 	at_printf(STR_RESP_OK);
 	return;
 }
