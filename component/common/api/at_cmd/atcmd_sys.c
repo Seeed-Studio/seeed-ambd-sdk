@@ -49,11 +49,9 @@ extern u32 CmdWriteWord(IN u16 argc, IN u8 *argv[]);
 extern int uart_ymodem(void);
 #endif
 
-//#if ATCMD_VER == ATVER_1
 #if (configGENERATE_RUN_TIME_STATS == 1)
 static char cBuffer[512];
 #endif
-//#endif
 
 //-------- AT SYS commands ---------------------------------------------------------------
 // echo info
@@ -1106,7 +1104,10 @@ static void sys_enable_jtag_by_password(char *keystring)
 	device_mutex_unlock(RT_DEV_LOCK_FLASH);
 }
 #endif
+#endif//ATCMD_VER == ATVER_1
 
+
+// ATVER_1 && ATVER_2 {{{
 void fATSJ(void *arg)
 {
 	/* To avoid gcc warnings */
@@ -1115,40 +1116,20 @@ void fATSJ(void *arg)
 	//volatile int argc = 0;
 	char *argv[MAX_ARGC] = {0};
 	(void) argv;
-#if defined (CONFIG_PLATFORM_8721D)
-	#ifdef AMEBAD_TODO
 	AT_PRINTK("[ATSJ]: _AT_SYSTEM_JTAG_");
-	if(!arg){
+	if (!arg) {
 		AT_PRINTK("[ATSJ] Usage: ATSJ=off");
-	}else{
+	} else {
 		parse_param(arg, argv);
 		if (strcmp(argv[1], "off" ) == 0)
 			sys_jtag_off();
-#if defined(CONFIG_PLATFORM_8711B)
+		#if defined(CONFIG_PLATFORM_8711B)
 		else if (strcmp(argv[1], "key" ) == 0)
 			sys_enable_jtag_by_password(argv[2]); //Enter "FFFFFFFFFFFFFFFF" to clear key in flash
-#endif			
+		#endif
 		else
 			AT_PRINTK("ATSJ=%s is not supported!", argv[1]);
 	}
-	#endif
-#else
-
-	AT_PRINTK("[ATSJ]: _AT_SYSTEM_JTAG_");
-	if(!arg){
-		AT_PRINTK("[ATSJ] Usage: ATSJ=off");
-	}else{
-		parse_param(arg, argv);
-		if (strcmp(argv[1], "off" ) == 0)
-			sys_jtag_off();
-#if defined(CONFIG_PLATFORM_8711B)
-		else if (strcmp(argv[1], "key" ) == 0)
-			sys_enable_jtag_by_password(argv[2]); //Enter "FFFFFFFFFFFFFFFF" to clear key in flash
-#endif			
-		else
-			AT_PRINTK("ATSJ=%s is not supported!", argv[1]);
-	}
-#endif
 }
 
 void fATSx(void *arg)
@@ -1176,19 +1157,21 @@ void fATSx(void *arg)
 #endif
 	AT_PRINTK("[ATS?]: SW VERSION: %s", buf);
 }
-#elif ATCMD_VER == ATVER_2
+// }}} ATVER_1 && ATVER_2
+
+#if ATCMD_VER == ATVER_2
 
 #define ATCMD_VERSION		"v2" //ATCMD MAJOR VERSION, AT FORMAT CHANGED
 #define ATCMD_SUBVERSION	"2" //ATCMD MINOR VERSION, NEW COMMAND ADDED
 #define ATCMD_REVISION		"1" //ATCMD FIX BUG REVISION
 #define SDK_VERSION		"v3.5" //SDK VERSION
-extern void sys_reset(void);
-void print_system_at(void *arg);
-extern void print_wifi_at(void *arg);
-extern void print_tcpip_at(void *arg);
 
 
 void fATSh(void *arg){
+	void print_system_at(void *arg);
+	extern void print_wifi_at(void *arg);
+	extern void print_tcpip_at(void *arg);
+
 	(void)arg;
 	// print common AT command
 	at_printf("\r\n[ATS?] ");
@@ -1649,6 +1632,9 @@ log_item_t at_sys_items[] = {
 	{"AT+GMR",    fATGMR,    {NULL,NULL}}, // show version info
 	{"AT+RST",    fATRST,    {NULL,NULL}}, // reset the system
 	{"AT+GPIO",   fATGPIO,   {NULL,NULL}}, // Read/Write the gpio pin
+#if !defined(CONFIG_PLATFORM_8195BHP) && !defined(CONFIG_PLATFORM_8710C)
+	{"ATSJ", fATSJ,{NULL,NULL}}, //trun off JTAG
+#endif
 #if ATCMD_VER == ATVER_1
 #if defined(CONFIG_PLATFORM_8710C)
 	{"ATXX", fATXX,{NULL,NULL}},
@@ -1676,9 +1662,6 @@ log_item_t at_sys_items[] = {
 #endif
 #if SUPPORT_CP_TEST
 	{"ATSM", fATSM,},	// Apple CP test
-#endif
-#if !defined(CONFIG_PLATFORM_8195BHP) && !defined(CONFIG_PLATFORM_8710C)
-	{"ATSJ", fATSJ,{NULL,NULL}}, //trun off JTAG
 #endif
 	{"ATS@", fATSs,{NULL,NULL}},	// Debug message setting
 	{"ATS!", fATSc,{NULL,NULL}},	// Debug config setting
