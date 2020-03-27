@@ -50,7 +50,7 @@ static unsigned int log_history_count = 0;
 #endif
 _sema log_rx_interrupt_sema = NULL;
 #if CONFIG_LOG_SERVICE_LOCK
-xSemaphoreHandle log_service_sema = NULL;
+_sema log_service_sema = NULL;
 #endif
 extern xSemaphoreHandle uart_rx_interrupt_sema;
 
@@ -407,22 +407,22 @@ int print_help_handler(char *cmd)
 #if CONFIG_LOG_SERVICE_LOCK
 void log_service_lock(void)
 {
-	rtw_down_sema((_sema *) (&log_service_sema));
+	rtw_down_sema(&log_service_sema);
 }
 
 u32 log_service_lock_timeout(u32 ms)
 {
-	return rtw_down_timeout_sema((_sema *) (&log_service_sema), ms);
+	return rtw_down_timeout_sema(&log_service_sema, ms);
 }
 
 void log_service_unlock(void)
 {
-	rtw_up_sema((_sema *) (&log_service_sema));
+	rtw_up_sema(log_service_sema);
 }
 
 void log_service_lock_init(void)
 {
-	rtw_init_sema((_sema *) (&log_service_sema), 1);
+	rtw_init_sema(&log_service_sema, 1);
 }
 #endif
 
@@ -431,53 +431,57 @@ void log_service(void *param)
 	/* To avoid gcc warnings */
 	(void) param;
 
-#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
+	#if defined(configENABLE_TRUSTZONE) && (configENABLE_TRUSTZONE == 1)
 	rtw_create_secure_context(configMINIMAL_SECURE_STACK_SIZE);
-#endif
+	#endif
 	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\rStart LOG SERVICE MODE\n\r");
 	_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_INFO, "\n\r# ");
 
 	while (1) {
 		while (xSemaphoreTake((xSemaphoreHandle)log_rx_interrupt_sema, portMAX_DELAY) != pdTRUE);
-#if CONFIG_LOG_SERVICE_LOCK
+		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_lock();
-#endif
+		#endif
 		if (log_handler((char *) log_buf) == NULL) {
-#if CONFIG_WLAN
+			#if CONFIG_WLAN
 			if (mp_command_handler((char *) log_buf) < 0)
-#endif
+			#endif
 			{
-#if SUPPORT_INTERACTIVE_MODE
+				#if SUPPORT_INTERACTIVE_MODE
 				print_help_handler((char *) log_buf);
 				legency_interactive_handler(NULL, NULL);
-#else
+				#else
 				if (print_help_handler((char *) log_buf) < 0) {
 					at_printf("\r\nunknown command '%s'", log_buf);
 				}
-#endif
+				#endif
 			}
 		}
 		log_buf[0] = '\0';
-#if CONFIG_INIC_EN
+		#if CONFIG_INIC_EN
 		inic_cmd_ioctl = 0;
-#endif
-#if defined(__MFG_IMG) && __MFG_IMG
+		#endif
+
+		#if defined(__MFG_IMG) && __MFG_IMG
 		_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ALWAYS, "\n\r[MEM] After do cmd, available heap %d\n\r",
 			    xPortGetFreeHeapSize());
 		_AT_DBG_MSG(AT_FLAG_COMMON, AT_DBG_ALWAYS, "\r\n\n#\r\n");	//"#" is needed for mp tool
-#endif
-#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
+		#endif
+
+		#if (defined(CONFIG_EXAMPLE_UART_ATCMD) && CONFIG_EXAMPLE_UART_ATCMD)
 		if (atcmd_lwip_is_tt_mode())
 			at_printf(STR_END_OF_ATDATA_RET);
 		else
 			at_printf(STR_END_OF_ATCMD_RET);
-#endif
-#if CONFIG_LOG_SERVICE_LOCK
+		#endif
+
+		#if CONFIG_LOG_SERVICE_LOCK
 		log_service_unlock();
-#endif
-#if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
+		#endif
+
+		#if defined(configUSE_WAKELOCK_PMU) && (configUSE_WAKELOCK_PMU == 1)
 		pmu_release_wakelock(PMU_LOGUART_DEVICE);
-#endif
+		#endif
 	}
 }
 

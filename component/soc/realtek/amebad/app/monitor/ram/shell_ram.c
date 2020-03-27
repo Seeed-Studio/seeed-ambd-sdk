@@ -96,8 +96,8 @@ static u32 shell_cmd_exec_ram(u8  argc, u8  **argv)
 		}
 	}
 
-	//(*pUartLogBuf).BufCount = 0;
-	//shell_array_init(&(*pUartLogBuf).UARTLogBuf[0], UART_LOG_CMD_BUFLEN, '\0');
+	//pUartLogBuf->BufCount = 0;
+	//shell_array_init(pUartLogBuf->UARTLogBuf, UART_LOG_CMD_BUFLEN, '\0');
 
 	return FALSE;
 }
@@ -123,12 +123,12 @@ static VOID shell_task_ram(VOID *Data)
 			PUART_LOG_BUF   pUartLogBuf = shell_ctl.pTmpLogBuf;
 #if defined(CONFIG_WIFI_NORMAL)
 #if SUPPORT_LOG_SERVICE
-			_strncpy(log_buf, (const char*)&(*pUartLogBuf).UARTLogBuf[0], LOG_SERVICE_BUFLEN-1);
+			_strncpy(log_buf, (const char*)pUartLogBuf->UARTLogBuf, LOG_SERVICE_BUFLEN-1);
 #endif
 #endif
 
-			argc = shell_get_argc((const u8*)&((*pUartLogBuf).UARTLogBuf[0]));
-			argv = (u8**)shell_get_argv((const u8*)&((*pUartLogBuf).UARTLogBuf[0])); /* UARTLogBuf will be changed */
+			argc = shell_get_argc((const u8*)pUartLogBuf->UARTLogBuf);
+			argv = (u8**)shell_get_argv((const u8*)pUartLogBuf->UARTLogBuf); /* UARTLogBuf will be changed */
 
 			if (argc > 0) {
 				/* FPGA Verification */
@@ -139,15 +139,15 @@ static VOID shell_task_ram(VOID *Data)
 					ret = shell_cmd_exec(argc, argv);
 				}
 				
-				(*pUartLogBuf).BufCount = 0;
-				shell_array_init(&(*pUartLogBuf).UARTLogBuf[0], UART_LOG_CMD_BUFLEN, '\0');
+				pUartLogBuf->BufCount = 0;
+				shell_array_init(pUartLogBuf->UARTLogBuf, UART_LOG_CMD_BUFLEN, '\0');
 			} else {
 				/*In some exception case, even if argc parsed is 0(when the first character value in log buffer is '\0'), 
 				log buffer may not be empty and log buffer counter may not be zero. If not clean log buffer and counter
 				, some error will happen. Therefore, clean log buffer and initialize buffer counter when it occurs.*/
-				if((*pUartLogBuf).BufCount != 0) {
-					(*pUartLogBuf).BufCount = 0;
-					shell_array_init(&(*pUartLogBuf).UARTLogBuf[0], UART_LOG_CMD_BUFLEN, '\0');
+				if(pUartLogBuf->BufCount != 0) {
+					pUartLogBuf->BufCount = 0;
+					shell_array_init(pUartLogBuf->UARTLogBuf, UART_LOG_CMD_BUFLEN, '\0');
 				}
 				CONSOLE_AMEBA();
 			}
