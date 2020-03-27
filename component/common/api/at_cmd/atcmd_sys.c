@@ -140,14 +140,15 @@ void fATGPIO(void* arg) {
 
 	port = argv[2][1] - 'A';
 	num = strtoul(&argv[2][2], NULL, 0);
-	pin = (port << 4 | num);
+	pin = (port << 5 | num);
 	if (gpio_set(pin) == 0xFF) {
 		r = -2;
 		goto __ret;
 	}
 
 	/* set the pinmux to gpio mode, avoid other driver modified */
-	Pinmux_Config(port * (_PB_0 - _PA_0) + num, PINMUX_FUNCTION_GPIO);
+	// Pinmux_Config(port * (_PB_0 - _PA_0) + num, PINMUX_FUNCTION_GPIO);
+	// gpio_set did this Pinmux_Config yet.
 
 	gpio_init(&gpio_ctrl, pin);
 	if (argv[4]) {
@@ -1522,7 +1523,7 @@ void fATSG(void *arg)
 	port = argv[2][1];
 	num = strtoul(&argv[2][3], NULL, 0);
 	port -= 'A';
-	pin = (port << 4 | num);
+	pin = (port << 5 | num);
 	AT_DBG_MSG(AT_FLAG_GPIO, AT_DBG_ALWAYS, "PORT: %s[%d]", argv[2], pin);
 	
 	if(gpio_set(pin) == 0xff)
