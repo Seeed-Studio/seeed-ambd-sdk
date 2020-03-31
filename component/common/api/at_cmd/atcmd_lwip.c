@@ -29,6 +29,9 @@
 #define ATCP_STACK_SIZE		512//2048
 #define ATCP_SSL_STACK_SIZE		2048
 
+extern char log_buf[LOG_SERVICE_BUFLEN];
+extern struct netif xnetif[NET_IF_NUM]; 
+
 static unsigned char _tx_buffer[MAX_BUFFER];
 static unsigned char _rx_buffer[MAX_BUFFER];
 static unsigned char *tx_buffer = _tx_buffer;
@@ -1208,7 +1211,6 @@ exit:
 #endif
 #if ATCMD_VER == ATVER_2
 void fATP0(void *arg){
-	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
@@ -1919,7 +1921,6 @@ exit:
 void fATPI(void *arg){
 	node* n = mainlist->next;
 	struct in_addr addr;
-	(void) arg;
 
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
@@ -2953,6 +2954,8 @@ log_module_init(at_transport_init);
 #define ATCP_STACK_SIZE		512//2048
 #define ATCP_SSL_STACK_SIZE		2048
 
+extern char log_buf[LOG_SERVICE_BUFLEN];
+extern struct netif xnetif[NET_IF_NUM]; 
 
 static unsigned char _tx_buffer[MAX_BUFFER];
 static unsigned char _rx_buffer[MAX_BUFFER];
@@ -4213,7 +4216,6 @@ exit:
 #endif
 #if ATCMD_VER == ATVER_2
 void fATP0(void *arg){
-	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
@@ -4925,7 +4927,6 @@ void fATPI(void *arg){
 	node* n = mainlist->next;
 	struct in_addr addr;
 
-	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		"[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
 	
@@ -5386,7 +5387,6 @@ static void atcmd_lwip_receive_task(void *param)
 
 	int i;
 	int packet_size = ETH_MAX_MTU;
-	(void) param;
 
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 			"Enter auto receive mode");
@@ -5915,45 +5915,7 @@ void atcmd_lwip_set_rx_buffer(unsigned char * buf, int bufsize) {
 	rx_buffer_size = bufsize;
 }
 
-#endif
-
-/* DNS function, resolve domain name to ip address */
-void fATCIPDOMAIN(void* arg) {
-	int argc;
-	char *argv[MAX_ARGC] = { 0 };
-	char *hostname;
-	struct in_addr addr;
-	struct hostent *host;
-
-	if (!arg) {
-		at_printf(STR_RESP_FAIL);
-		return;
-	}
-
-	argc = parse_param(arg, argv);
-	if (argc < 2 || argv[1] == NULL) {
-		at_printf(STR_RESP_FAIL);
-		return;
-	}
-
-	hostname = argv[1];
-
-	if (inet_aton(hostname, &addr) == 0) {
-		host = gethostbyname(hostname);
-		if (!host) {
-			at_printf(STR_RESP_FAIL);
-			return;
-		}
-		rtw_memcpy(&addr, host->h_addr, 4);
-	}
-
-	// Query
-	at_printf("+CIPDOMAIN:\"%s\"\r\n", ip_ntoa(&addr));
-	at_printf(STR_RESP_OK);
-	return;
-}
-
-
+#endif	
 
 #if CONFIG_TRANSPORT
 log_item_t at_transport_items[ ] = {
@@ -5983,14 +5945,12 @@ log_item_t at_transport_items[ ] = {
 	{"ATPU", fATPU,}, //transparent transmission mode
 	{"ATPL", fATPL,}, //lwip auto reconnect setting
 #endif
-	{"AT+CIPDOMAIN", fATCIPDOMAIN},
 };
 
 #if ATCMD_VER == ATVER_2
 void print_tcpip_at(void *arg){
 	int index;
 	int cmd_len = 0;
-	(void)arg;
 
 	cmd_len = sizeof(at_transport_items)/sizeof(at_transport_items[0]);
 	for(index = 0; index < cmd_len; index++)
