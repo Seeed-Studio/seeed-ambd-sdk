@@ -14,12 +14,12 @@
 #include "mbedtls/ssl.h"
 #include "mbedtls/error.h"
 #include "mbedtls/certs.h"
-#if !defined(MBEDTLS_BIGNUM_C) || !defined(MBEDTLS_CERTS_C) || \
+  #if !defined(MBEDTLS_BIGNUM_C) || !defined(MBEDTLS_CERTS_C) || \
 	!defined(MBEDTLS_SSL_TLS_C) || !defined(MBEDTLS_SSL_SRV_C) || \
 	!defined(MBEDTLS_SSL_CLI_C) || !defined(MBEDTLS_NET_C) || \
 	!defined(MBEDTLS_RSA_C) || !defined(MBEDTLS_X509_CRT_PARSE_C)
-#error ("some define missing, please check config_rsa.h")
-#endif
+  #error ("some define missing, please check config_rsa.h")
+  #endif
 #endif
 
 //#define MAX_BUFFER 	256
@@ -34,8 +34,6 @@ static unsigned char *tx_buffer = _tx_buffer;
 static unsigned char *rx_buffer = _rx_buffer;
 int tx_buffer_size = MAX_BUFFER;
 int rx_buffer_size = MAX_BUFFER;
-
-#if ATCMD_VER == ATVER_2
 
 #if (CONFIG_EXAMPLE_SPI_ATCMD == 1)
 #define EXTEND_ATPR_SIZE (1) 
@@ -61,7 +59,6 @@ volatile int atcmd_lwip_tt_lasttickcnt = 0;
 _WEAK int errno = 0; //LWIP errno
 #endif
 
-#if ATCMD_SUPPORT_SSL
 #define ATCMD_SSL_DEBUG_LEVEL   0
 static void atcmd_ssl_debug(void *ctx, int level, const char *file, int line, const char *str)
 {
@@ -123,7 +120,6 @@ static char *atcmd_ssl_client_crt[NUM_NS] = {NULL}; //TODO:should be input by us
 static mbedtls_x509_crt* atcmd_ssl_cli_crt[NUM_NS] = {NULL};
 static char *atcmd_ssl_client_key[NUM_NS] = {NULL}; //TODO:should be input by user
 static mbedtls_pk_context* atcmd_ssl_clikey_rsa[NUM_NS] = {NULL};
-#endif
 
 static void atcmd_lwip_receive_task(void *param);
 int atcmd_lwip_start_autorecv_task(void);
@@ -133,55 +129,6 @@ int atcmd_lwip_start_tt_task(void);
 int atcmd_lwip_is_tt_mode(void);
 void atcmd_lwip_set_tt_mode(int enable);
 int atcmd_lwip_write_info_to_flash(struct atcmd_lwip_conn_info *cur_conn, int enable);
-#else //#if ATCMD_VER == ATVER_2 
-
-xTaskHandle server_task = NULL;
-xTaskHandle client_task = NULL;
-
-static int mode = 0;
-static int local_port;
-static int remote_port;
-static char remote_addr[16];
-static int packet_size;
-
-static int sockfd, newsockfd;
-static socklen_t client;
-static struct sockaddr_in serv_addr, cli_addr;
-static int opt = 1;
-
-static int type; //TCP SERVER:1, TCP CLIENT: 2, UDP SERVER:3, UDP CLIENT: 4
-
-static void init_transport_struct(void)
-{
-	mode = 0;
-	local_port = 0;
-	remote_port = 0;
-	sockfd = -1;
-	newsockfd = -1;
-	packet_size = 0;
-	rtw_memset(remote_addr, 0, sizeof(remote_addr));
-	rtw_memset(&client, 0, sizeof(client));
-	rtw_memset(&serv_addr, 0, sizeof(serv_addr));
-	
-}
-
-void socket_close(void)
-{
-	close(sockfd);
-	if(server_task != NULL)
-	{
-		vTaskDelete(server_task);
-		server_task = NULL;
-	}
-	if(client_task != NULL)
-	{
-		vTaskDelete(client_task);
-		client_task = NULL;
-	}
-	type = 0;
-	init_transport_struct();
-}
-#endif //#if ATCMD_VER == ATVER_2 
 
 static void server_start(void *param)
 {
@@ -203,21 +150,11 @@ static void server_start(void *param)
 	mbedtls_x509_crt *server_x509;
 	mbedtls_pk_context *server_pk;
 #endif
-#if ATCMD_VER == ATVER_2 
 	node* ServerNodeUsed = (node*)param;
 	if(ServerNodeUsed){
 		s_mode = ServerNodeUsed->protocol;
 		s_local_port = ServerNodeUsed->port;
 	}
-//	else
-//#endif
-#else
-	{
-		s_mode = mode;
-		s_local_port = local_port;
-		s_opt = opt;
-	}
-#endif
 
 	/***********************************************************
 	* Create socket and set socket options, then bind socket to local port
@@ -273,20 +210,11 @@ static void server_start(void *param)
 	/***********************************************************
 	* Assign IP address and socket fd to the node used for this server
 	************************************************************/
-#if ATCMD_VER == ATVER_2 
 	if(ServerNodeUsed != NULL) {
 		uint8_t *ip = (uint8_t *)LwIP_GetIP(&xnetif[0]);
 		ServerNodeUsed->sockfd = s_sockfd;
 		ServerNodeUsed->addr = ntohl(*((u32_t *)ip));
 	}
-//	else
-//#endif
-#else
-	{
-		sockfd = s_sockfd;
-		rtw_memcpy(&serv_addr, &s_serv_addr, sizeof(s_serv_addr));
-	}
-#endif
 
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	if(s_mode == NODE_MODE_SSL){
@@ -481,7 +409,6 @@ static void server_start(void *param)
 			/***********************************************************
 			*  TCP 2. Hang node on mainlist for global management
 			************************************************************/
-#if ATCMD_VER == ATVER_2
 			if(param != NULL) {
 				if(hang_node(ServerNodeUsed) < 0)
 				{
@@ -500,7 +427,7 @@ static void server_start(void *param)
 					#endif
 				}
 			}
-#endif
+
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,"The TCP SERVER START OK!");
 			s_client = sizeof(s_cli_addr);
 			/***********************************************************
@@ -508,19 +435,10 @@ static void server_start(void *param)
 			************************************************************/
 			while(1){
 				if((s_newsockfd = accept(s_sockfd,(struct sockaddr *) &s_cli_addr,&s_client)) < 0){
-#if ATCMD_VER == ATVER_2
 					if(param != NULL) {
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
 							"[ATPS] ERROR:ERROR on accept");
 					}
-	//				else
-	//#endif
-#else
-					{
-						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
-						"ERROR on accept");
-					}
-#endif
 					error_no = 10;
 					goto err_exit;
 				}
@@ -528,7 +446,6 @@ static void server_start(void *param)
 					/***********************************************************
 					*  TCP 4. Hang node on mainlist for global management of this TCP connection
 					************************************************************/
-#if ATCMD_VER == ATVER_2
 					if(param != NULL) {
 						node* seednode = create_node(s_mode, NODE_ROLE_SEED);
 						if(seednode == NULL){
@@ -567,18 +484,6 @@ static void server_start(void *param)
 							#endif
 						}
 					}
-	//				else
-	//#endif
-#else
-					{
-						newsockfd = s_newsockfd;
-							rtw_memcpy(&cli_addr, &s_cli_addr, sizeof(cli_addr));
-						client = s_client;
-						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
-							"A client connected to this server :\r\n[PORT]: %d\r\n[IP]:%s", 
-							ntohs(cli_addr.sin_port), inet_ntoa(cli_addr.sin_addr.s_addr));
-					}
-#endif
 				}
 			}
 		}
@@ -596,7 +501,6 @@ static void server_start(void *param)
 			/***********************************************************
 			*  UDP 2. Hang node on mainlist for global management
 			************************************************************/
-#if ATCMD_VER == ATVER_2
 			if(ServerNodeUsed != NULL) {
 				if(hang_node(ServerNodeUsed) < 0){
 					error_no = 12;
@@ -615,25 +519,16 @@ static void server_start(void *param)
 				//task will exit itself
 				ServerNodeUsed->handletask = NULL;
 			}
-#endif
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,"The UDP SERVER START OK!");
 		}
 	}
 	goto exit;
 err_exit:
-#if ATCMD_VER == ATVER_2 
 	if(ServerNodeUsed){
 		//task will exit itself if getting here
 		ServerNodeUsed->handletask = NULL;
 		delete_node(ServerNodeUsed);
 	}
-	//else
-//#endif
-#else
-	{
-		socket_close();
-	}
-#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
@@ -657,7 +552,6 @@ static void client_start(void *param)
 	int c_sockfd;
 	struct sockaddr_in c_serv_addr;
 	int error_no = 0;
-#if ATCMD_VER == ATVER_2
 #if ATCMD_SUPPORT_SSL
 	int ret;
 	mbedtls_ssl_context *ssl;
@@ -675,15 +569,6 @@ static void client_start(void *param)
 			goto err_exit;
 		}
 	}
-	//else
-//#endif
-#else
-	{
-		c_mode = mode;
-		c_remote_port = remote_port;
-		rtw_memcpy(c_remote_addr, remote_addr, 16*sizeof(char));	
-	}
-#endif
 
 	/***********************************************************
 	* Create socket and set socket options, then bind socket to local port
@@ -724,20 +609,11 @@ static void client_start(void *param)
 	/***********************************************************
 	* Assign socket fd to the node used for this client
 	************************************************************/
-#if ATCMD_VER == ATVER_2
 	if(ClientNodeUsed){		
 		ClientNodeUsed->sockfd = c_sockfd;
 	}
-	//else
-//#endif
-#else
-	{
-		sockfd = c_sockfd;
-		rtw_memcpy(&serv_addr, &c_serv_addr, sizeof(c_serv_addr));
-	}
-#endif
 
-#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
+	#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	if (c_mode == NODE_MODE_SSL){//SSL MODE
 		/***********************************************************
 		*  SSL 1. Setup stuff for this ssl connection
@@ -815,7 +691,7 @@ static void client_start(void *param)
 		#endif		
 	}
 	else
-#endif //#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
+	#endif //#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	{
 		if (c_mode == NODE_MODE_TCP){//TCP MODE
 			/***********************************************************
@@ -826,7 +702,6 @@ static void client_start(void *param)
 				/***********************************************************
 				*  TCP 2. Hand node on mainlist for global management if connect success
 				************************************************************/
-#if ATCMD_VER == ATVER_2
 				if(ClientNodeUsed != NULL) {
 					if(hang_node(ClientNodeUsed) < 0){
 						error_no = 8;
@@ -841,28 +716,18 @@ static void client_start(void *param)
 					log_service_unlock();
 					#endif
 				}
-#endif
 			}else{
 				/***********************************************************
 				*  TCP 2. Free node if connect fail
 				************************************************************/
-#if ATCMD_VER == ATVER_2
 				if(ClientNodeUsed != NULL) {
 					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,"[ATPC] ERROR:Connect to Server failed!");
 				}
-				//else
-//#endif
-#else
-				{
-					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,"Connect to Server failed!");
-				}
-#endif
 				error_no = 9;
 				goto err_exit;
 			}
 		}
 		else{
-#if ATCMD_VER == ATVER_2
 			if(ClientNodeUsed != NULL) {
 				#if IP_SOF_BROADCAST && IP_SOF_BROADCAST_RECV
 				/* all ones (broadcast) or all zeroes (old skool broadcast) */
@@ -926,24 +791,15 @@ static void client_start(void *param)
 				log_service_unlock();
 				#endif
 			}
-#endif
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,"UDP client starts successful!");
 		}
 	}
 	goto exit;
 err_exit:
-#if ATCMD_VER == ATVER_2 
 	if(ClientNodeUsed)
 	{
 		delete_node(ClientNodeUsed);
 	}
-	//else
-//#endif
-#else
-	{
-		socket_close();
-	}
-#endif
 	#if CONFIG_LOG_SERVICE_LOCK
 	log_service_lock();
 	#endif
@@ -959,333 +815,26 @@ exit:
 static void client_start_task(void *param)
 {
 	vTaskDelay(1000);
-#if ATCMD_VER == ATVER_2 
 	if(param){
 		client_start(param);
 		vTaskDelete(NULL);
 		return;
 	}
-//#endif
-#else
-	if(remote_addr == NULL){
-		printf("\r\n[ERROR] Please using ATP3 to input an valid remote IP address!\r\n");
-		vTaskDelete(client_task);
-		client_task = NULL;
-	}
-	else if(remote_port == 0){
-		printf("\r\n[ERROR] Please using ATP4 to input an valid remote PORT!\r\n");
-		vTaskDelete(client_task);
-		client_task = NULL;
-	}
-	else{
-		printf("\n\r\tStart Client\r\n\t[IP]: %s\r\n\t[PORT]:%d\n\r\n\r", remote_addr, remote_port);
-		client_start(param);
-	}
-#endif
 	vTaskDelete(NULL);
 }
 
 static void server_start_task(void *param)
 {
 	vTaskDelay(1000);
-#if ATCMD_VER == ATVER_2      
 	if(param != NULL){
 		server_start(param);
 		vTaskDelete(NULL);
 		return;
 	}
-//#endif
-#else
-	if(local_port == 0){
-		printf("\r\n[ERROR] Please using ATP2 to input an valid local PORT!\r\n");
-		vTaskDelete(server_task);
-		server_task = NULL;
-	}
-	else{
-		uint8_t *ip = (uint8_t *)LwIP_GetIP(&xnetif[0]);
-		printf("\n\rStart Server\r\n\t[IP]: %d.%d.%d.%d\r\n\t[PORT]:%d\n\r\n\r", ip[0], ip[1], ip[2], ip[3], local_port);
-		server_start(param);
-	}
-#endif
 	vTaskDelete(NULL);
 }
 
 //AT Command function
-#if ATCMD_VER == ATVER_1
-void fATP1(void *arg){
-	if(!arg){
-		printf("[ATP1]Usage: ATP1=MODE\n\r");
-		goto exit;
-	}	
-	mode = atoi((char*)arg);
-	printf("[ATP1]: _AT_TRANSPORT_MODE_ [%d]\n\r", mode);
-exit:
-	return;
-}
-
-void fATP2(void *arg){
-	if(!arg){
-		printf("[ATP2]Usage: ATP2=LOCAL_PORT\n\r");
-		goto exit;
-	}
-	local_port = atoi((char*)arg);
-	printf("[ATP2]: _AT_TRANSPORT_LOCAL_PORT_ [%d]\n\r", local_port);
-
-exit:
-	return;
-}
-
-void fATP3(void *arg){
-	if(!arg){
-		printf("[ATP3]Usage: ATP3=REMOTE_IP\n\r");
-		goto exit;
-	}
-	strcpy((char*)remote_addr, (char*)arg);
-	printf("[ATP3]: _AT_TRANSPORT_REMOTE_IP_ [%s]\n\r", remote_addr);
-
-exit:
-	return;
-}
-
-void fATP4(void *arg){
-	if(!arg){
-		printf("[ATP4]Usage: ATP4=REMOTE_PORT\n\r");
-		goto exit;
-	}
-	remote_port = atoi((char*)arg);
-	printf("[ATP4]: _AT_TRANSPORT_REMOTE_PORT_ [%d]\n\r", remote_port);
-
-exit:
-	return;
-}
-
-void fATP5(void *arg){
-	int server_status = 0;
-	if(!arg){
-		printf("[ATP5]Usage: ATP5=0/1(0:server disable; 1: server enable)\n\r");
-		goto exit;
-	}
-	server_status = atoi((char*)arg);
-	printf("[ATP5]: _AT_TRANSPORT_START_SERVER_ [%d]\n\r", server_status);
-	if(mode == 0){
-		if(server_status == 0){
-			socket_close();
-			type = 0;
-		}
-		else if(server_status == 1){
-			if(server_task == NULL)
-			{
-				if(xTaskCreate(server_start_task, ((const char*)"server_start_task"), ATCP_STACK_SIZE, NULL, ATCMD_LWIP_TASK_PRIORITY, &server_task) != pdPASS)
-					printf("\r\n[ATP5]ERROR: Create tcp server task failed.\r\n");
-			}
-			type = 1;
-		}
-		else
-		printf("[ATP5]ERROR: Just support two mode : 0 or 1\n\r");
-	}
-	else if(mode == 1){
-		if(server_status == 0){
-			socket_close();
-			type = 0;
-		}
-		else if(server_status == 1){
-			if(server_task == NULL)
-			{
-				if(xTaskCreate(server_start_task, ((const char*)"server_start_task"), ATCP_STACK_SIZE, NULL, ATCMD_LWIP_TASK_PRIORITY, &server_task) != pdPASS)
-					printf("\r\n[ATP5]ERROR: Create udp server task failed.\r\n");
-			}
-			type = 3;
-		}
-		else
-			printf("[ATP5]ERROR: Just support two mode : 0 or 1\n\r");
-	}
-	else 
-		printf("[ATP5]Error: mode(TCP/UDP) can't be empty\n\r");
-	
-exit:
-	return;
-}
-
-void fATP6(void *arg){
-	int client_status = 0;
-	if(!arg){
-		printf("[ATP6]Usage: ATP6=0/1(0:Client disable; 1: Client enable)\n\r");
-		goto exit;
-	}
-	client_status = atoi((char*)arg);
-	printf("[ATP6]: _AT_TRANSPORT_START_CLIENT_ [%d]\n\r", client_status);
-	if(mode == 0){
-		if(client_status == 0){
-			socket_close();
-			type = 0;
-		}
-		else if(client_status == 1){
-			printf("\r\n[ATP6]TCP Client mode will start\r\n");
-			if(client_task == NULL)
-			{
-				if(xTaskCreate(client_start_task, ((const char*)"client_start_task"), ATCP_STACK_SIZE, NULL, ATCMD_LWIP_TASK_PRIORITY, &client_task) != pdPASS)
-					printf("\r\n[ATP6]ERROR: Create tcp client task failed.\r\n");
-			}
-			type = 2;
-		}
-		else
-			printf("[ATP6]ERROR: Just support two mode : 0 or 1\n\r");
-	}
-	else if(mode == 1){
-		if(client_status == 0){
-			socket_close();
-			type = 0;
-		}
-		else if(client_status == 1){
-			if(client_task == NULL)
-			{
-				if(xTaskCreate(client_start_task, ((const char*)"client_start_task"), ATCP_STACK_SIZE, NULL, ATCMD_LWIP_TASK_PRIORITY, &client_task) != pdPASS)
-					printf("\r\n[ATP6]ERROR: Create udp client task failed.\r\n");
-			}
-			type = 4;
-		}
-		else
-			printf("[ATP6]ERROR: Just support two mode : 0 or 1\n\r");
-	}
-	else 
-		printf("[ATP6]Error: mode(TCP/UDP) can't be empty\n\r");
-	
-exit:
-	return;
-}
-
-void fATPZ(void *arg){
-	/* To avoid gcc warnings */
-	( void ) arg;
-	
-	uint8_t *ip;
-	printf("\n\r\nThe current Transport settings:");
-	printf("\n\r==============================");
-	if(mode == 0)
-		printf("\n\r Protocol: TCP");
-	else if(mode == 1)
-		printf("\n\r Protocol: UDP");
-
-	ip = (uint8_t *)LwIP_GetIP(&xnetif[0]);
-	printf("\n\r LOCAL_IP  => %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
-	printf("\n\r LOCAL_PORT => %d", local_port);
-	printf("\n\r REMOTE_IP  => %s", remote_addr);
-	printf("\n\r REMOTE_PORT => %d", remote_port);
-
-	printf("\n\r");	
-}
-
-void fATR0(void *arg){
-	/* To avoid gcc warnings */
-	( void ) arg;
-	
-	if(packet_size <= 0){
-		packet_size = MAX_BUFFER;
-		printf("[ATR0]Notice: Didn't set the value of packet_size, will using the MAX_BUFFER: %d\r\n", MAX_BUFFER);
-	}
-	rtw_memset(rx_buffer, 0, MAX_BUFFER);
-	if(type == 1){//tcp server
-		if((read(newsockfd,rx_buffer,MAX_BUFFER)) > 0)
-			printf("[ATR0]Receive the data:%s\r\n with packet_size: %d\r\n", rx_buffer, packet_size);
-		else
-			printf("[ATR0]ERROR: Failed to receive data!\r\n");
-		close(newsockfd);
-		newsockfd = -1;
-	}
-	else{
-		if((read(sockfd,rx_buffer,MAX_BUFFER)) > 0)
-			printf("[ATR0]Receive the data:%s\r\n with packet_size: %d\r\n", rx_buffer, packet_size);
-		else
-			printf("[ATR0]ERROR: Failed to receive data!\r\n");
-	}
-}
-
-void fATR1(void *arg){
-	int size;
-	if(!arg){
-		printf("[ATR1]Usage: ATR1=packet_size(cannot exceed %d)\n\r", MAX_BUFFER);
-		goto exit;
-	}
-	size = atoi((char*)arg);
-	printf("[ATR1]: _AT_TRANSPORT_RECEIVE_PACKET_SIZE_ [%d]\n\r", size);
-	if(size < 1)
-		printf("[ATR1]Error: packet size need be larger than 0!\n\r");
-	else if(size > MAX_BUFFER)
-		printf("[ATR1]Error: packet size exceeds the MAX_BUFFER value: %d!\n\r", MAX_BUFFER);
-	else 
-		packet_size = size;
-exit:
-	return;
-}
-
-
-void fATRA(void *arg){
-	volatile int argc;
-	char *argv[MAX_ARGC] = {0};
-	if(!arg){
-		printf("[ATRA]Usage: ATRA=[data](Data size cannot exceed the MAX_BUFFER SIZE: %d)\n\r", MAX_BUFFER);
-		return;
-	}
-
-	if(packet_size <= 0){
-		packet_size = MAX_BUFFER;
-		printf("[ATRA]Notice: Didn't set the value of packet_size, will using the MAX_BUFFER SIZE: %d\r\n", MAX_BUFFER);
-	}
-
-	if((argc = parse_param(arg, argv)) != 2){
-		printf("[ATRA]Usage: ATRA=[data](Data size cannot exceed the MAX_BUFFER SIZE: %d)\n\r", MAX_BUFFER);
-		goto exit;
-	}
-	else 
-		printf("[ATRA]: _AT_TRANSPORT_WRITE_DATA_ [%s]\n\r", argv[1]);
-	rtw_memset(tx_buffer, 0, MAX_BUFFER);
-	rtw_memcpy(tx_buffer, argv[1], strlen(argv[1]));
-
-	if(type == 1){//tcp server
-		if((write(newsockfd,tx_buffer,strlen((char const*)tx_buffer))) > 0)
-			printf("[ATRA] Sending data:%s\r\n with packet_size:%d\r\n", tx_buffer, packet_size);
-		else
-			printf("[ATRA]ERROR: Failed to send data\r\n");
-		close(newsockfd);
-		newsockfd = -1;
-	}
-	else if(type == 4){//udp client
-		int ret = 0;
-		ret = sendto(sockfd, tx_buffer, strlen((char const*)tx_buffer), 0, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-
-		printf("\r\nThe value of ret is %d\r\n", ret);
-	}
-	else if(type == 3)
-		printf("\r\nThe UDP Server mode not support Sending data service!\r\n");
-	else{
-		if((write(sockfd,tx_buffer, strlen((char const*)tx_buffer))) > 0)
-			printf("[ATRA] Sending data:%s\r\n with packet_size:%d\r\n", tx_buffer, packet_size);
-		else
-			printf("[ATRA]ERROR: Failed to send data\r\n");
-	}
-exit:
-	return;
-}
-
-void fATRB(void *arg){
-	int size;
-	if(!arg){
-		printf("[ATRB]Usage: ATRB=packet_size(cannot exceed %d)\n\r", MAX_BUFFER);
-		goto exit;
-	}
-	size = atoi((char*)arg);
-	printf("[ATRB]: _AT_TRANSPORT_WRITE_PACKET_SIZE_ [%d]\n\r", size);
-	if(size < 1)
-		printf("[ATRB]Error: packet size need be larger than 0!\n\r");
-	else if(size > MAX_BUFFER)
-		printf("[ATRB]Error: packet size exceeds the MAX_BUFFER value: %d!\n\r", MAX_BUFFER);
-	else 
-		packet_size = size;
-exit:
-	return;
-}
-#endif
-#if ATCMD_VER == ATVER_2
 void fATP0(void *arg){
 	(void) arg;
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
@@ -2990,24 +2539,7 @@ void atcmd_lwip_set_rx_buffer(unsigned char * buf, int bufsize) {
 	rx_buffer_size = bufsize;
 }
 
-#endif
-
-#if CONFIG_TRANSPORT
 log_item_t at_transport_items[ ] = {
-#if ATCMD_VER == ATVER_1
-	{"ATP1", fATP1,},//mode TCP=0,UDP=1
-	{"ATP2", fATP2,},//LOCAL PORT
-	{"ATP3", fATP3,},//REMOTE IP
-	{"ATP4", fATP4,},//REMOTE PORT
-	{"ATP5", fATP5,},//START SERVER
-	{"ATP6", fATP6,},//START CLIENT
-	{"ATP?", fATPZ,},//SETTING
-	{"ATR0", fATR0,},//READ DATA
-	{"ATR1", fATR1,},//SET PACKET SIZE
-	{"ATRA", fATRA,},//WRITE DATA
-	{"ATRB", fATRB,},//SET WRITE PACKET SIZE
-#endif
-#if ATCMD_VER == ATVER_2 
 	{"ATP0", fATP0,},//query errno if defined
 	{"ATPS", fATPS,},//Create Server
 	{"ATPD", fATPD,},//Close Server/Client connection
@@ -3019,10 +2551,8 @@ log_item_t at_transport_items[ ] = {
 	{"ATPI", fATPI,},//printf connection status
 	{"ATPU", fATPU,}, //transparent transmission mode
 	{"ATPL", fATPL,}, //lwip auto reconnect setting
-#endif
 };
 
-#if ATCMD_VER == ATVER_2
 void print_tcpip_at(void *arg){
 	int index;
 	int cmd_len = 0;
@@ -3032,17 +2562,13 @@ void print_tcpip_at(void *arg){
 	for(index = 0; index < cmd_len; index++)
 		at_printf("\r\n%s", at_transport_items[index].log_cmd);
 }
-#endif
 
 void at_transport_init(void)
 {
-#if ATCMD_VER == ATVER_2 
 	init_node_pool();
 	mainlist = create_node(-1,-1);
-#endif	
 	log_service_add_table(at_transport_items, sizeof(at_transport_items)/sizeof(at_transport_items[0]));
 }
 
 log_module_init(at_transport_init);
-#endif
 
