@@ -16,7 +16,7 @@ vpath %.c $(DIR)
 #*****************************************************************************#
 CSRC +=	$(DIR)/atcmd_sys.c \
 		$(DIR)/atcmd_wifi.c \
-		$(DIR)/atcmd_lwip.c \
+		$(DIR)/atcmd_lwip_esp.c \
 		$(DIR)/log_service.c \
 		$(DIR)/atcmd_mp.c \
 		$(DIR)/atcmd_mp_ext2.c \
