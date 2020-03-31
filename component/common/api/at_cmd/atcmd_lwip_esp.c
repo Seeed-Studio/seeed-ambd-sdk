@@ -59,6 +59,7 @@ volatile int atcmd_lwip_tt_lasttickcnt = 0;
 _WEAK int errno = 0; //LWIP errno
 #endif
 
+#if defined(ATCMD_SUPPORT_SSL) && ATCMD_SUPPORT_SSL
 #define ATCMD_SSL_DEBUG_LEVEL   0
 static void atcmd_ssl_debug(void *ctx, int level, const char *file, int line, const char *str)
 {
@@ -120,6 +121,7 @@ static char *atcmd_ssl_client_crt[NUM_NS] = {NULL}; //TODO:should be input by us
 static mbedtls_x509_crt* atcmd_ssl_cli_crt[NUM_NS] = {NULL};
 static char *atcmd_ssl_client_key[NUM_NS] = {NULL}; //TODO:should be input by user
 static mbedtls_pk_context* atcmd_ssl_clikey_rsa[NUM_NS] = {NULL};
+#endif// defined(ATCMD_SUPPORT_SSL) && ATCMD_SUPPORT_SSL
 
 static void atcmd_lwip_receive_task(void *param);
 int atcmd_lwip_start_autorecv_task(void);
@@ -2539,6 +2541,50 @@ void atcmd_lwip_set_rx_buffer(unsigned char * buf, int bufsize) {
 	rx_buffer_size = bufsize;
 }
 
+
+
+
+
+/* DNS function, resolve domain name to ip address */
+void fATCIPDOMAIN(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	char *hostname;
+	struct in_addr addr;
+	struct hostent *host;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	hostname = argv[1];
+
+	if (inet_aton(hostname, &addr) == 0) {
+		host = gethostbyname(hostname);
+		if (!host) {
+			at_printf(STR_RESP_FAIL);
+			return;
+		}
+		rtw_memcpy(&addr, host->h_addr, sizeof host->h_addr);
+	}
+
+	// Query
+	at_printf("+CIPDOMAIN:\"%s\"\r\n", ip_ntoa((ip_addr_t*)&addr));
+	at_printf(STR_RESP_OK);
+	return;
+}
+
+
+
+
+
 log_item_t at_transport_items[ ] = {
 	{"ATP0", fATP0,},//query errno if defined
 	{"ATPS", fATPS,},//Create Server
@@ -2551,6 +2597,7 @@ log_item_t at_transport_items[ ] = {
 	{"ATPI", fATPI,},//printf connection status
 	{"ATPU", fATPU,}, //transparent transmission mode
 	{"ATPL", fATPL,}, //lwip auto reconnect setting
+	{"AT+CIPDOMAIN", fATCIPDOMAIN},
 };
 
 void print_tcpip_at(void *arg){
