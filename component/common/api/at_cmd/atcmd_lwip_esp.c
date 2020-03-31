@@ -43,6 +43,14 @@ int rx_buffer_size = MAX_BUFFER;
 #define ATPR_RSVD_HEADER_SIZE (100)
 #endif
 
+#if CONFIG_LOG_SERVICE_LOCK
+  #define LOG_SERVICE_LOCK log_service_lock
+  #define LOG_SERVICE_UNLOCK log_service_unlock
+#else
+  #define LOG_SERVICE_LOCK() void
+  #define LOG_SERVICE_UNLOCK() void
+#endif
+
 node node_pool[NUM_NS];
 
 node *mainlist;
@@ -284,14 +292,10 @@ static void server_start(void *param)
 			error_no = 21;
 			goto err_exit;
 		} else {
-#if CONFIG_LOG_SERVICE_LOCK
-			log_service_lock();
-#endif
+			LOG_SERVICE_LOCK();
 			at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", ServerNodeUsed->con_id);
 			at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-			log_service_unlock();
-#endif
+			LOG_SERVICE_UNLOCK();
 		}
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The SSL SERVER START OK!");
 		/***********************************************************
@@ -382,9 +386,7 @@ static void server_start(void *param)
 				seednode = NULL;
 			} else {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The SSL/TLS client is connected");
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_lock();
-#endif
+				LOG_SERVICE_LOCK();
 				at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
 					  "con_id:%d,"
 					  "seed,"
@@ -396,9 +398,7 @@ static void server_start(void *param)
 					  seednode->con_id,
 					  inet_ntoa(s_cli_addr.sin_addr), ntohs(s_cli_addr.sin_port), seednode->sockfd);
 				at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_unlock();
-#endif
+				LOG_SERVICE_UNLOCK();
 			}
 		}
 	} else
@@ -421,14 +421,10 @@ static void server_start(void *param)
 					error_no = 9;
 					goto err_exit;
 				} else {
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_lock();
-#endif
+					LOG_SERVICE_LOCK();
 					at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", ServerNodeUsed->con_id);
 					at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_unlock();
-#endif
+					LOG_SERVICE_UNLOCK();
 				}
 			}
 
@@ -463,9 +459,7 @@ static void server_start(void *param)
 							delete_node(seednode);
 							seednode = NULL;
 						} else {
-#if CONFIG_LOG_SERVICE_LOCK
-							log_service_lock();
-#endif
+							LOG_SERVICE_LOCK();
 							at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
 								  "con_id:%d,"
 								  "seed,"
@@ -478,9 +472,7 @@ static void server_start(void *param)
 								  inet_ntoa(s_cli_addr.sin_addr.s_addr),
 								  ntohs(s_cli_addr.sin_port), seednode->sockfd);
 							at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-							log_service_unlock();
-#endif
+							LOG_SERVICE_UNLOCK();
 						}
 					}
 				}
@@ -504,14 +496,10 @@ static void server_start(void *param)
 					error_no = 12;
 					goto err_exit;
 				}
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_lock();
-#endif
+				LOG_SERVICE_LOCK();
 				at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", ServerNodeUsed->con_id);
 				at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_unlock();
-#endif
+				LOG_SERVICE_UNLOCK();
 				//task will exit itself
 				ServerNodeUsed->handletask = NULL;
 			}
@@ -519,21 +507,17 @@ static void server_start(void *param)
 		}
 	}
 	goto exit;
-      err_exit:
+err_exit:
 	if (ServerNodeUsed) {
 		//task will exit itself if getting here
 		ServerNodeUsed->handletask = NULL;
 		delete_node(ServerNodeUsed);
 	}
-#if CONFIG_LOG_SERVICE_LOCK
-	log_service_lock();
-#endif
+	LOG_SERVICE_LOCK();
 	at_printf("\r\n[ATPS] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-	log_service_unlock();
-#endif
-      exit:
+	LOG_SERVICE_UNLOCK();
+exit:
 	return;
 }
 
@@ -671,14 +655,10 @@ static void client_start(void *param)
 			error_no = 23;
 			goto err_exit;
 		}
-#if CONFIG_LOG_SERVICE_LOCK
-		log_service_lock();
-#endif
+		LOG_SERVICE_LOCK();
 		at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d", ClientNodeUsed->con_id);
 		at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-		log_service_unlock();
-#endif
+		LOG_SERVICE_UNLOCK();
 	} else
 #endif				//#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	{
@@ -696,14 +676,10 @@ static void client_start(void *param)
 						error_no = 8;
 						goto err_exit;
 					}
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_lock();
-#endif
+					LOG_SERVICE_LOCK();
 					at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d", ClientNodeUsed->con_id);
 					at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_unlock();
-#endif
+					LOG_SERVICE_UNLOCK();
 				}
 			} else {
 				/***********************************************************
@@ -770,14 +746,10 @@ static void client_start(void *param)
 					error_no = 10;
 					goto err_exit;
 				}
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_lock();
-#endif
+				LOG_SERVICE_LOCK();
 				at_printf("\r\n[ATPC] OK\r\n[ATPC] con_id=%d", ClientNodeUsed->con_id);
 				at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_unlock();
-#endif
+				LOG_SERVICE_UNLOCK();
 			}
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "UDP client starts successful!");
 		}
@@ -787,14 +759,10 @@ static void client_start(void *param)
 	if (ClientNodeUsed) {
 		delete_node(ClientNodeUsed);
 	}
-#if CONFIG_LOG_SERVICE_LOCK
-	log_service_lock();
-#endif
+	LOG_SERVICE_LOCK();
 	at_printf("\r\n[ATPC] ERROR:%d", error_no);
 	at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-	log_service_unlock();
-#endif
+	LOG_SERVICE_UNLOCK();
       exit:
 	return;
 }
@@ -1051,7 +1019,7 @@ void fATPD(void *arg)
 	}
 	delete_node(s_node);
 
-      exit:
+exit:
 	s_node = NULL;
 	if (error_no)
 		at_printf("\r\n[ATPD] ERROR:%d", error_no);
@@ -1283,7 +1251,7 @@ void fATPR(void *arg)
 		memmove(rx_buffer + header_len, rx_buffer, total_recv_size);
 		memcpy(rx_buffer, tmpbuf, header_len);
 		at_print_data(rx_buffer, total_recv_size + header_len);
-#else				// #if (EXTEND_ATPR_SIZE)
+#else // #if (EXTEND_ATPR_SIZE)
 		if (curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 				   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, con_id, udp_clientaddr, udp_clientport,
@@ -1295,7 +1263,7 @@ void fATPR(void *arg)
 		}
 		if (recv_size)
 			at_print_data(rx_buffer, recv_size);
-#endif				// #if (EXTEND_ATPR_SIZE)
+#endif // #if (EXTEND_ATPR_SIZE)
 	} else
 		at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, con_id);
 	return;
@@ -1751,7 +1719,8 @@ int hang_node(node * insert_node)
 	SYS_ARCH_PROTECT(lev);
 	while (n->next != NULL) {
 		n = n->next;
-		if (insert_node->role == NODE_ROLE_SERVER)	//need to check for server in case that two conns are binded to same port, because SO_REUSEADDR is enabled
+		//need to check for server in case that two conns are binded to same port, because SO_REUSEADDR is enabled
+		if (insert_node->role == NODE_ROLE_SERVER)
 		{
 			if ((n->port == insert_node->port)
 			    && ((n->addr == insert_node->addr) && (n->role == insert_node->role)
@@ -1860,26 +1829,16 @@ int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *r
 			if ((size =
 			     recvfrom(curnode->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &client_addr,
 				      &addr_len)) > 0) {
-				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",con_id, inet_ntoa(client_addr.sin_addr.s_addr), ntohs(client_addr.sin_port), rx_buffer, packet_size);     
+				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",
+				//	con_id, inet_ntoa(client_addr.sin_addr.s_addr), ntohs(client_addr.sin_port), rx_buffer, packet_size);
 				//at_printf("\r\nsize: %d\r\n", recv_size);
 				//at_printf("%s", rx_buffer);
 			} else {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Failed to receive data");
 				error_no = 4;
 			}
-#if 0
-			clinode = create_node(NODE_MODE_UDP, NODE_ROLE_SEED);
-			clinode->sockfd = curnode->sockfd;
-			clinode->addr = ntohl(client_addr.sin_addr.s_addr);
-			clinode->port = ntohs(client_addr.sin_port);
-			if (hang_seednode(curnode, clinode) < 0) {
-				delete_node(clinode);
-				clinode = NULL;
-			}
-#else
 			inet_ntoa_r(client_addr.sin_addr.s_addr, (char *) udp_clientaddr, 16);
 			*udp_clientport = ntohs(client_addr.sin_port);
-#endif
 		} else {
 			struct sockaddr_in serv_addr;
 			u32_t addr_len = sizeof(struct sockaddr_in);
@@ -1891,7 +1850,8 @@ int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *r
 			if ((size =
 			     recvfrom(curnode->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &serv_addr,
 				      &addr_len)) > 0) {
-				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",con_id, inet_ntoa(serv_addr.sin_addr.s_addr), ntohs(serv_addr.sin_port), rx_buffer, packet_size);
+				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",
+				//	con_id, inet_ntoa(serv_addr.sin_addr.s_addr), ntohs(serv_addr.sin_port), rx_buffer, packet_size);
 				//at_printf("\r\nsize: %d\r\n", recv_size);
 				//at_printf("%s", rx_buffer);
 			} else {
@@ -1982,9 +1942,7 @@ static void atcmd_lwip_receive_task(void *param)
 			if (error_no == 0) {
 				if (recv_size) {
 					rx_buffer[recv_size] = '\0';
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_lock();
-#endif
+					LOG_SERVICE_LOCK();
 					if (curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER) {
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 							   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, curnode->con_id,
@@ -1999,19 +1957,13 @@ static void atcmd_lwip_receive_task(void *param)
 					}
 					at_print_data(rx_buffer, recv_size);
 					at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-					log_service_unlock();
-#endif
+					LOG_SERVICE_UNLOCK();
 				}
 			} else {
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_lock();
-#endif
+				LOG_SERVICE_LOCK();
 				at_printf("\r\n[ATPR] ERROR:%d,%d", error_no, curnode->con_id);
 				at_printf(STR_END_OF_ATCMD_RET);
-#if CONFIG_LOG_SERVICE_LOCK
-				log_service_unlock();
-#endif
+				LOG_SERVICE_UNLOCK();
 			}
 		}
 	}
