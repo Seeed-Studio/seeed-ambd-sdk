@@ -535,9 +535,9 @@ static void client_start(void *param)
 	mbedtls_ssl_config *conf;
 	mbedtls_net_context server_fd;
 #endif
-	struct in_addr c_addr;
 	node *ClientNodeUsed = (node *) param;
 	if (ClientNodeUsed) {
+		struct in_addr c_addr;
 		c_mode = ClientNodeUsed->protocol;
 		c_remote_port = ClientNodeUsed->port;
 		c_addr.s_addr = htonl(ClientNodeUsed->addr);
@@ -1085,7 +1085,6 @@ int atcmd_lwip_send_data(node * curnode, u8 * data, u16 data_sz, struct sockaddr
 
 void fATPT(void *arg)
 {
-
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
 	int con_id = INVALID_CON_ID;
@@ -1802,7 +1801,6 @@ node *tryget_node(int n)
 int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *recv_size,
 			    u8_t * udp_clientaddr, u16_t * udp_clientport)
 {
-
 	struct timeval tv;
 	fd_set readfds;
 	int error_no = 0, ret = 0, size = 0;
@@ -2471,6 +2469,55 @@ void fATCIPDOMAIN(void *arg)
 	// Query
 	at_printf("+CIPDOMAIN:\"%s\"\r\n", ip_ntoa((ip_addr_t *) & addr));
 	at_printf(STR_RESP_OK);
+	return;
+}
+
+/*
+ * type could be
+ *   NODE_MODE_SSL,
+ *   NODE_MODE_TCP,
+ *   NODE_MODE_UDP
+ */
+const char* type2string(int type)
+{
+	const char* ts = "UDP";
+
+	switch (type) {
+	case NODE_MODE_SSL:
+		ts = "SSL"; break;
+	case NODE_MODE_TCP:
+		ts = "TCP"; break;
+	default:
+	case NODE_MODE_UDP:
+		ts = "UDP"; break;
+	}
+	return ts;
+}
+
+
+void esp_list_links(void *arg) {
+	node *n = mainlist->next;
+	struct in_addr addr;
+
+	(void) arg;
+
+	while (n != NULL) {
+		if (n->con_id == 0)
+			continue;
+
+		addr.s_addr = htonl(n->addr);
+		/* +CIPSTATUS:<link-id>,<type>,<remote-ip>,<remote-port>,<local-port>,<tetype> */
+		at_printf("+CIPSTATUS:%d,\"%s\",\"%s\",%d,%d,%d\r\n",
+			n->con_id,
+			type2string(n->protocol),
+			inet_ntoa(addr),
+			n->port,
+			n->local_port,
+			(n->role == NODE_ROLE_SERVER)
+			);
+
+		n = n->next;
+	}
 	return;
 }
 

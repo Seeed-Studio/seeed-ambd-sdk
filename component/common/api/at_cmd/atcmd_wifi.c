@@ -3628,6 +3628,7 @@ void fATCIPSTATUS(void* arg) {
 		return;
 	}
 	at_printf("STATUS:%d\r\n", esp_ipstatus);
+	esp_list_links();
 	at_printf(STR_RESP_OK);
 	return;
 }
