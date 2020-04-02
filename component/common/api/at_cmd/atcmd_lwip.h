@@ -101,6 +101,7 @@ node *seek_node(int con_id);
 node *tryget_node(int n);
 void atcmd_lwip_set_rx_buffer(unsigned char *buf, int bufsize);
 int atcmd_lwip_restore_from_flash(void);
+int atcmd_lwip_write_info_to_flash(struct atcmd_lwip_conn_info *cur_conn, int enable);
 
 void esp_list_links(void *arg);
 #endif
