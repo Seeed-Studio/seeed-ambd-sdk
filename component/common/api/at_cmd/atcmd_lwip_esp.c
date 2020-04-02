@@ -1046,15 +1046,12 @@ int atcmd_lwip_send_data(node * curnode, u8 * data, u16 data_sz, struct sockaddr
 			serv_addr.sin_family = AF_INET;
 			serv_addr.sin_port = htons(curnode->port);
 			serv_addr.sin_addr.s_addr = htonl(curnode->addr);
-			if (sendto(curnode->sockfd, data, data_sz, 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr))
-			    <= 0) {
+			if (sendto(curnode->sockfd, data, data_sz, 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data\n");
 				error_no = 6;
 			}
 		} else if ((curnode->protocol == NODE_MODE_TCP)
-#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
-			   || (curnode->protocol == NODE_MODE_SSL)
-#endif
+		   || (curnode->protocol == NODE_MODE_SSL)
 		    )		//TCP or SSL
 		{
 			int ret;
@@ -1064,11 +1061,13 @@ int atcmd_lwip_send_data(node * curnode, u8 * data, u16 data_sz, struct sockaddr
 				error_no = 7;
 				goto exit;
 			}
-#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
+
+			#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 			if (curnode->protocol == NODE_MODE_SSL) {
 				ret = mbedtls_ssl_write((mbedtls_ssl_context *) curnode->context, data, data_sz);
 			} else
-#endif				// #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
+			#endif
+
 			{
 				ret = write(curnode->sockfd, data, data_sz);
 			}
@@ -1486,10 +1485,8 @@ void fATPI(void *arg)
 			at_printf("client,");
 		if (n->protocol == NODE_MODE_TCP)
 			at_printf("tcp,");
-#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 		else if (n->protocol == NODE_MODE_SSL)
 			at_printf("ssl,");
-#endif
 		else
 			at_printf("udp,");
 
@@ -1502,10 +1499,8 @@ void fATPI(void *arg)
 				at_printf("\r\ncon_id:%d,seed,", seed->con_id);
 				if (seed->protocol == NODE_MODE_TCP)
 					at_printf("tcp,");
-#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 				else if (n->protocol == NODE_MODE_SSL)
 					at_printf("ssl,");
-#endif
 				else
 					at_printf("udp,");
 				addr.s_addr = htonl(seed->addr);
@@ -1529,12 +1524,18 @@ void init_node_pool(void)
 	}
 }
 
-node *create_node(int mode, s8_t role)
+/*
+ * argument prio for esp compatible
+ * try # prio firstly.
+ */
+node *_create_node(int mode, s8_t role, int prio)
 {
-	int i;
+	int i, depth;
 
 	SYS_ARCH_DECL_PROTECT(lev);
-	for (i = 0; i < NUM_NS; ++i) {
+
+	i = prio < 0? 0: prio;
+	for (depth = NUM_NS; depth > 0; depth--) {
 		SYS_ARCH_PROTECT(lev);
 		if (node_pool[i].con_id == INVALID_CON_ID) {
 			node_pool[i].con_id = i;
@@ -1553,9 +1554,19 @@ node *create_node(int mode, s8_t role)
 			return &node_pool[i];
 		}
 		SYS_ARCH_UNPROTECT(lev);
+		if (prio < 0) {
+			i++;
+		} else
+		if (--i < 0) {
+			i += NUM_NS;
+		}
 	}
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "No con_id available");
 	return NULL;
+}
+
+node *create_node(int mode, s8_t role) {
+	return _create_node(mode, role, -1);
 }
 
 void delete_node(node * n)
@@ -1718,13 +1729,14 @@ int hang_node(node * insert_node)
 	SYS_ARCH_PROTECT(lev);
 	while (n->next != NULL) {
 		n = n->next;
-		//need to check for server in case that two conns are binded to same port, because SO_REUSEADDR is enabled
-		if (insert_node->role == NODE_ROLE_SERVER)
-		{
+		// need to check for server in case that two conns are binded to same port,
+		// because SO_REUSEADDR is enabled
+		if (insert_node->role == NODE_ROLE_SERVER) {
 			if ((n->port == insert_node->port)
 			    && ((n->addr == insert_node->addr) && (n->role == insert_node->role)
 				&& (n->protocol == insert_node->protocol))) {
 				SYS_ARCH_UNPROTECT(lev);
+
 				struct in_addr addr;
 				addr.s_addr = htonl(insert_node->addr);
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
@@ -2521,6 +2533,273 @@ void esp_list_links(void *arg) {
 	return;
 }
 
+/*
+ * type could be "TCP", "UDP", "SSL"
+ */
+int string2type(char *type)
+{
+	if (strcasecmp(type, "SSL") == 0) {
+		return NODE_MODE_SSL;
+	}
+	if (strcasecmp(type, "TCP") == 0) {
+		return NODE_MODE_TCP;
+	}
+	if (strcasecmp(type, "UDP") == 0) {
+		return NODE_MODE_UDP;
+	}
+	return -1;
+}
+
+/*
+ * Note fATXXX functions called by thread "log_service" already locked with LOG_SERVICE_LOCK.
+ * If this function is call directly by fATXXX() function (not in a uniq thread),
+ * remove LOG_SERVICE_LOCK && vTaskDelete()
+ */
+static void client_esp_task(void *param)
+{
+	char c_remote_addr[16];
+	int c_sockfd;
+	struct sockaddr_in c_serv_addr;
+	node* client = (node*)param;
+	int r = 0;
+
+	if (!client) {
+		r = -20;
+		goto _e_ret;
+	}
+
+	struct in_addr c_addr;
+	c_addr.s_addr = htonl(client->addr);
+	if (inet_ntoa_r(c_addr, c_remote_addr, sizeof(c_remote_addr)) == NULL) {
+		r = -1;
+		goto _e_ret;
+	}
+
+	/***********************************************************
+	* Create socket and set socket options, then bind socket to local port
+	************************************************************/
+	int c_mode = client->protocol;
+
+	if (c_mode == NODE_MODE_UDP)
+		c_sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+	else if (c_mode == NODE_MODE_TCP)
+		c_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	else
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "Unknown connection type[%d]", c_mode);
+
+	if (c_sockfd == INVALID_SOCKET_ID) {
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "Failed to create sock_fd!");
+		r = -2;
+		goto _e_ret;
+	}
+	rtw_memset(&c_serv_addr, 0, sizeof(c_serv_addr));
+	c_serv_addr.sin_family = AF_INET;
+	c_serv_addr.sin_addr.s_addr = inet_addr(c_remote_addr);
+	c_serv_addr.sin_port = htons(client->port);	// remote port */
+	printf("OK to create sock_fd %d!\r\n", c_sockfd);
+
+	/***********************************************************
+	* Assign socket fd to the node used for this client
+	************************************************************/
+	client->sockfd = c_sockfd;
+
+	if (c_mode == NODE_MODE_TCP) {	//TCP MODE
+		/***********************************************************
+		*  TCP 1. Connect a netconn to a specific remote IP address and port
+		************************************************************/
+		if (connect(c_sockfd, (struct sockaddr *) &c_serv_addr, sizeof(c_serv_addr)) == 0) {
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+			/***********************************************************
+			*  TCP 2. Hand node on mainlist for global management if connect success
+			************************************************************/
+			if (hang_node(client) < 0) {
+				r = -3;
+				goto _e_ret;
+			}
+		} else {
+			/***********************************************************
+			*  TCP 2. Free node if connect fail
+			************************************************************/
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
+				   "[ATPC] ERROR:Connect to Server failed!");
+			r = -4;
+			goto _e_ret;
+		}
+	} else {
+		#if IP_SOF_BROADCAST && IP_SOF_BROADCAST_RECV
+		/* all ones (broadcast) or all zeroes (old skool broadcast) */
+		if ((c_serv_addr.sin_addr.s_addr == htonl(INADDR_BROADCAST)) ||
+		    (c_serv_addr.sin_addr.s_addr == htonl(INADDR_ANY))) {
+			int so_broadcast = 1;
+			if (setsockopt(c_sockfd, SOL_SOCKET, SO_BROADCAST, &so_broadcast,
+				       sizeof(so_broadcast)) < 0) {
+				r = -5;
+				goto _e_ret;
+			}
+		}
+		#endif
+
+		#if LWIP_IGMP
+		ip_addr_t dst_addr;
+		dst_addr.addr = c_serv_addr.sin_addr.s_addr;
+		if (ip_addr_ismulticast(&dst_addr)) {
+			struct ip_mreq imr;
+			struct in_addr intfAddr;
+			// Set NETIF_FLAG_IGMP flag for netif which should process IGMP messages
+			xnetif[0].flags |= NETIF_FLAG_IGMP;
+			imr.imr_multiaddr.s_addr = c_serv_addr.sin_addr.s_addr;
+			imr.imr_interface.s_addr = INADDR_ANY;
+			if (setsockopt(c_sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &imr, sizeof(imr)) < 0) {
+				xnetif[0].flags &= ~NETIF_FLAG_IGMP;
+				r = -6;
+				goto _e_ret;
+			}
+			intfAddr.s_addr = INADDR_ANY;
+			if (setsockopt(c_sockfd, IPPROTO_IP, IP_MULTICAST_IF,
+				       &intfAddr, sizeof(struct in_addr)) < 0) {
+				xnetif[0].flags &= ~NETIF_FLAG_IGMP;
+				r = -7;
+				goto _e_ret;
+			}
+		}
+		#endif
+
+		if (client->local_port) {
+			struct sockaddr_in addr;
+
+			rtw_memset(&addr, 0, sizeof(addr));
+			addr.sin_family = AF_INET;
+			addr.sin_port = htons(client->local_port);
+			addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+			if (bind(client->sockfd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "bind sock error!");
+				r = -8;
+				goto _e_ret;
+			}
+		}
+		if (hang_node(client) < 0) {
+			r = -9;
+			goto _e_ret;
+		}
+
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "UDP client starts successful!");
+	}
+	goto __ret;
+
+_e_ret:
+	if (client) {
+		delete_node(client);
+	}
+__ret:
+	// LOG_SERVICE_LOCK();
+	if (r >= 0) {
+		struct in_addr addr;
+		addr.s_addr = htonl(client->addr);
+
+		at_set_ipstatus(ESP_IPSTAT_CONN_CREATED);
+
+		at_printf("+LINK_CONN:%d,%d,\"%s\",%d,\"%s\",%d,%d\r\n",
+			0, // Result code, 0 -- Success
+			client->con_id,
+			type2string(client->protocol),
+			(client->role == NODE_ROLE_SERVER),
+			inet_ntoa(addr),
+			client->port,
+			client->local_port
+			);
+		at_printf(STR_RESP_OK);
+	} else {
+		at_printf("\r\n+CIPSTART: Error %d\r\n", -100 + r);
+		at_printf(STR_RESP_FAIL);
+	}
+	// LOG_SERVICE_UNLOCK();
+	// vTaskDelete(NULL);
+	return;
+}
+
+/* Create TCP/UDP client socket */
+void fATCIPSTART(void *arg)
+{
+	int r = 0;
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int linkid, mode;
+	struct in_addr addr;
+	const int local_port = 0;
+	node *clientnode = NULL;
+	int remote_port;
+	u32 clt_task_stksz = ATCP_STACK_SIZE;
+
+	/* TODO: transparent transmission mode checking */
+
+	if (!arg || (argc = parse_param(arg, argv)) < 5) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	linkid = atoi(argv[1]);
+	mode = string2type(argv[2]);
+	if (mode < 0) {
+		r = -1;
+		goto __ret;
+	}
+
+	if (inet_aton(argv[3], &addr) == 0) {
+		struct hostent *host;
+
+		host = gethostbyname(argv[3]);
+		if (host) {
+			rtw_memcpy(&addr, host->h_addr, sizeof host->h_addr);
+		} else {
+			printf("+CIPSTART: Host '%s' not found\r\n", argv[3]);
+			r = -2;
+			goto __ret;
+		}
+	}
+
+	remote_port = atoi((char *) argv[4]);
+	if (remote_port < 0 || remote_port > 65535) {
+		r = -3;
+		goto __ret;
+	}
+
+	clientnode = _create_node(mode, NODE_ROLE_CLIENT, linkid);
+	if (clientnode == NULL) {
+		r = -4;
+		goto __ret;
+	}
+	clientnode->port = remote_port;
+	clientnode->addr = ntohl(addr.s_addr);
+	clientnode->local_port = local_port;
+
+	#if 0
+	if (xTaskCreate(client_esp_task, "clt_tsk", clt_task_stksz, clientnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS) {
+		printf("+CIPSTART: Create TCP/UDP/SSL client task failed\r\n");
+		r = -5;
+		goto __clean_node;
+	}
+	#else
+	/* make it synchronous */
+	client_esp_task(clientnode);
+	#endif
+	goto __ret;
+
+__clean_node:
+	if (clientnode) {
+		delete_node(clientnode);
+	}
+
+__ret:
+	if (r < 0) {
+		printf("+CIPSTART: Error %d\r\n", r);
+		at_printf(STR_RESP_FAIL);
+	} else {
+		// at_printf(STR_RESP_OK);
+	}
+	return;
+}
+
 
 
 
@@ -2538,6 +2817,7 @@ log_item_t at_transport_items[] = {
 	{"ATPU", fATPU,},	//transparent transmission mode
 	{"ATPL", fATPL,},	//lwip auto reconnect setting
 	{"AT+CIPDOMAIN", fATCIPDOMAIN},
+	{"AT+CIPSTART", fATCIPSTART},
 };
 
 void print_tcpip_at(void *arg)
