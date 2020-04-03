@@ -2724,6 +2724,105 @@ __ret:
 }
 
 
+static int _at_data_counter = 0;
+int at_get_data_counter(void) {
+	return _at_data_counter;
+}
+
+int at_set_data_counter(int size) {
+	_at_data_counter = size;
+	return size;
+}
+
+#define ATPB_W (&at_net_pbufs[0])
+#define ATPB_R (&at_net_pbufs[1])
+static atcmd_pbuf_t at_net_pbufs[2];
+
+int at_net_store_data(const uint8_t* buf, uint32_t size) {
+	int old_mask = 0;
+	struct pbuf* pb;
+
+	if (size >= UINT16_MAX) {
+		printf("L%d requested store size too big =%u\n", __LINE__, size);
+		return -1;
+	}
+
+	if (!(pb = pbuf_alloc(PBUF_RAW, size, PBUF_RAM))) {
+		printf("L%d at overflow size=%u\n", __LINE__, size);
+		return -2;
+	}
+
+	pbuf_take(pb, buf, size);
+
+	// should protect the pbuf list
+	if (__get_IPSR()) {
+		old_mask = taskENTER_CRITICAL_FROM_ISR();
+	} else {
+		taskENTER_CRITICAL();
+	}
+
+	if (ATPB_W->pb == NULL) {
+		ATPB_W->pb = pb;
+	} else {
+		pbuf_cat(ATPB_W->pb, pb);
+	}
+
+	_at_data_counter -= size;
+	if (_at_data_counter < 0) {
+		printf("L%d at error size=%u\n", __LINE__, size);
+		_at_data_counter = 0;
+	}
+
+	if (__get_IPSR()) {
+		taskEXIT_CRITICAL_FROM_ISR(old_mask);
+	} else {
+		taskEXIT_CRITICAL();
+	}
+	return 0;
+}
+
+int at_net_load_data(uint8_t* buf, uint32_t size) {
+	uint16_t len;
+
+	if (size > UINT16_MAX) {
+		printf("L%d at load data overflow size=%u\n", __LINE__, size);
+		return -1;
+	}
+
+	// Move the pbuf list from Writing Slot
+	// to Reading Slot.
+	if (ATPB_R->pb == NULL && ATPB_W->pb != NULL) {
+		taskENTER_CRITICAL();
+
+		ATPB_R->pb = ATPB_W->pb;
+		ATPB_W->pb = NULL;
+		taskEXIT_CRITICAL();
+
+		ATPB_R->iter = 0;
+	}
+
+	len = size;
+	// Preparing data & length to send.
+	if (ATPB_R->pb == NULL) {
+		len = 0;
+	} else if (len > ATPB_R->pb->tot_len - ATPB_R->iter){
+		len = ATPB_R->pb->tot_len - ATPB_R->iter;
+	}
+
+	if (len) {
+		pbuf_copy_partial(ATPB_R->pb, buf, len, ATPB_R->iter);
+
+		ATPB_R->iter += len;
+		if (ATPB_R->iter >= ATPB_R->pb->tot_len) {
+			/* Free the pbuf not required anymore */
+			pbuf_free(ATPB_R->pb);
+			ATPB_R->pb = NULL;
+		}
+	}
+	return len;
+}
+
+
 
 
 

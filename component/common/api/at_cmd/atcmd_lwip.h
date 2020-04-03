@@ -81,6 +81,22 @@ typedef struct ns
 #endif
 } node;
 
+typedef struct at_pbuf_s {
+	struct pbuf* pb;
+	int iter;
+} atcmd_pbuf_t;
+
+/*
+ * Normally, bytes received are AT commands,
+ * If the stack need data, it will set the data counter,
+ * then the API user(a UART/SPI receiving task) should
+ * put bytes into DATA buffers by using at_net_store_data(),
+ *
+ * at_get_data_counter() get the number of bytes left should put into DATA buffers.
+ */
+int at_get_data_counter(void);
+int at_net_store_data(const uint8_t* buf, uint32_t size);
+
 extern xTaskHandle atcmd_lwip_tt_task;
 extern _sema atcmd_lwip_tt_sema;
 extern volatile int atcmd_lwip_tt_datasize;

@@ -575,14 +575,9 @@ enum {
 	SPT_ERR_DEC_SPC = 0x01,
 };
 
-typedef struct at_pbuf_s {
-	struct pbuf* pb;
-	int iter;
-} at_pbuf_t;
-
 #define ATPB_W (&at_pbufs[0])
 #define ATPB_R (&at_pbufs[1])
-static at_pbuf_t at_pbufs[2];
+static atcmd_pbuf_t at_pbufs[2];
 
 static uint8_t spi_rx_buf[LOG_SERVICE_BUFLEN];
 
