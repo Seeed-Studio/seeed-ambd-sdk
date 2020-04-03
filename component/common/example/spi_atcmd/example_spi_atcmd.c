@@ -33,8 +33,6 @@
 #include "gpio_irq_api.h"
 #include "gpio_irq_ex_api.h"
 #include "wifi_conf.h"
-#include "atcmd_wifi.h"
-#include "atcmd_lwip.h"
 
 #if defined(IS_USI_SPI) && IS_USI_SPI
 	#define USE_USI_SPI_SLAVE  1
@@ -734,7 +732,7 @@ int uspi_slave_tx_wait(u8* buf, u16 len) {
 		rtw_msleep_os(1);
 	}
 
-	/* inform the master we have data ready to shift data out to MISO */
+	/* inform the master we have data ready to shift out to MISO */
 	gpio_write(&gpio_sync, SPI_STATE_MISO);
 
 	rtw_down_sema(&tx_done_sema);
@@ -812,6 +810,23 @@ int spi_rx_char(int c) {
 	return 0;
 }
 
+int spi_rx_mux(const uint8_t* buf, int size) {
+	int n;
+
+	if ((n = at_get_data_counter())) {
+		if (n > size) {
+			n = size;
+		}
+		at_net_store_data(buf, n);
+	}
+
+	// left bytes are commands
+	for (int i = n; i < size; i++) {
+		spi_rx_char(spi_rx_buf[i]);
+	}
+	return 0;
+}
+
 static void spi_trx_thread(void *param)
 {
 	union {
@@ -871,9 +886,7 @@ _repeat:
 			if (len) {
 				// debug_buf("[", (char*)spi_rx_buf, len);
 				// spi_rx_buf[len] = 0;
-				for (int i = 0; i < len; i++) {
-					spi_rx_char(spi_rx_buf[i]);
-				}
+				spi_rx_mux(spi_rx_buf, len);
 			}
 
 			DBG_PRINTF(MODULE_SPI, LEVEL_TRACE, "L%dI=%08X\n", __LINE__, status[0]);
