@@ -79,6 +79,8 @@ typedef struct ns
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	void *context;
 #endif
+	int tx_len;			// length of TX data
+	struct sockaddr_in udp_dest;	// UDP server only
 } node;
 
 typedef struct at_pbuf_s {
@@ -112,7 +114,7 @@ node* create_node(int mode, s8_t role);
 void init_node_pool(void);
 void delete_node(node *n);
 int hang_node(node* insert_node);
-int hang_seednode(node* main_node ,node* insert_node);
+int hang_seednode(node* main_node, node* insert_node);
 node *seek_node(int con_id);
 node *tryget_node(int n);
 void atcmd_lwip_set_rx_buffer(unsigned char *buf, int bufsize);

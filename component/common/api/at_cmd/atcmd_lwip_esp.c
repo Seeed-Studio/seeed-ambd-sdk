@@ -22,9 +22,9 @@
 #endif
 #endif
 
-#define MAX_BUFFER 	(LOG_SERVICE_BUFLEN)
-#define ATCP_STACK_SIZE		512	//2048
-#define ATCP_SSL_STACK_SIZE		2048
+#define MAX_BUFFER 		(LOG_SERVICE_BUFLEN)
+#define ATCP_STACK_SIZE		1024
+#define ATCP_SSL_STACK_SIZE	2048
 
 
 static unsigned char _tx_buffer[MAX_BUFFER];
@@ -1054,12 +1054,11 @@ int atcmd_lwip_send_data(node * curnode, u8 * data, u16 data_sz, struct sockaddr
 				ret = mbedtls_ssl_write((mbedtls_ssl_context *) curnode->context, data, data_sz);
 			} else
 			#endif
-
 			{
 				ret = write(curnode->sockfd, data, data_sz);
 			}
 			if (ret <= 0) {
-				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data");
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data %d", ret);
 				error_no = 8;
 			}
 		}
@@ -2822,6 +2821,132 @@ int at_net_load_data(uint8_t* buf, uint32_t size) {
 	return len;
 }
 
+/* Sync the sequence of task client_send_task and parent task */
+static _sema client_started, client_ok_sync;
+
+static void client_send_task(void *param)
+{
+	node* nd = (node*) param;
+
+	rtw_init_sema(&client_ok_sync, 0);
+
+	// tell parent task we had started.
+	rtw_up_sema(&client_started);
+
+	// Wait for parent task sent "OK"
+	rtw_down_sema(&client_ok_sync);
+
+	if (!nd) {
+		printf("+CIPSEND: Error task client_send_task argument NULL\n");
+		goto __ret;
+	}
+
+	// After data mux been setup.
+	at_set_data_counter(nd->tx_len);
+
+	// Inform the coperative device we prepared well for receving DATA
+	LOG_SERVICE_LOCK();
+	at_printf(">");
+
+	int timeout = 0;
+	while (nd->tx_len > 0) {
+		int n = at_net_load_data(_tx_buffer, sizeof _tx_buffer);
+
+		if (n <= 0) {
+			rtw_msleep_os(20);
+			if (++timeout > 50 * 5/* seconds */) {
+				break;
+			}
+			continue;
+		}
+
+		int r = atcmd_lwip_send_data(nd, _tx_buffer, n, nd->udp_dest);
+		if (r) {
+			printf("+CIPSEND: Error %d sending data\n", r);
+			break;
+		}
+		nd->tx_len -= n;
+	}
+	LOG_SERVICE_UNLOCK();
+
+__ret:
+	if (nd->tx_len) {
+		at_printf("\r\nSEND FAIL\r\n");
+	} else {
+		at_printf("\r\nSEND OK\r\n");
+	}
+	at_set_data_counter(nd->tx_len = 0);
+
+	rtw_free_sema(&client_ok_sync);
+
+	vTaskDelete(NULL);
+	return;
+}
+
+void fATCIPSEND(void *arg)
+{
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int linkid = INVALID_CON_ID;
+	node *curnode = NULL;
+	struct sockaddr_in cli_addr;
+	int r = 0;
+
+	argc = parse_param(arg, argv);
+
+	if (argc < 3) {
+		r = -1;
+		goto __ret;
+	}
+
+	linkid = atoi((char *) argv[1]);
+	if ((curnode = seek_node(linkid)) == NULL) {
+		r = -2;
+		goto __ret;
+	}
+
+	curnode->tx_len = atoi((char *) argv[2]);
+	// TODO: check length
+
+	if (argc >= 5) {
+		char clientipstr[16] = { 0 };
+
+		strcpy(clientipstr, (char *) argv[3]);
+		cli_addr.sin_family = AF_INET;
+		cli_addr.sin_port = htons(atoi((char *) argv[4]));
+
+		if (inet_aton(clientipstr, &cli_addr.sin_addr) == 0) {
+			r = -4;
+			goto __ret;
+		}
+		curnode->udp_dest = cli_addr;
+	}
+
+	rtw_init_sema(&client_started, 0);
+	if (xTaskCreate(client_send_task, "clt_tx", ATCP_STACK_SIZE,
+	                curnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS
+	) {
+		r = -5;
+		goto __ret;
+	}
+
+	// Wait for task client_send_task started.
+	rtw_down_sema(&client_started);
+
+	at_printf(STR_RESP_OK);
+
+	// Inform task client_send_task we had sent "OK"
+	rtw_up_sema(&client_ok_sync);
+
+__ret:
+	if (r < 0) {
+		printf("+CIPSEND: Error %d\r\n", r);
+		at_printf(STR_RESP_FAIL);
+	}
+	rtw_free_sema(&client_started);
+	return;
+}
+
 
 
 
@@ -2839,7 +2964,8 @@ log_item_t at_transport_items[] = {
 	{"ATPU", fATPU,},	//transparent transmission mode
 	{"ATPL", fATPL,},	//lwip auto reconnect setting
 	{"AT+CIPDOMAIN", fATCIPDOMAIN},
-	{"AT+CIPSTART", fATCIPSTART},
+	{"AT+CIPSTART",  fATCIPSTART},
+	{"AT+CIPSEND",   fATCIPSEND},
 };
 
 void print_tcpip_at(void *arg)
