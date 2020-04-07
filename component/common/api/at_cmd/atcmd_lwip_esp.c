@@ -61,6 +61,7 @@ xTaskHandle atcmd_lwip_tt_task = NULL;
 _sema atcmd_lwip_tt_sema = NULL;
 volatile int atcmd_lwip_tt_datasize = 0;
 volatile int atcmd_lwip_tt_lasttickcnt = 0;
+const int esp_compatible_recv = TRUE;
 
 #ifdef ERRNO
 _WEAK int errno = 0;		//LWIP errno
@@ -1910,6 +1911,40 @@ static void atcmd_lwip_receive_task(void *param)
 				continue;
 			}
 
+			if (esp_compatible_recv) {
+				if (rt != 0 || recv_size == 0) {
+					continue;
+				}
+
+				if (curnode->protocol != NODE_MODE_UDP) {
+					struct in_addr addr;
+
+					addr.s_addr = htonl(curnode->addr);
+					sprintf(udp_clientaddr, "%s", inet_ntoa(addr));
+					udp_clientport = curnode->port;
+				}
+
+				rx_buffer[recv_size] = '\0';
+
+				LOG_SERVICE_LOCK();
+
+				// Receiving data header
+				at_printf("\r\n+IPD,%d,%d,%s,%d:",
+					curnode->con_id,
+					recv_size,
+					udp_clientaddr,
+					udp_clientport);
+
+				// Receiving data body
+				at_print_data(rx_buffer, recv_size);
+
+				LOG_SERVICE_UNLOCK();
+
+				// Debug only
+				printf("\r\n%s\r\n", rx_buffer);
+				continue;
+			}
+
 			if (rt == 0) {
 				if (recv_size) {
 					rx_buffer[recv_size] = '\0';
@@ -2361,6 +2396,10 @@ int atcmd_lwip_restore_from_flash(void)
 			ret = 0;
 	}
 
+	if (esp_compatible_recv) {
+		atcmd_lwip_start_autorecv_task();
+	}
+
 	return ret;
 }
 
@@ -2477,7 +2516,7 @@ int string2type(char *type)
 }
 
 /*
- * Note fATXXX functions called by thread "log_service" already locked with LOG_SERVICE_LOCK.
+ * Note fATXXX functions called by thread "log_service" are already locked with LOG_SERVICE_LOCK.
  * If this function is call directly by fATXXX() function (not in a uniq thread),
  * remove LOG_SERVICE_LOCK && vTaskDelete()
  */
