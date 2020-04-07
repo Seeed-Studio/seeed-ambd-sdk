@@ -801,6 +801,9 @@ int spi_rx_char(int c) {
 		cmd_buf[idx] = 0;
 		strcpy(log_buf, (char*)cmd_buf);
 
+		// Debug only
+		// printf("$$$ =%s=\n", cmd_buf);
+
 		atcmd_check_special_case(log_buf);
 		rtw_up_sema(&log_rx_interrupt_sema);
 
@@ -968,8 +971,9 @@ static void spi_atcmd_thread(void *param)
 	rtw_msleep_os(20);
 	spi_atcmd_initial();
 
-	// the rx_buffer of atcmd is to receive and sending out to log_tx
-	atcmd_lwip_set_rx_buffer(log_tx_buffer, sizeof(log_tx_buffer));
+	// the rx_buffer of atcmd is to receive and sending out to log_txa
+	// It's a bug, peter 20200407
+	// atcmd_lwip_set_rx_buffer(log_tx_buffer, sizeof(log_tx_buffer));
 
 	at_set_debug_mask(-1UL);
 
