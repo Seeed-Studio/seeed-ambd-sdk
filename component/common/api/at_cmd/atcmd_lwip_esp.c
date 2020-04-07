@@ -992,7 +992,7 @@ void fATPD(void *arg)
 	}
 	con_id = atoi((char *) arg);
 
-	if (con_id == 0) {
+	if (con_id == INVALID_CON_ID) {
 		if (atcmd_lwip_is_autorecv_mode()) {
 			atcmd_lwip_set_autorecv_mode(FALSE);
 		}
@@ -1452,7 +1452,7 @@ void fATPI(void *arg)
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
 
 	while (n != NULL) {
-		if (n->con_id == 0)
+		if (n->con_id == INVALID_CON_ID)
 			continue;
 
 		at_printf("\r\ncon_id:%d,", n->con_id);
@@ -2437,7 +2437,7 @@ void esp_list_links(void *arg) {
 	(void) arg;
 
 	while (n != NULL) {
-		if (n->con_id == 0)
+		if (n->con_id == INVALID_CON_ID)
 			continue;
 
 		addr.s_addr = htonl(n->addr);
