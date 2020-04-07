@@ -1558,6 +1558,7 @@ void delete_node(node * n)
 
 	SYS_ARCH_DECL_PROTECT(lev);
 	SYS_ARCH_PROTECT(lev);
+
 	//need to remove it from mainlist first 
 	for (cn = mainlist; cn != NULL; pn = cn, cn = cn->next) {
 		node* recv_seed;
@@ -1708,6 +1709,7 @@ void delete_node(node * n)
 int hang_node(node * insert_node)
 {
 	node *n = mainlist;
+
 	SYS_ARCH_DECL_PROTECT(lev);
 	SYS_ARCH_PROTECT(lev);
 	while (n->next != NULL) {
@@ -1760,6 +1762,7 @@ int hang_seednode(node * main_node, node * insert_node)
 node *seek_node(int con_id)
 {
 	node *n = mainlist;
+
 	while (n->next != NULL) {
 		n = n->next;
 		if (n->con_id == con_id)
@@ -2994,6 +2997,43 @@ __ret:
 	return;
 }
 
+void fATCIPCLOSE(void *arg)
+{
+	int linkid = INVALID_CON_ID;
+	node* cn = NULL;
+	int rt = 0;
+
+	if (!arg) {
+		rt = -1;
+		goto __ret;
+	}
+
+	linkid = atoi((char *) arg);
+
+	if (linkid < INVALID_CON_ID || linkid >= NUM_NS) {
+		rt = -2;
+		goto __ret;
+	}
+
+	if ((cn = seek_node(linkid)) == NULL) {
+		rt = -3;
+		goto __ret;
+	}
+	delete_node(cn);
+
+
+__ret:
+	cn = NULL;
+	if (rt) {
+		printf("+CIPCLOSE: Error %d\n", rt);
+		at_printf(STR_RESP_FAIL);
+	} else {
+		at_printf("\r\n%d,CLOSED\r\n", linkid);
+		at_printf(STR_RESP_OK);
+	}
+	return;
+}
+
 
 
 
@@ -3013,6 +3053,7 @@ log_item_t at_transport_items[] = {
 	{"AT+CIPDOMAIN", fATCIPDOMAIN},
 	{"AT+CIPSTART",  fATCIPSTART},
 	{"AT+CIPSEND",   fATCIPSEND},
+	{"AT+CIPCLOSE",  fATCIPCLOSE},
 };
 
 void print_tcpip_at(void *arg)
