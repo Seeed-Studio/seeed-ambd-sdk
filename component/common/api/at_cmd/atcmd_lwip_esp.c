@@ -969,13 +969,13 @@ void fATPS(void *arg)
 
 void socket_close_all(void)
 {
-	node *currNode = mainlist->next;
+	node *cn = mainlist->next;
 
-	while (currNode) {
-		delete_node(currNode);
-		currNode = mainlist->next;
+	while (cn) {
+		delete_node(cn);
+		cn = mainlist->next;
 	}
-	currNode = NULL;
+	cn = NULL;
 }
 
 void fATPD(void *arg)
@@ -1017,46 +1017,46 @@ exit:
 	return;
 }
 
-int atcmd_lwip_send_data(node * curnode, u8 * data, u16 data_sz, struct sockaddr_in cli_addr)
+int atcmd_lwip_send_data(node * cn, u8 * data, u16 data_sz, struct sockaddr_in cli_addr)
 {
 	int rt = 0;
 
-	if ((curnode->protocol == NODE_MODE_UDP) && (curnode->role == NODE_ROLE_SERVER))	//UDP server
+	if ((cn->protocol == NODE_MODE_UDP) && (cn->role == NODE_ROLE_SERVER))	//UDP server
 	{
-		if (sendto(curnode->sockfd, data, data_sz, 0, (struct sockaddr *) &cli_addr, sizeof(cli_addr)) <= 0) {
+		if (sendto(cn->sockfd, data, data_sz, 0, (struct sockaddr *) &cli_addr, sizeof(cli_addr)) <= 0) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data");
 			rt = 5;
 		}
 	} else {
-		if (curnode->protocol == NODE_MODE_UDP)	//UDP client/seed
+		if (cn->protocol == NODE_MODE_UDP)	//UDP client/seed
 		{
 			struct sockaddr_in serv_addr;
 			rtw_memset(&serv_addr, 0, sizeof(serv_addr));
 			serv_addr.sin_family = AF_INET;
-			serv_addr.sin_port = htons(curnode->port);
-			serv_addr.sin_addr.s_addr = htonl(curnode->addr);
-			if (sendto(curnode->sockfd, data, data_sz, 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) <= 0) {
+			serv_addr.sin_port = htons(cn->port);
+			serv_addr.sin_addr.s_addr = htonl(cn->addr);
+			if (sendto(cn->sockfd, data, data_sz, 0, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data\n");
 				rt = 6;
 			}
-		} else if ((curnode->protocol == NODE_MODE_TCP)
-			   || (curnode->protocol == NODE_MODE_SSL)
+		} else if ((cn->protocol == NODE_MODE_TCP)
+			   || (cn->protocol == NODE_MODE_SSL)
 		    )		//TCP or SSL
 		{
 			int ret;
-			if (curnode->role == NODE_ROLE_SERVER) {
+			if (cn->role == NODE_ROLE_SERVER) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR: TCP Server must send data to the seed");
 				rt = 7;
 				goto exit;
 			}
 
 			#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
-			if (curnode->protocol == NODE_MODE_SSL) {
-				ret = mbedtls_ssl_write((mbedtls_ssl_context *) curnode->context, data, data_sz);
+			if (cn->protocol == NODE_MODE_SSL) {
+				ret = mbedtls_ssl_write((mbedtls_ssl_context *) cn->context, data, data_sz);
 			} else
 			#endif
 			{
-				ret = write(curnode->sockfd, data, data_sz);
+				ret = write(cn->sockfd, data, data_sz);
 			}
 			if (ret <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data %d", ret);
@@ -1075,7 +1075,7 @@ void fATPT(void *arg)
 	char *argv[MAX_ARGC] = { 0 };
 	int con_id = INVALID_CON_ID;
 	int rt = 0;
-	node *curnode = NULL;
+	node *cn = NULL;
 	struct sockaddr_in cli_addr;
 	int data_sz;
 	int data_pos = C_NUM_AT_CMD + C_NUM_AT_CMD_DLT + strlen(arg) + 1;
@@ -1100,14 +1100,14 @@ void fATPT(void *arg)
 	}
 
 	con_id = atoi((char *) argv[2]);
-	curnode = seek_node(con_id);
-	if (curnode == NULL) {
+	cn = seek_node(con_id);
+	if (cn == NULL) {
 		rt = 3;
 		goto exit;
 	}
 
-	if ((curnode->protocol == NODE_MODE_UDP)
-	    && (curnode->role == NODE_ROLE_SERVER)) {
+	if ((cn->protocol == NODE_MODE_UDP)
+	    && (cn->role == NODE_ROLE_SERVER)) {
 		char udp_clientaddr[16] = { 0 };
 		strcpy((char *) udp_clientaddr, (char *) argv[3]);
 		cli_addr.sin_family = AF_INET;
@@ -1118,7 +1118,7 @@ void fATPT(void *arg)
 			goto exit;
 		}
 	}
-	rt = atcmd_lwip_send_data(curnode, data, data_sz, cli_addr);
+	rt = atcmd_lwip_send_data(cn, data, data_sz, cli_addr);
       exit:
 	if (rt)
 		at_printf("\r\n[ATPT] ERROR:%d,%d", rt, con_id);
@@ -1134,7 +1134,7 @@ void fATPR(void *arg)
 	int rt = 0;
 	int recv_size = 0;
 	int packet_size = 0;
-	node *curnode = NULL;
+	node *cn = NULL;
 	u8_t udp_clientaddr[16] = { 0 };
 	u16_t udp_clientport = 0;
 
@@ -1181,20 +1181,20 @@ void fATPR(void *arg)
 		goto exit;
 	}
 
-	curnode = seek_node(con_id);
-	if (curnode == NULL) {
+	cn = seek_node(con_id);
+	if (cn == NULL) {
 		rt = 3;
 		goto exit;
 	}
 
-	if (curnode->protocol == NODE_MODE_TCP && curnode->role == NODE_ROLE_SERVER) {
+	if (cn->protocol == NODE_MODE_TCP && cn->role == NODE_ROLE_SERVER) {
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR: TCP Server must receive data from the seed");
 		rt = 6;
 		goto exit;
 	}
 
 	memset(rx_buffer, 0, rx_buffer_size);
-	rt = atcmd_lwip_receive_data(curnode, rx_buffer, ETH_MAX_MTU, &recv_size, udp_clientaddr, &udp_clientport);
+	rt = atcmd_lwip_receive_data(cn, rx_buffer, ETH_MAX_MTU, &recv_size, udp_clientaddr, &udp_clientport);
       exit:
 	if (rt == 0) {
 #if defined(EXTEND_ATPR_SIZE) && (EXTEND_ATPR_SIZE == 1)
@@ -1205,7 +1205,7 @@ void fATPR(void *arg)
 			if (next_expected_size > ETH_MAX_MTU) {
 				next_expected_size = ETH_MAX_MTU;
 			}
-			rt = atcmd_lwip_receive_data(curnode, rx_buffer + total_recv_size, next_expected_size,
+			rt = atcmd_lwip_receive_data(cn, rx_buffer + total_recv_size, next_expected_size,
 						    &recv_size, udp_clientaddr, &udp_clientport);
 			fetch_counter = (recv_size == 0) ? (fetch_counter + 1) : 0;
 			if (fetch_counter >= FETCH_TIMEOUT) {
@@ -1217,7 +1217,7 @@ void fATPR(void *arg)
 			}
 		}
 		memset(tmpbuf, 0, ATPR_RSVD_HEADER_SIZE);
-		if (curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER) {
+		if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 				   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", total_recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
 			sprintf(tmpbuf, "\r\n[ATPR] OK,%d,%d,%s,%d:", total_recv_size, con_id, udp_clientaddr, udp_clientport);
@@ -1230,7 +1230,7 @@ void fATPR(void *arg)
 		memcpy(rx_buffer, tmpbuf, header_len);
 		at_print_data(rx_buffer, total_recv_size + header_len);
 #else				// #if (EXTEND_ATPR_SIZE)
-		if (curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER) {
+		if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
 				   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
 			at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, con_id, udp_clientaddr, udp_clientport);
@@ -1351,17 +1351,17 @@ void fATPL(void *arg)
 	if (argv[1] != NULL) {
 		int enable = atoi(argv[1]);
 		struct atcmd_lwip_conn_info cur_conn = { 0 };
-		node *cur_node = mainlist->next;
-		if (enable && cur_node == NULL) {
+		node *cn = mainlist->next;
+		if (enable && cn == NULL) {
 			rt = 3;
 			goto exit;
 		}
-		cur_conn.role = cur_node->role;
-		cur_conn.protocol = cur_node->protocol;
-		cur_conn.remote_addr = cur_node->addr;
-		cur_conn.remote_port = cur_node->port;
-		cur_conn.local_addr = cur_node->local_addr;
-		cur_conn.local_port = cur_node->local_port;
+		cur_conn.role = cn->role;
+		cur_conn.protocol = cn->protocol;
+		cur_conn.remote_addr = cn->addr;
+		cur_conn.remote_port = cn->port;
+		cur_conn.local_addr = cn->local_addr;
+		cur_conn.local_port = cn->local_port;
 		atcmd_lwip_write_info_to_flash(&cur_conn, enable);
 	}
 
@@ -1397,21 +1397,21 @@ void fATPP(void *arg)
 	argc = parse_param(arg, argv);
 
 	if (strlen(argv[1]) < 3) {
-		node *curnode;
+		node *cn;
 		struct in_addr addr;
 		con_id = atoi((char *) argv[1]);
-		curnode = seek_node(con_id);
-		if (curnode == NULL) {
+		cn = seek_node(con_id);
+		if (cn == NULL) {
 			rt = 2;
 			goto exit;
 		}
-		if (curnode->role == 1) {	//ping remote server
-			addr.s_addr = htonl(curnode->addr);
+		if (cn->role == 1) {	//ping remote server
+			addr.s_addr = htonl(cn->addr);
 			inet_ntoa_r(addr, buf, sizeof(buf));
-		} else if (curnode->role == 0) {	//ping local server
+		} else if (cn->role == 0) {	//ping local server
 			strcpy(buf, SERVER);
-		} else if (curnode->role == 2) {	//ping seed
-			strcpy(buf, (char *) curnode->addr);
+		} else if (cn->role == 2) {	//ping seed
+			strcpy(buf, (char *) cn->addr);
 		}
 	} else
 		strcpy(buf, argv[1]);
@@ -1549,28 +1549,33 @@ node *create_node(int mode, s8_t role)
 
 void delete_node(node * n)
 {
-	node *currNode, *prevNode, *currSeed, *precvSeed;
-	if (n == NULL)
+	node *cn /* curr node */, *pn /* prev node */, 
+	     *cur_seed, *precvSeed;
+
+	if (n == NULL) {
 		return;
+	}
+
 	SYS_ARCH_DECL_PROTECT(lev);
 	SYS_ARCH_PROTECT(lev);
 	//need to remove it from mainlist first 
-	for (currNode = mainlist; currNode != NULL; prevNode = currNode, currNode = currNode->next) {
-		if (currNode == n) {
-			prevNode->next = currNode->next;
+	for (cn = mainlist; cn != NULL; pn = cn, cn = cn->next) {
+		node* recv_seed;
+		if (cn == n) {
+			pn->next = cn->next;
 		}
 
-		if (currNode->role != NODE_ROLE_SERVER)
+		if (cn->role != NODE_ROLE_SERVER)
 			continue;
 
-		precvSeed = currNode;
-		currSeed = currNode->nextseed;
-		while (currSeed != NULL) {
-			if (currSeed == n) {
-				precvSeed->nextseed = n->nextseed;
+		recv_seed = cn;
+		cur_seed = cn->nextseed;
+		while (cur_seed != NULL) {
+			if (cur_seed == n) {
+				recv_seed->nextseed = n->nextseed;
 			}
-			precvSeed = currSeed;
-			currSeed = currSeed->nextseed;
+			recv_seed = cur_seed;
+			cur_seed = cur_seed->nextseed;
 		}
 	}
 	SYS_ARCH_UNPROTECT(lev);
@@ -1578,30 +1583,30 @@ void delete_node(node * n)
 	if (n->role == NODE_ROLE_SERVER) {
 		//node may have seed if it's under server mode
 		while (n->nextseed != NULL) {
-			currSeed = n->nextseed;
+			cur_seed = n->nextseed;
 			// only tcp/ssl seed has its own socket, udp seed uses its server's
 			// so delete udp seed can't close socket which is used by server
-			if (currSeed->protocol == NODE_MODE_TCP && currSeed->sockfd != INVALID_SOCKET_ID) {
-				close(currSeed->sockfd);
-				currSeed->sockfd = INVALID_SOCKET_ID;
+			if (cur_seed->protocol == NODE_MODE_TCP && cur_seed->sockfd != INVALID_SOCKET_ID) {
+				close(cur_seed->sockfd);
+				cur_seed->sockfd = INVALID_SOCKET_ID;
 			}
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
-			else if (currSeed->protocol == NODE_MODE_SSL && currSeed->sockfd != INVALID_SOCKET_ID) {
-				mbedtls_ssl_context *ssl = (mbedtls_ssl_context *) currSeed->context;
+			else if (cur_seed->protocol == NODE_MODE_SSL && cur_seed->sockfd != INVALID_SOCKET_ID) {
+				mbedtls_ssl_context *ssl = (mbedtls_ssl_context *) cur_seed->context;
 				mbedtls_ssl_close_notify(ssl);
 				mbedtls_net_context server_fd;
-				server_fd.fd = currSeed->sockfd;
+				server_fd.fd = cur_seed->sockfd;
 				mbedtls_net_free(&server_fd);
 				mbedtls_ssl_free(ssl);
-				rtw_free(currSeed->context);
-				currSeed->context = NULL;
+				rtw_free(cur_seed->context);
+				cur_seed->context = NULL;
 			}
 #endif
 			// no task created for seed
 			//if(s->handletask != NULL)
 			//      vTaskDelete(s->handletask);
-			n->nextseed = currSeed->nextseed;
-			currSeed->con_id = INVALID_CON_ID;
+			n->nextseed = cur_seed->nextseed;
+			cur_seed->con_id = INVALID_CON_ID;
 		};
 	}
 
@@ -1613,7 +1618,7 @@ void delete_node(node * n)
 					mbedtls_ssl_context *ssl = (mbedtls_ssl_context *) n->context;
 					mbedtls_ssl_close_notify(ssl);
 					mbedtls_net_context server_fd;
-					server_fd.fd = currSeed->sockfd;
+					server_fd.fd = cur_seed->sockfd;
 					mbedtls_net_free(&server_fd);
 					mbedtls_ssl_free(ssl);
 				} else if (n->role == NODE_ROLE_CLIENT) {
@@ -1787,31 +1792,31 @@ node *tryget_node(int n)
 	return &node_pool[n];
 }
 
-int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *recv_size, u8_t * udp_clientaddr, u16_t * udp_clientport)
+int atcmd_lwip_receive_data(node * cn, u8 * buffer, u16 buffer_size, int *recv_size, u8_t * udp_clientaddr, u16_t * udp_clientport)
 {
 	struct timeval tv;
 	fd_set readfds;
 	int rt = 0, ret = 0, size = 0;
 
 	FD_ZERO(&readfds);
-	FD_SET(curnode->sockfd, &readfds);
+	FD_SET(cn->sockfd, &readfds);
 	tv.tv_sec = RECV_SELECT_TIMEOUT_SEC;
 	tv.tv_usec = RECV_SELECT_TIMEOUT_USEC;
-	ret = select(curnode->sockfd + 1, &readfds, NULL, NULL, &tv);
-	if (!((ret > 0) && (FD_ISSET(curnode->sockfd, &readfds)))) {
+	ret = select(cn->sockfd + 1, &readfds, NULL, NULL, &tv);
+	if (!((ret > 0) && (FD_ISSET(cn->sockfd, &readfds)))) {
 		//AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
-		//      "[ATPR] No receive event for con_id %d", curnode->con_id);
+		//      "[ATPR] No receive event for con_id %d", cn->con_id);
 		goto exit;
 	}
 
-	if (curnode->protocol == NODE_MODE_UDP)	//udp server receive from client
+	if (cn->protocol == NODE_MODE_UDP)	//udp server receive from client
 	{
-		if (curnode->role == NODE_ROLE_SERVER) {
+		if (cn->role == NODE_ROLE_SERVER) {
 			struct sockaddr_in client_addr;
 			u32_t addr_len = sizeof(struct sockaddr_in);
 			rtw_memset((char *) &client_addr, 0, sizeof(client_addr));
 
-			if ((size = recvfrom(curnode->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &client_addr, &addr_len)) > 0) {
+			if ((size = recvfrom(cn->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &client_addr, &addr_len)) > 0) {
 				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",
 				//      con_id, inet_ntoa(client_addr.sin_addr.s_addr), ntohs(client_addr.sin_port), rx_buffer, packet_size);
 				//at_printf("\r\nsize: %d\r\n", recv_size);
@@ -1827,10 +1832,10 @@ int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *r
 			u32_t addr_len = sizeof(struct sockaddr_in);
 			rtw_memset((char *) &serv_addr, 0, sizeof(serv_addr));
 			serv_addr.sin_family = AF_INET;
-			serv_addr.sin_port = htons(curnode->port);
-			serv_addr.sin_addr.s_addr = htonl(curnode->addr);
+			serv_addr.sin_port = htons(cn->port);
+			serv_addr.sin_addr.s_addr = htonl(cn->addr);
 
-			if ((size = recvfrom(curnode->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &serv_addr, &addr_len)) <= 0) {
+			if ((size = recvfrom(cn->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &serv_addr, &addr_len)) <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Failed to receive data");
 				rt = 5;
 			}
@@ -1838,12 +1843,12 @@ int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *r
 	} else {
 		#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 		//receive from seed or server
-		if (curnode->protocol == NODE_MODE_SSL) {
-			size = mbedtls_ssl_read((mbedtls_ssl_context *) curnode->context, buffer, buffer_size);
+		if (cn->protocol == NODE_MODE_SSL) {
+			size = mbedtls_ssl_read((mbedtls_ssl_context *) cn->context, buffer, buffer_size);
 		} else
 		#endif
 		{
-			size = read(curnode->sockfd, buffer, buffer_size);
+			size = read(cn->sockfd, buffer, buffer_size);
 		}
 		if (size == 0) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Connection is closed!");
@@ -1858,18 +1863,18 @@ int atcmd_lwip_receive_data(node * curnode, u8 * buffer, u16 buffer_size, int *r
 		*recv_size = size;
 	else {
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
-		if (curnode->protocol == NODE_MODE_SSL) {
-			mbedtls_ssl_close_notify((mbedtls_ssl_context *) curnode->context);
+		if (cn->protocol == NODE_MODE_SSL) {
+			mbedtls_ssl_close_notify((mbedtls_ssl_context *) cn->context);
 			mbedtls_net_context server_fd;
-			server_fd.fd = curnode->sockfd;
+			server_fd.fd = cn->sockfd;
 			mbedtls_net_free(&server_fd);
-			mbedtls_ssl_free((mbedtls_ssl_context *) curnode->context);
+			mbedtls_ssl_free((mbedtls_ssl_context *) cn->context);
 		} else
 #endif				//#if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 		{
-			close(curnode->sockfd);
+			close(cn->sockfd);
 		}
-		curnode->sockfd = INVALID_SOCKET_ID;
+		cn->sockfd = INVALID_SOCKET_ID;
 	}
 	return rt;
 }
@@ -1884,13 +1889,13 @@ static void atcmd_lwip_receive_task(void *param)
 
 	while (atcmd_lwip_is_autorecv_mode()) {
 		for (i = 0; i < NUM_NS; ++i) {
-			node *curnode = NULL;
+			node *cn = NULL;
 
-			if (!(curnode = tryget_node(i))) {
+			if (!(cn = tryget_node(i))) {
 				continue;
 			}
 
-			if ((curnode->protocol == NODE_MODE_TCP || curnode->protocol == NODE_MODE_SSL) && curnode->role == NODE_ROLE_SERVER) {
+			if ((cn->protocol == NODE_MODE_TCP || cn->protocol == NODE_MODE_SSL) && cn->role == NODE_ROLE_SERVER) {
 				//TCP Server must receive data from the seed
 				continue;
 			}
@@ -1899,7 +1904,7 @@ static void atcmd_lwip_receive_task(void *param)
 			u8_t udp_clientaddr[16] = { 0 };
 			u16_t udp_clientport = 0;
 
-			int rt = atcmd_lwip_receive_data(curnode, rx_buffer, packet_size, &recv_size, udp_clientaddr, &udp_clientport);
+			int rt = atcmd_lwip_receive_data(cn, rx_buffer, packet_size, &recv_size, udp_clientaddr, &udp_clientport);
 
 			if (atcmd_lwip_is_tt_mode()) {
 				if (rt == 0 && recv_size) {
@@ -1916,12 +1921,12 @@ static void atcmd_lwip_receive_task(void *param)
 					continue;
 				}
 
-				if (curnode->protocol != NODE_MODE_UDP) {
+				if (cn->protocol != NODE_MODE_UDP) {
 					struct in_addr addr;
 
-					addr.s_addr = htonl(curnode->addr);
+					addr.s_addr = htonl(cn->addr);
 					sprintf(udp_clientaddr, "%s", inet_ntoa(addr));
-					udp_clientport = curnode->port;
+					udp_clientport = cn->port;
 				}
 
 				rx_buffer[recv_size] = '\0';
@@ -1930,7 +1935,7 @@ static void atcmd_lwip_receive_task(void *param)
 
 				// Receiving data header
 				at_printf("\r\n+IPD,%d,%d,%s,%d:",
-					curnode->con_id,
+					cn->con_id,
 					recv_size,
 					udp_clientaddr,
 					udp_clientport);
@@ -1949,16 +1954,16 @@ static void atcmd_lwip_receive_task(void *param)
 				if (recv_size) {
 					rx_buffer[recv_size] = '\0';
 					LOG_SERVICE_LOCK();
-					if (curnode->protocol == NODE_MODE_UDP && curnode->role == NODE_ROLE_SERVER) {
+					if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
-							   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, curnode->con_id,
+							   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, cn->con_id,
 							   udp_clientaddr, udp_clientport, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, curnode->con_id,
+						at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, cn->con_id,
 							  udp_clientaddr, udp_clientport);
 					} else {
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
-							   "\r\n[ATPR] OK,%d,%d:%s", recv_size, curnode->con_id, rx_buffer);
-						at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, curnode->con_id);
+							   "\r\n[ATPR] OK,%d,%d:%s", recv_size, cn->con_id, rx_buffer);
+						at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, cn->con_id);
 					}
 					at_print_data(rx_buffer, recv_size);
 					at_printf(STR_END_OF_ATCMD_RET);
@@ -1966,7 +1971,7 @@ static void atcmd_lwip_receive_task(void *param)
 				}
 			} else {
 				LOG_SERVICE_LOCK();
-				at_printf("\r\n[ATPR] ERROR:%d,%d", rt, curnode->con_id);
+				at_printf("\r\n[ATPR] ERROR:%d,%d", rt, cn->con_id);
 				at_printf(STR_END_OF_ATCMD_RET);
 				LOG_SERVICE_UNLOCK();
 			}
@@ -2930,7 +2935,7 @@ void fATCIPSEND(void *arg)
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
 	int linkid = INVALID_CON_ID;
-	node *curnode = NULL;
+	node *cn = NULL;
 	struct sockaddr_in cli_addr;
 	int r = 0;
 
@@ -2942,12 +2947,12 @@ void fATCIPSEND(void *arg)
 	}
 
 	linkid = atoi((char *) argv[1]);
-	if ((curnode = seek_node(linkid)) == NULL) {
+	if ((cn = seek_node(linkid)) == NULL) {
 		r = -2;
 		goto __ret;
 	}
 
-	curnode->tx_len = atoi((char *) argv[2]);
+	cn->tx_len = atoi((char *) argv[2]);
 	// TODO: check length
 
 	if (argc >= 5) {
@@ -2961,12 +2966,12 @@ void fATCIPSEND(void *arg)
 			r = -4;
 			goto __ret;
 		}
-		curnode->udp_dest = cli_addr;
+		cn->udp_dest = cli_addr;
 	}
 
 	rtw_init_sema(&client_started, 0);
 	if (xTaskCreate(client_send_task, "clt_tx", ATCP_STACK_SIZE,
-	                curnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS
+	                cn, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS
 	) {
 		r = -5;
 		goto __ret;
