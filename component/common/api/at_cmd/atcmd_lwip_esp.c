@@ -1691,6 +1691,9 @@ void delete_node(node * n)
 			}
 			n->sockfd = INVALID_SOCKET_ID;
 		}
+	} else if (n->sockfd != INVALID_SOCKET_ID) {
+		close(n->sockfd);
+		n->sockfd = INVALID_SOCKET_ID;
 	}
 	//task will exit itself in fail case
 	if (n->handletask) {
