@@ -6,6 +6,7 @@
 #include "atcmd_wifi.h"
 #include "atcmd_lwip.h"
 #include "osdep_service.h"
+#include "lwip/dns.h"
 
 #if defined(ATCMD_SUPPORT_SSL) && ATCMD_SUPPORT_SSL
 #include "mbedtls/config.h"
@@ -1550,7 +1551,7 @@ node *create_node(int mode, s8_t role)
 void delete_node(node * n)
 {
 	node *cn /* curr node */, *pn /* prev node */, 
-	     *cur_seed, *precvSeed;
+	     *cur_seed;
 
 	if (n == NULL) {
 		return;
@@ -1928,7 +1929,7 @@ static void atcmd_lwip_receive_task(void *param)
 					struct in_addr addr;
 
 					addr.s_addr = htonl(cn->addr);
-					sprintf(udp_clientaddr, "%s", inet_ntoa(addr));
+					sprintf((char*)udp_clientaddr, "%s", inet_ntoa(addr));
 					udp_clientport = cn->port;
 				}
 
@@ -3034,6 +3035,59 @@ __ret:
 	return;
 }
 
+void fATCIPDNS(void *arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	ip_addr_t ipaddr[2];
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		ipaddr[0] = *dns_getserver(0);
+		ipaddr[1] = *dns_getserver(1);
+
+		// TODO, document error
+		at_printf("+CIPDNS:0,\"%s\"", ip_ntoa(&ipaddr[0]));
+		//if (!ip_addr_cmp(&ipaddr[1], IP_ADDR_ANY)) {
+		at_printf(",\"%s\"\r\n", ip_ntoa(&ipaddr[1]));
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	int en = atoi((char *) argv[1]);
+	if (!en || argc <= 2) {
+		IP_ADDR4(&ipaddr[0], 208, 67, 222, 222);
+		dns_setserver(0, &ipaddr[0]);
+		goto __ret;
+	}
+
+	// DNS1
+	inet_aton(argv[2], &ipaddr[0]);
+	dns_setserver(0, &ipaddr[0]);
+
+	// DNS2
+	if (argc >= 4) {
+		inet_aton(argv[3], &ipaddr[1]);
+		dns_setserver(1, &ipaddr[1]);
+	}
+
+__ret:
+	at_printf(STR_RESP_OK);
+	return;
+
+}
+
 
 
 
@@ -3054,6 +3108,7 @@ log_item_t at_transport_items[] = {
 	{"AT+CIPSTART",  fATCIPSTART},
 	{"AT+CIPSEND",   fATCIPSEND},
 	{"AT+CIPCLOSE",  fATCIPCLOSE},
+	{"AT+CIPDNS",    fATCIPDNS},
 };
 
 void print_tcpip_at(void *arg)
