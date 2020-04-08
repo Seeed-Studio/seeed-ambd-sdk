@@ -135,41 +135,30 @@ void LwIP_Init(void)
 	//printf("NET_IF_NUM:%d\n\r",NET_IF_NUM);
 	for(idx=0;idx<NET_IF_NUM;idx++){
 		#if LWIP_VERSION_MAJOR >= 2
-		if(idx==0){
-			IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-			IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-			IP4_ADDR(ip_2_ip4(&gw), GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-		}
-		else{
-			IP4_ADDR(ip_2_ip4(&ipaddr), AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-			IP4_ADDR(ip_2_ip4(&netmask), AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-			IP4_ADDR(ip_2_ip4(&gw), AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
-		}
+		#define IP4_ADDR_SET	IP_ADDR4
+		#define NETIF_ADDR_SET(nif,ip,mask,gw) netif_set_addr(nif, ip_2_ip4(ip), ip_2_ip4(mask),ip_2_ip4(gw))
 		#else
+		#define IP4_ADDR_SET	IP4_ADDR
+		#define NETIF_ADDR_SET(nif,ip,mask,gw) netif_set_addr(nif, ip, mask, gw)
+		#endif
+
 		if(idx==0){
-			IP4_ADDR(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-			IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-			IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+			IP4_ADDR_SET(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+			IP4_ADDR_SET(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+			IP4_ADDR_SET(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
 		}
 		else{
-			IP4_ADDR(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-			IP4_ADDR(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-			IP4_ADDR(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
+			IP4_ADDR_SET(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
+			IP4_ADDR_SET(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
+			IP4_ADDR_SET(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
 		}
-		#endif
 
 		#if CONFIG_ETHERNET
 		if(idx == NET_IF_NUM - 1)
 		{
-			#if LWIP_VERSION_MAJOR >= 2
-			IP4_ADDR(ip_2_ip4(&ipaddr), ETH_IP_ADDR0, ETH_IP_ADDR1, ETH_IP_ADDR2, ETH_IP_ADDR3);
-			IP4_ADDR(ip_2_ip4(&netmask), ETH_NETMASK_ADDR0, ETH_NETMASK_ADDR1 , ETH_NETMASK_ADDR2, ETH_NETMASK_ADDR3);
-			IP4_ADDR(ip_2_ip4(&gw), ETH_GW_ADDR0, ETH_GW_ADDR1, ETH_GW_ADDR2, ETH_GW_ADDR3);
-			#else
-			IP4_ADDR(&ipaddr, ETH_IP_ADDR0, ETH_IP_ADDR1, ETH_IP_ADDR2, ETH_IP_ADDR3);
-			IP4_ADDR(&netmask, ETH_NETMASK_ADDR0, ETH_NETMASK_ADDR1 , ETH_NETMASK_ADDR2, ETH_NETMASK_ADDR3);
-			IP4_ADDR(&gw, ETH_GW_ADDR0, ETH_GW_ADDR1, ETH_GW_ADDR2, ETH_GW_ADDR3);    	
-			#endif
+			IP4_ADDR_SET(&ipaddr, ETH_IP_ADDR0, ETH_IP_ADDR1, ETH_IP_ADDR2, ETH_IP_ADDR3);
+			IP4_ADDR_SET(&netmask, ETH_NETMASK_ADDR0, ETH_NETMASK_ADDR1 , ETH_NETMASK_ADDR2, ETH_NETMASK_ADDR3);
+			IP4_ADDR_SET(&gw, ETH_GW_ADDR0, ETH_GW_ADDR1, ETH_GW_ADDR2, ETH_GW_ADDR3);
 		}
 		#endif
 		xnetif[idx].name[0] = 'r';
@@ -334,25 +323,17 @@ uint8_t LwIP_DHCP(uint8_t idx, uint8_t dhcp_state)
 #if LWIP_VERSION_MAJOR >= 2
 #include "lwip/prot/dhcp.h"
 			if((dhcp_state_enum_t)dhcp->state == DHCP_STATE_OFF)
-			{
-				IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-				IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-				IP4_ADDR(ip_2_ip4(&gw), GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-				netif_set_addr(pnetif, ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
-				printf("\n\rLwIP_DHCP: dhcp stop.");
-				return DHCP_STOP;
-			}
 #else
 			if(dhcp->state == DHCP_OFF)
+#endif
 			{
-                                IP4_ADDR(&ipaddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-                                IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-                                IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-                                netif_set_addr(pnetif, &ipaddr , &netmask, &gw);
+				IP4_ADDR_SET(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+				IP4_ADDR_SET(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+				IP4_ADDR_SET(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+				NETIF_ADDR_SET(pnetif, &ipaddr , &netmask, &gw);
 				printf("\n\rLwIP_DHCP: dhcp stop.");
 				return DHCP_STOP;
 			}
-#endif
 			
 			/* Read the new IP address */
 #if LWIP_VERSION_MAJOR >= 2
@@ -409,18 +390,10 @@ uint8_t LwIP_DHCP(uint8_t idx, uint8_t dhcp_state)
 					dhcp_stop(pnetif);
 
 					/* Static address used */
-
-#if LWIP_VERSION_MAJOR >= 2
-					IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-					IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-					IP4_ADDR(ip_2_ip4(&gw), GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-					netif_set_addr(pnetif, ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
-#else
-					IP4_ADDR(&ipaddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-					IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-					IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-					netif_set_addr(pnetif, &ipaddr , &netmask, &gw);
-#endif
+					IP4_ADDR_SET(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+					IP4_ADDR_SET(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+					IP4_ADDR_SET(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+					NETIF_ADDR_SET(pnetif, &ipaddr , &netmask, &gw);
 					iptab[0] = IP_ADDR3;
 					iptab[1] = IP_ADDR2;
 					iptab[2] = IP_ADDR1;
@@ -482,18 +455,10 @@ void LwIP_ReleaseIP(uint8_t idx)
 	struct ip_addr netmask;
 	struct ip_addr gw;
 	struct netif *pnetif = &xnetif[idx];
-#if LWIP_VERSION_MAJOR >= 2
-	IP4_ADDR(ip_2_ip4(&ipaddr), 0, 0, 0, 0);
-	IP4_ADDR(ip_2_ip4(&netmask), 255, 255 , 255, 0);
-	IP4_ADDR(ip_2_ip4(&gw), 0, 0, 0, 0);
-	netif_set_addr(pnetif, ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
-#else
-	IP4_ADDR(&ipaddr, 0, 0, 0, 0);
-	IP4_ADDR(&netmask, 255, 255, 255, 0);
-	IP4_ADDR(&gw, 0, 0, 0, 0);
-	
-	netif_set_addr(pnetif, &ipaddr , &netmask, &gw);
-#endif
+	IP4_ADDR_SET(&ipaddr, 0, 0, 0, 0);
+	IP4_ADDR_SET(&netmask, 255, 255 , 255, 0);
+	IP4_ADDR_SET(&gw, 0, 0, 0, 0);
+	NETIF_ADDR_SET(pnetif, &ipaddr , &netmask, &gw);
 }
 
 uint8_t* LwIP_GetMAC(struct netif *pnetif)
@@ -531,8 +496,7 @@ uint8_t* LwIP_GetBC(struct netif *pnetif)
 void LwIP_GetDNS(struct ip_addr* dns)
 {
 #if LWIP_VERSION_MAJOR >= 2
-	struct ip_addr *tmp = (struct ip_addr *)dns_getserver(0);
-	*dns = *tmp;        
+	*dns = *(struct ip_addr *)dns_getserver(0);
 #else
 	*dns = dns_getserver(0);
 #endif
@@ -553,44 +517,22 @@ void LwIP_UseStaticIP(struct netif *pnetif)
 	if(pnetif->name[1] == '0'){
 #if CONFIG_WLAN
 		if(wifi_mode == RTW_MODE_STA){
-#if LWIP_VERSION_MAJOR >= 2
-		IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-		IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-		IP4_ADDR(ip_2_ip4(&gw), GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-#else
-		IP4_ADDR(&ipaddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-		IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-		IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-#endif
+		IP4_ADDR_SET(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+		IP4_ADDR_SET(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+		IP4_ADDR_SET(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
 		}
 		else if(wifi_mode == RTW_MODE_AP){
-#if LWIP_VERSION_MAJOR >= 2
-			IP4_ADDR(ip_2_ip4(&ipaddr), AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-			IP4_ADDR(ip_2_ip4(&netmask), AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-			IP4_ADDR(ip_2_ip4(&gw), AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
-#else
-			IP4_ADDR(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-			IP4_ADDR(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-			IP4_ADDR(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
-#endif
+			IP4_ADDR_SET(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
+			IP4_ADDR_SET(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
+			IP4_ADDR_SET(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
 		}
 #endif
 	}else{
-#if LWIP_VERSION_MAJOR >= 2
-		IP4_ADDR(ip_2_ip4(&ipaddr), AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-		IP4_ADDR(ip_2_ip4(&netmask), AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-		IP4_ADDR(ip_2_ip4(&gw), AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
-#else
-		IP4_ADDR(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
-		IP4_ADDR(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
-		IP4_ADDR(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
-#endif
+		IP4_ADDR_SET(&ipaddr, AP_IP_ADDR0, AP_IP_ADDR1, AP_IP_ADDR2, AP_IP_ADDR3);
+		IP4_ADDR_SET(&netmask, AP_NETMASK_ADDR0, AP_NETMASK_ADDR1 , AP_NETMASK_ADDR2, AP_NETMASK_ADDR3);
+		IP4_ADDR_SET(&gw, AP_GW_ADDR0, AP_GW_ADDR1, AP_GW_ADDR2, AP_GW_ADDR3);
 	}
-#if LWIP_VERSION_MAJOR >= 2
-	netif_set_addr(pnetif, ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
-#else
-	netif_set_addr(pnetif, &ipaddr , &netmask, &gw);
-#endif
+	NETIF_ADDR_SET(pnetif, &ipaddr , &netmask, &gw);
 }
 #if LWIP_AUTOIP
 #include <lwip/autoip.h>
@@ -631,17 +573,10 @@ void LwIP_AUTOIP(struct netif *pnetif)
 		printf("AUTOIP timeout\n");
 
 		/* Static address used */
-#if LWIP_VERSION_MAJOR >= 2 		
-		IP4_ADDR(ip_2_ip4(&ipaddr), IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
-		IP4_ADDR(ip_2_ip4(&netmask), NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
-		IP4_ADDR(ip_2_ip4(&gw), GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-		netif_set_addr(pnetif, ip_2_ip4(&ipaddr), ip_2_ip4(&netmask),ip_2_ip4(&gw));
-#else
-		IP4_ADDR(&ipaddr, IP_ADDR0 ,IP_ADDR1 , IP_ADDR2 , IP_ADDR3 );
-		IP4_ADDR(&netmask, NETMASK_ADDR0, NETMASK_ADDR1, NETMASK_ADDR2, NETMASK_ADDR3);
-		IP4_ADDR(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
-		netif_set_addr(pnetif, &ipaddr , &netmask, &gw);
-#endif
+		IP4_ADDR_SET(&ipaddr, IP_ADDR0, IP_ADDR1, IP_ADDR2, IP_ADDR3);
+		IP4_ADDR_SET(&netmask, NETMASK_ADDR0, NETMASK_ADDR1 , NETMASK_ADDR2, NETMASK_ADDR3);
+		IP4_ADDR_SET(&gw, GW_ADDR0, GW_ADDR1, GW_ADDR2, GW_ADDR3);
+		NETIF_ADDR_SET(pnetif, &ipaddr , &netmask, &gw);
 		printf("Static IP address : %d.%d.%d.%d\n", ip[0], ip[1], ip[2], ip[3]);
 	}
 	else {
