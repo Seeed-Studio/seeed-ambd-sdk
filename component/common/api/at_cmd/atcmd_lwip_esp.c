@@ -3095,6 +3095,34 @@ __ret:
 
 }
 
+void fATCIPSERVERMAXCONN(void *arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int rt = 0;
+
+	if (!arg || (argc = parse_param(arg, argv)) < 2) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		at_printf("+CIPSERVERMAXCONN:%d\r\n", server_max_conn);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	rt = atoi((char *) argv[1]);
+	if (0 >= rt || rt > NUM_NS - 2) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	server_max_conn = rt;
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 
 
 
@@ -3116,6 +3144,7 @@ log_item_t at_transport_items[] = {
 	{"AT+CIPSEND",   fATCIPSEND},
 	{"AT+CIPCLOSE",  fATCIPCLOSE},
 	{"AT+CIPDNS",    fATCIPDNS},
+	{"AT+CIPSERVERMAXCONN", fATCIPSERVERMAXCONN},
 };
 
 void print_tcpip_at(void *arg)
