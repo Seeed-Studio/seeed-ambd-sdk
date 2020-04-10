@@ -3274,6 +3274,37 @@ __ret:
 	return;
 }
 
+/* Set/Get Server TimeOut value */
+void fATCIPSTO(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int sto = 0;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		at_printf("+CIPSTO:%d\r\n", sto);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	// TODO: empty imp
+	sto = atoi(argv[1]);
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 
 
 
@@ -3297,6 +3328,7 @@ log_item_t at_transport_items[] = {
 	{"AT+CIPDNS",    fATCIPDNS},
 	{"AT+CIPSERVERMAXCONN", fATCIPSERVERMAXCONN},
 	{"AT+CIPSERVER", fATCIPSERVER},
+	{"AT+CIPSTO",    fATCIPSTO},
 };
 
 void print_tcpip_at(void *arg)
