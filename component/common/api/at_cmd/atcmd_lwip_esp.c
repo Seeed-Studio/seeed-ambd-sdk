@@ -63,6 +63,7 @@ _sema atcmd_lwip_tt_sema = NULL;
 volatile int atcmd_lwip_tt_datasize = 0;
 volatile int atcmd_lwip_tt_lasttickcnt = 0;
 const int esp_compatible_recv = TRUE;
+static node *_create_node(int mode, s8_t role, int prio);
 
 #ifdef ERRNO
 _WEAK int errno = 0;		//LWIP errno
@@ -164,6 +165,8 @@ void atcmd_lwip_set_autorecv_mode(int enable)
 {
 	atcmd_lwip_auto_recv = enable;
 }
+
+static int  server_max_conn = NUM_NS - 2;
 
 static void server_start(void *param)
 {
@@ -377,7 +380,7 @@ static void server_start(void *param)
 			/***********************************************************
 			*  SSL 6. Hang node on mainlist for global management
 			************************************************************/
-			node *seednode = create_node(s_mode, NODE_ROLE_SEED);
+			node *seednode = _create_node(s_mode, NODE_ROLE_SEED, server_max_conn - 1);
 			if (seednode == NULL) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS]create node failed!");
 				rtw_free((void *) ssl);
@@ -451,7 +454,7 @@ static void server_start(void *param)
 					*  TCP 4. Hang node on mainlist for global management of this TCP connection
 					************************************************************/
 					if (param != NULL) {
-						node *seednode = create_node(s_mode, NODE_ROLE_SEED);
+						node *seednode = _create_node(s_mode, NODE_ROLE_SEED, server_max_conn - 1);
 						if (seednode == NULL) {
 							AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS]create node failed!");
 							rt = 11;
@@ -1535,7 +1538,7 @@ static node *_create_node(int mode, s8_t role, int prio)
 		if (prio < 0) {
 			i++;
 		} else if (--i < 0) {
-			i += NUM_NS;
+			break;
 		}
 	}
 	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "No con_id available");
@@ -1786,7 +1789,7 @@ node *seek_node(int con_id)
 node *tryget_node(int n)
 {
 	SYS_ARCH_DECL_PROTECT(lev);
-	if ((n <= 0) || (n > NUM_NS)) {
+	if ((n < 0) || (n > NUM_NS)) {
 		return NULL;
 	}
 	SYS_ARCH_PROTECT(lev);
@@ -3129,7 +3132,8 @@ void print_tcpip_at(void *arg)
 void at_transport_init(void)
 {
 	init_node_pool();
-	mainlist = create_node(-1, -1);
+	/* mainlist use last linkid/con_id, reserved #0 */
+	mainlist = _create_node(-1, -1, NUM_NS - 1);
 	log_service_add_table(at_transport_items, sizeof(at_transport_items) / sizeof(at_transport_items[0]));
 }
 
