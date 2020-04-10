@@ -1022,15 +1022,13 @@ int atcmd_lwip_send_data(node * cn, u8 * data, u16 data_sz, struct sockaddr_in c
 {
 	int rt = 0;
 
-	if ((cn->protocol == NODE_MODE_UDP) && (cn->role == NODE_ROLE_SERVER))	//UDP server
-	{
+	if ((cn->protocol == NODE_MODE_UDP) && (cn->role == NODE_ROLE_SERVER)) { //UDP server
 		if (sendto(cn->sockfd, data, data_sz, 0, (struct sockaddr *) &cli_addr, sizeof(cli_addr)) <= 0) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data");
 			rt = 5;
 		}
 	} else {
-		if (cn->protocol == NODE_MODE_UDP)	//UDP client/seed
-		{
+		if (cn->protocol == NODE_MODE_UDP) { //UDP client/seed
 			struct sockaddr_in serv_addr;
 			rtw_memset(&serv_addr, 0, sizeof(serv_addr));
 			serv_addr.sin_family = AF_INET;
@@ -1040,14 +1038,13 @@ int atcmd_lwip_send_data(node * cn, u8 * data, u16 data_sz, struct sockaddr_in c
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR:Failed to send data\n");
 				rt = 6;
 			}
-		} else if ((cn->protocol == NODE_MODE_TCP)
-			   || (cn->protocol == NODE_MODE_SSL)
-		    )		//TCP or SSL
-		{
+		} else
+		if ((cn->protocol == NODE_MODE_TCP) || (cn->protocol == NODE_MODE_SSL)) { //TCP or SSL
 			int ret;
+
 			if (cn->role == NODE_ROLE_SERVER) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPT] ERROR: TCP Server must send data to the seed");
-				rt = 7;
+				rt = -EINVAL;
 				goto exit;
 			}
 
@@ -1195,7 +1192,9 @@ void fATPR(void *arg)
 	}
 
 	memset(rx_buffer, 0, rx_buffer_size);
-	rt = atcmd_lwip_receive_data(cn, rx_buffer, ETH_MAX_MTU, &recv_size, udp_clientaddr, &udp_clientport);
+	int r = atcmd_lwip_receive_data(cn, rx_buffer, ETH_MAX_MTU, &recv_size, udp_clientaddr, &udp_clientport);
+	if (r < 0) rt = 7;
+
       exit:
 	if (rt == 0) {
 #if defined(EXTEND_ATPR_SIZE) && (EXTEND_ATPR_SIZE == 1)
@@ -1206,14 +1205,14 @@ void fATPR(void *arg)
 			if (next_expected_size > ETH_MAX_MTU) {
 				next_expected_size = ETH_MAX_MTU;
 			}
-			rt = atcmd_lwip_receive_data(cn, rx_buffer + total_recv_size, next_expected_size,
+			r = atcmd_lwip_receive_data(cn, rx_buffer + total_recv_size, next_expected_size,
 						    &recv_size, udp_clientaddr, &udp_clientport);
 			fetch_counter = (recv_size == 0) ? (fetch_counter + 1) : 0;
 			if (fetch_counter >= FETCH_TIMEOUT) {
 				break;
 			}
 			total_recv_size += recv_size;
-			if (rt != 0) {
+			if (r < 0) {
 				break;
 			}
 		}
@@ -1810,33 +1809,34 @@ int atcmd_lwip_receive_data(node * cn, u8 * buffer, u16 buffer_size, int *recv_s
 	tv.tv_sec = RECV_SELECT_TIMEOUT_SEC;
 	tv.tv_usec = RECV_SELECT_TIMEOUT_USEC;
 	ret = select(cn->sockfd + 1, &readfds, NULL, NULL, &tv);
+
 	if (!((ret > 0) && (FD_ISSET(cn->sockfd, &readfds)))) {
 		//AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
 		//      "[ATPR] No receive event for con_id %d", cn->con_id);
-		goto exit;
+		goto __ret;
 	}
 
-	if (cn->protocol == NODE_MODE_UDP)	//udp server receive from client
-	{
+	if (cn->protocol == NODE_MODE_UDP) { //udp server receive from client
 		if (cn->role == NODE_ROLE_SERVER) {
 			struct sockaddr_in client_addr;
 			u32_t addr_len = sizeof(struct sockaddr_in);
+
 			rtw_memset((char *) &client_addr, 0, sizeof(client_addr));
 
-			if ((size = recvfrom(cn->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &client_addr, &addr_len)) > 0) {
-				//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",
-				//      con_id, inet_ntoa(client_addr.sin_addr.s_addr), ntohs(client_addr.sin_port), rx_buffer, packet_size);
-				//at_printf("\r\nsize: %d\r\n", recv_size);
-				//at_printf("%s", rx_buffer);
-			} else {
+			if ((size = recvfrom(cn->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &client_addr, &addr_len)) <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Failed to receive data");
-				rt = 4;
+				rt = size;
 			}
+			//at_printf("[ATPR]:%d,%s,%d,%s\r\n with packet_size: %d\r\n",
+			//      con_id, inet_ntoa(client_addr.sin_addr.s_addr), ntohs(client_addr.sin_port), rx_buffer, packet_size);
+			//at_printf("\r\nsize: %d\r\n", recv_size);
+			//at_printf("%s", rx_buffer);
 			inet_ntoa_r(client_addr.sin_addr.s_addr, (char *) udp_clientaddr, 16);
 			*udp_clientport = ntohs(client_addr.sin_port);
 		} else {
 			struct sockaddr_in serv_addr;
 			u32_t addr_len = sizeof(struct sockaddr_in);
+
 			rtw_memset((char *) &serv_addr, 0, sizeof(serv_addr));
 			serv_addr.sin_family = AF_INET;
 			serv_addr.sin_port = htons(cn->port);
@@ -1844,7 +1844,7 @@ int atcmd_lwip_receive_data(node * cn, u8 * buffer, u16 buffer_size, int *recv_s
 
 			if ((size = recvfrom(cn->sockfd, buffer, buffer_size, 0, (struct sockaddr *) &serv_addr, &addr_len)) <= 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Failed to receive data");
-				rt = 5;
+				rt = size;
 			}
 		}
 	} else {
@@ -1859,16 +1859,17 @@ int atcmd_lwip_receive_data(node * cn, u8 * buffer, u16 buffer_size, int *recv_s
 		}
 		if (size == 0) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Connection is closed!");
-			rt = 7;
+			rt = -1;
 		} else if (size < 0) {
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR:Failed to receive data.ret=-0x%x!", -size);
-			rt = 8;
+			rt = size;
 		}
 	}
-      exit:
-	if (rt == 0)
+
+__ret:
+	if (rt >= 0) {
 		*recv_size = size;
-	else {
+	} else {
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 		if (cn->protocol == NODE_MODE_SSL) {
 			mbedtls_ssl_close_notify((mbedtls_ssl_context *) cn->context);
@@ -1914,7 +1915,7 @@ static void atcmd_lwip_receive_task(void *param)
 			int rt = atcmd_lwip_receive_data(cn, rx_buffer, packet_size, &recv_size, udp_clientaddr, &udp_clientport);
 
 			if (atcmd_lwip_is_tt_mode()) {
-				if (rt == 0 && recv_size) {
+				if (rt >= 0 && recv_size) {
 					rx_buffer[recv_size] = '\0';
 					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Recv[%d]:%s", recv_size, rx_buffer);
 					at_print_data(rx_buffer, recv_size);
@@ -1924,7 +1925,10 @@ static void atcmd_lwip_receive_task(void *param)
 			}
 
 			if (esp_compatible_recv) {
-				if (rt != 0 || recv_size == 0) {
+				if (rt < 0) {
+					continue;
+				}
+				if (recv_size == 0) {
 					continue;
 				}
 
@@ -1939,17 +1943,14 @@ static void atcmd_lwip_receive_task(void *param)
 				rx_buffer[recv_size] = '\0';
 
 				LOG_SERVICE_LOCK();
-
 				// Receiving data header
 				at_printf("\r\n+IPD,%d,%d,%s,%d:",
 					cn->con_id,
 					recv_size,
 					udp_clientaddr,
 					udp_clientport);
-
 				// Receiving data body
 				at_print_data(rx_buffer, recv_size);
-
 				LOG_SERVICE_UNLOCK();
 
 				// Debug only
@@ -1957,7 +1958,7 @@ static void atcmd_lwip_receive_task(void *param)
 				continue;
 			}
 
-			if (rt == 0) {
+			if (rt >= 0) {
 				if (recv_size) {
 					rx_buffer[recv_size] = '\0';
 					LOG_SERVICE_LOCK();
