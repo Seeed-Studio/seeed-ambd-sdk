@@ -63,6 +63,7 @@ _sema atcmd_lwip_tt_sema = NULL;
 volatile int atcmd_lwip_tt_datasize = 0;
 volatile int atcmd_lwip_tt_lasttickcnt = 0;
 const int esp_compatible_recv = TRUE;
+const char* type2string(int type);
 static node *_create_node(int mode, s8_t role, int prio);
 
 #ifdef ERRNO
@@ -166,6 +167,7 @@ void atcmd_lwip_set_autorecv_mode(int enable)
 	atcmd_lwip_auto_recv = enable;
 }
 
+static node *servernode = NULL;
 static int  server_max_conn = NUM_NS - 2;
 
 static void server_start(void *param)
@@ -249,6 +251,30 @@ static void server_start(void *param)
 		node_server->sockfd = s_sockfd;
 		node_server->addr = ntohl(*((u32_t *) ip));
 	}
+
+	#if 0
+	/* Wrong method, Server Node it self has no +LINK_CONN */
+	if (esp_compatible_recv) {
+		struct in_addr addr;
+		addr.s_addr = htonl(node_server->addr);
+
+		LOG_SERVICE_LOCK();
+		at_set_ipstatus(ESP_IPSTAT_CONN_CREATED);
+
+		at_printf("+LINK_CONN:%d,%d,\"%s\",%d,\"%s\",%d,%d\r\n",
+			0, // Result code, 0 -- Success
+			node_server->con_id,
+			type2string(node_server->protocol),
+			(node_server->role == NODE_ROLE_SERVER),
+			inet_ntoa(addr),
+			node_server->port,
+			node_server->local_port
+			);
+		// at_printf(STR_RESP_OK);
+		LOG_SERVICE_UNLOCK();
+	}
+	#endif
+
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 	if (s_mode == NODE_MODE_SSL) {
 		/***********************************************************
@@ -312,7 +338,7 @@ static void server_start(void *param)
 		/***********************************************************
 		*  SSL 3. Waiting for ssl client to connect
 		************************************************************/
-		while (1) {
+		while (servernode) {
 			//not using net_accept() here because it can't get client port in net_accept()
 			if ((s_newsockfd = accept(s_sockfd, (struct sockaddr *) &s_cli_addr, &s_client)) < 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS] ERROR:ERROR on net_accept ret=%d", ret);
@@ -431,21 +457,31 @@ static void server_start(void *param)
 					goto err_exit;
 				} else {
 					LOG_SERVICE_LOCK();
-					at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
-					at_printf(STR_END_OF_ATCMD_RET);
+					if (esp_compatible_recv) {
+						printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
+						printf(STR_END_OF_ATCMD_RET);
+					} else {
+						at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
+						at_printf(STR_END_OF_ATCMD_RET);
+					}
 					LOG_SERVICE_UNLOCK();
 				}
 			}
 
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The TCP SERVER START OK!");
-			s_client = sizeof(s_cli_addr);
 			/***********************************************************
 			*  TCP 3. Waiting for TCP client to connect
 			************************************************************/
-			while (1) {
+			while (servernode) {
+				s_client = sizeof s_cli_addr;
 				if ((s_newsockfd = accept(s_sockfd, (struct sockaddr *) &s_cli_addr, &s_client)) < 0) {
 					if (param != NULL) {
 						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS] ERROR:ERROR on accept");
+					}
+
+					if (esp_compatible_recv) {
+						rtw_msleep_os(10);
+						continue;
 					}
 					rt = 10;
 					goto err_exit;
@@ -461,6 +497,9 @@ static void server_start(void *param)
 							// we have to
 							close(s_newsockfd);
 
+							if (esp_compatible_recv) {
+								continue;
+							}
 							rt = 11;
 							goto err_exit;
 						}
@@ -470,6 +509,21 @@ static void server_start(void *param)
 						if (hang_seednode(node_server, seednode) < 0) {
 							delete_node(seednode);
 							seednode = NULL;
+						} else if (esp_compatible_recv) {
+							LOG_SERVICE_LOCK();
+							at_set_ipstatus(ESP_IPSTAT_CONN_CREATED);
+
+							at_printf("+LINK_CONN:%d,%d,\"%s\",%d,\"%s\",%d,%d\r\n",
+								0, // Result code, 0 -- Success
+								seednode->con_id,
+								type2string(seednode->protocol),
+								// this SERVER received a new connection
+								(seednode->role == NODE_ROLE_SEED),
+								inet_ntoa(s_cli_addr.sin_addr.s_addr),
+								ntohs(s_cli_addr.sin_port),
+								seednode->local_port
+							);
+							LOG_SERVICE_UNLOCK();
 						} else {
 							LOG_SERVICE_LOCK();
 							at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
@@ -509,8 +563,13 @@ static void server_start(void *param)
 					goto err_exit;
 				}
 				LOG_SERVICE_LOCK();
-				at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
-				at_printf(STR_END_OF_ATCMD_RET);
+				if (esp_compatible_recv) {
+					printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
+					printf(STR_END_OF_ATCMD_RET);
+				} else {
+					at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
+					at_printf(STR_END_OF_ATCMD_RET);
+				}
 				LOG_SERVICE_UNLOCK();
 				//task will exit itself
 				node_server->handletask = NULL;
@@ -518,16 +577,21 @@ static void server_start(void *param)
 			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The UDP SERVER START OK!");
 		}
 	}
-	goto exit;
-      err_exit:
-	if (node_server) {
+
+err_exit:
+	if (!servernode && node_server) {
 		//task will exit itself if getting here
 		node_server->handletask = NULL;
 		delete_node(node_server);
 	}
 	LOG_SERVICE_LOCK();
-	at_printf("\r\n[ATPS] ERROR:%d", rt);
-	at_printf(STR_END_OF_ATCMD_RET);
+	if (esp_compatible_recv) {
+		printf("\r\n[ATPS] ERROR:%d", rt);
+		printf(STR_END_OF_ATCMD_RET);
+	} else {
+		at_printf("\r\n[ATPS] ERROR:%d", rt);
+		at_printf(STR_END_OF_ATCMD_RET);
+	}
 	LOG_SERVICE_UNLOCK();
 exit:
 	return;
@@ -914,7 +978,6 @@ void fATPS(void *arg)
 {
 	int argc;
 	char *argv[MAX_ARGC] = { 0 };
-	node *servernode = NULL;
 	int mode;
 	int local_port;
 	int rt = 0;
@@ -969,8 +1032,10 @@ void fATPS(void *arg)
 
 	goto exit;
       err_exit:
-	if (servernode)
+	if (servernode) {
 		delete_node(servernode);
+		servernode = NULL;
+	}
 	at_printf("\r\n[ATPS] ERROR:%d", rt);
       exit:
 	return;
@@ -3128,6 +3193,87 @@ void fATCIPSERVERMAXCONN(void *arg) {
 	return;
 }
 
+void fATCIPSERVER(void *arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int rt = 0;
+
+	if (!arg || (argc = parse_param(arg, argv)) < 2) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		// TODO: SSL support
+		at_printf("+CIPSERVER:%d,%d,\"%s\",%d\r\n",
+			(servernode && servernode->con_id != INVALID_CON_ID && servernode->handletask),
+			servernode? servernode->local_port: 0,
+			type2string(servernode->protocol),
+			0);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	int en = atoi((char *) argv[1]);
+	if (!en) {
+		// remove server node only
+		// task will be destroyed automatically.
+		goto _e_ret;
+	}
+
+	if (servernode) {
+		rt = -2;
+		goto _e_ret;
+	}
+
+	int local_port = 333;
+	if (argc >= 3) {
+		local_port = atoi((char *) argv[2]);
+	}
+	if (local_port < 0 || local_port > 65535) {
+		rt = -4;
+		goto _e_ret;
+	}
+
+	int mode = argc >= 4? string2type((char *)argv[3]): NODE_MODE_TCP;
+
+	servernode = _create_node(mode, NODE_ROLE_SERVER, NUM_NS - 2);
+	if (servernode == NULL) {
+		rt = -5;
+		goto _e_ret;
+	}
+	servernode->port = local_port;
+
+	u32 task_stksz = (mode == NODE_MODE_SSL)? ATCP_SSL_STACK_SIZE: ATCP_STACK_SIZE;
+
+	if (xTaskCreate(server_start_task, ((const char *) "svr_tsk"), task_stksz, servernode,
+	     ATCMD_LWIP_TASK_PRIORITY, &servernode->handletask) != pdPASS) {
+		rt = -6;
+		goto _e_ret;
+	}
+
+	at_printf(STR_RESP_OK);
+
+	goto __ret;
+
+_e_ret:
+	if (servernode) {
+		delete_node(servernode);
+		servernode = NULL;
+	}
+
+__ret:
+	if (rt >= 0) {
+		// at_printf(STR_RESP_OK);
+	} else {
+		printf("\r\n+CIPSERVER: Error %d\r\n", rt);
+		at_printf(STR_RESP_FAIL);
+	}
+
+	return;
+}
+
 
 
 
@@ -3150,6 +3296,7 @@ log_item_t at_transport_items[] = {
 	{"AT+CIPCLOSE",  fATCIPCLOSE},
 	{"AT+CIPDNS",    fATCIPDNS},
 	{"AT+CIPSERVERMAXCONN", fATCIPSERVERMAXCONN},
+	{"AT+CIPSERVER", fATCIPSERVER},
 };
 
 void print_tcpip_at(void *arg)
