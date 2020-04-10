@@ -3025,6 +3025,20 @@ static void client_send_task(void *param)
 
 __ret:
 	if (nd->tx_len) {
+		// drain all data pbufs left
+		while (nd->tx_len > 0) {
+			int n = at_net_load_data(_tx_buffer, sizeof _tx_buffer);
+
+			if (n <= 0) {
+				rtw_msleep_os(20);
+				if (++timeout > 50 * 5/* seconds */) {
+					break;
+				}
+				continue;
+			}
+
+			nd->tx_len -= n;
+		}
 		at_printf("\r\nSEND FAIL\r\n");
 	} else {
 		at_printf("\r\nSEND OK\r\n");
