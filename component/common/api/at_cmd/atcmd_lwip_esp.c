@@ -851,8 +851,23 @@ static void client_start_task(void *param)
 	return;
 }
 
+/* Sync the sequence of task server_send_task and parent task */
+static _sema server_started, server_ok_sync;
+
 static void server_start_task(void *param)
 {
+	if (esp_compatible_recv) {
+		rtw_init_sema(&server_ok_sync, 0);
+
+		// tell parent task we had started.
+		rtw_up_sema(&server_started);
+
+		// Wait for parent task sent "OK"
+		rtw_down_sema(&server_ok_sync);
+
+		rtw_free_sema(&server_ok_sync);
+	}
+
 	vTaskDelay(1000);
 
 
@@ -3269,7 +3284,18 @@ void fATCIPSERVER(void *arg) {
 		goto _e_ret;
 	}
 
+	rtw_init_sema(&server_started, 0);
+
+	// Wait for task server_send_task started.
+	rtw_down_sema(&server_started);
+
+	// maybe move "OK" to the server_start_task
 	at_printf(STR_RESP_OK);
+
+	// Inform task client_send_task we had sent "OK"
+	rtw_up_sema(&server_ok_sync);
+
+	rtw_free_sema(&server_started);
 
 	goto __ret;
 
