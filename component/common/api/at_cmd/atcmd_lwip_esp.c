@@ -457,6 +457,10 @@ static void server_start(void *param)
 						node *seednode = _create_node(s_mode, NODE_ROLE_SEED, server_max_conn - 1);
 						if (seednode == NULL) {
 							AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS]create node failed!");
+
+							// we have to
+							close(s_newsockfd);
+
 							rt = 11;
 							goto err_exit;
 						}
@@ -784,12 +788,13 @@ static void client_start_task(void *param)
 static void server_start_task(void *param)
 {
 	vTaskDelay(1000);
+
+
 	if (param != NULL) {
 		server_start(param);
-		vTaskDelete(NULL);
-		return;
 	}
 	vTaskDelete(NULL);
+	return;
 }
 
 //AT Command function
