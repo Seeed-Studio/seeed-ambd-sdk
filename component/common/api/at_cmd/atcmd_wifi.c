@@ -3309,7 +3309,7 @@ void fATCWJAP(void* arg) {
 	}
 
 	extern void task_connect_to_ap(void *param);
-	#if 1
+	#if 0
 	/* Asynchronized the connection process */
 	r = xTaskCreate(task_connect_to_ap, "conn-to-ap", 1024, NULL, tskIDLE_PRIORITY + 5, NULL);
 	if (r == pdPASS) {
