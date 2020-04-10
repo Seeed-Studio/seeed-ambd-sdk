@@ -476,7 +476,9 @@ static void server_start(void *param)
 				s_client = sizeof s_cli_addr;
 				if ((s_newsockfd = accept(s_sockfd, (struct sockaddr *) &s_cli_addr, &s_client)) < 0) {
 					if (param != NULL) {
-						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS] ERROR:ERROR on accept");
+						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
+							"[ATPS] ERROR:ERROR on accept, errno = %d(%s)\r\n",
+							errno, strerror(errno));
 					}
 
 					if (esp_compatible_recv) {
@@ -1999,6 +2001,11 @@ static void atcmd_lwip_receive_task(void *param)
 
 			if (esp_compatible_recv) {
 				if (rt < 0) {
+					printf("+IPD Error %d receiving data, errno = %d(%s)\n",
+						rt, errno, strerror(errno));
+					if (cn->sockfd == INVALID_SOCKET_ID) {
+						delete_node(cn);
+					}
 					continue;
 				}
 				if (recv_size == 0) {
@@ -2779,7 +2786,6 @@ void fATCIPSTART(void *arg)
 	const int local_port = 0;
 	node *clientnode = NULL;
 	int remote_port;
-	u32 clt_task_stksz = ATCP_STACK_SIZE;
 
 	/* TODO: transparent transmission mode checking */
 
@@ -2824,7 +2830,7 @@ void fATCIPSTART(void *arg)
 	clientnode->local_port = local_port;
 
 	#if 0
-	if (xTaskCreate(client_esp_task, "clt_tsk", clt_task_stksz, clientnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS) {
+	if (xTaskCreate(client_esp_task, "clt_tsk", ATCP_STACK_SIZE, clientnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS) {
 		printf("+CIPSTART: Create TCP/UDP/SSL client task failed\r\n");
 		r = -5;
 		goto __clean_node;
@@ -2976,6 +2982,7 @@ static void client_send_task(void *param)
 	LOG_SERVICE_LOCK();
 	at_printf(">");
 
+	int err_del_node = 0;
 	int timeout = 0;
 	while (nd->tx_len > 0) {
 		int n = at_net_load_data(_tx_buffer, sizeof _tx_buffer);
@@ -2990,7 +2997,11 @@ static void client_send_task(void *param)
 
 		int r = atcmd_lwip_send_data(nd, _tx_buffer, n, nd->udp_dest);
 		if (r) {
-			printf("+CIPSEND: Error %d sending data\n", r);
+			if (errno == ENOTCONN || errno == EBADF) {
+				err_del_node = 1;
+			}
+			printf("+CIPSEND: Error %d sending data, errno = %d(%s)\n",
+				r, errno, strerror(errno));
 			break;
 		}
 		nd->tx_len -= n;
@@ -3006,6 +3017,11 @@ __ret:
 	at_set_data_counter(nd->tx_len = 0);
 
 	rtw_free_sema(&client_ok_sync);
+
+	if (err_del_node) {
+		at_printf("\r\n%d,CLOSED\r\n", nd->con_id);
+		delete_node(nd);
+	}
 
 	vTaskDelete(NULL);
 	return;
