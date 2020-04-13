@@ -393,7 +393,7 @@
  * Enable SPI_ATCMD should also enable
  * #define ATCMD_VER ATVER_2
  */
-#define CONFIG_EXAMPLE_SPI_ATCMD 0
+#define CONFIG_EXAMPLE_SPI_ATCMD 1
 
 #if CONFIG_EXAMPLE_SPI_ATCMD
 #undef CONFIG_OTA_UPDATE
