@@ -163,20 +163,35 @@ void setup() {
   Serial.begin(115200);
   while(!Serial);
 
-  // start the SPI library:
-  SPIX.begin();
-  // Start SPI transaction at a quarter of the MAX frequency
-  SPIX.beginTransaction(SPISettings(MAX_SPI / 4, MSBFIRST, SPI_MODE0));
-  Serial.println("Begin SPI:");
+  // Reset SPI slave device
+  pinMode(RTL8720D_CHIP_PU, OUTPUT);
+  digitalWrite(RTL8720D_CHIP_PU, LOW);
 
   // initalize the  data ready and chip select pins:
   pinMode(chipSyncPin, INPUT);
   pinMode(chipSelectPin, OUTPUT);
+  digitalWrite(chipSelectPin, HIGH);
+
+  // start the SPI library:
+  Serial.println("Begin SPI:");
+  SPIX.begin();
+  // Start SPI transaction at a quarter of the MAX frequency
+  SPIX.beginTransaction(SPISettings(MAX_SPI / 4, MSBFIRST, SPI_MODE0));
 
   Serial.println("\nConnecting");
 
+  // When RTL8720D startup, set pin UART_LOG_TXD to lowlevel
+  // will force the device enter UARTBURN mode.
+  // Explicit high level will prevent above things.
+  pinMode(PIN_SERIAL2_RX, OUTPUT);
+  digitalWrite(PIN_SERIAL2_RX, HIGH);
+
+  // Release RTL8720D reset, start bootup.
+  digitalWrite(RTL8720D_CHIP_PU, HIGH);
   // give the slave time to set up
-  delay(100);
+  delay(50);
+  pinMode(PIN_SERIAL2_RX, INPUT);
+
   Serial.println("Ready! Enter some AT commands");
 
   return;
