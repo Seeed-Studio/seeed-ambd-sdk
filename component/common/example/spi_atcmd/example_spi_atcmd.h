@@ -16,8 +16,8 @@
 #define USI_SPI_MISO PA_26
 #define USI_SPI_SCLK PA_30
 #define USI_SPI_CS   PA_28
-#define GPIO_HRDY    PB_21
-#define GPIO_SYNC    PA_12
+#define GPIO_HRDY    PA_12
+#define GPIO_SYNC    PA_13
 #define IS_USI_SPI 1
 #else
 #define SPI0_MOSI  PC_2

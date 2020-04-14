@@ -8,12 +8,12 @@
 
 // pins used for the connection with the device
 // the other you need are controlled by the SPI library):
-#define SPIX             SPI
-const int chipSelectPin = SS;
+#define SPIX             SPI1
+const int chipSelectPin = SS1;
 
 #define SPI_STATE_MISO    0
 #define SPI_STATE_MOSI  (!0)
-const int chipSyncPin  =  0;
+const int chipSyncPin  =  RTL8720D_GPIO0;
 
 // SPI transfer tags, commonly used by target SPI AT device
 enum {
