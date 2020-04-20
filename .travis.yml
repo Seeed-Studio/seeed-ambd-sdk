@@ -1,0 +1,27 @@
+language: generic
+dist: bionic
+sudo: required
+
+addons:
+  apt:
+    update: true
+    packages:
+      - libc6-i386
+
+# default phases
+install:
+  - GCC_URL="http://files.seeedstudio.com/arduino/tools/arm-none-eabi/asdk-6.4.1-linux-newlib-build-2773-i686.tar.bz2"
+  - GCC_TOOL="project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp/toolchain/asdk/$(basename $GCC_URL)"
+  # - mkdir -p $(dirname $GCC_TOOL)
+  - curl -fsSL $GCC_URL -o $GCC_TOOL
+
+script:
+  - make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp
+  - make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp
+
+notifications:
+  webhooks:
+    urls:
+      - https://www.travisbuddy.com/
+    on_success: never
+    on_failure: always
