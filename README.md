@@ -55,7 +55,7 @@ Three binary files (km0_boot_all.bin, km4_boot_all.bin, km0_km4_image2.bin) must
 <div>
   <table border="0">
     <tr align="center">
-      <th>Command</th>
+      <th>WiFi/TCP Command</th>
       <th>Format</th>
       <th>Argument/Comment</th>
       <th>Response</th>
@@ -199,6 +199,120 @@ Three binary files (km0_boot_all.bin, km4_boot_all.bin, km0_km4_image2.bin) must
       <td>AT+CIPSERVER</td>
       <td>AT+CIPSERVER</td>
       <td>Create a TCP/UDP Server to accept connection from Client</td>
+      <td>OK</td>
+    </tr>
+  </table>
+
+  <table border="0">
+    <tr align="center">
+      <th>BLE Command</th>
+      <th>Format</th>
+      <th>Argument/Comment</th>
+      <th>Response</th>
+    </tr>
+    <tr align="center">
+      <td>ATBp</td>
+      <td>ATBp=&lt;start-stop&gt;</td>
+      <td>Start/stop BLE peripheral<br>
+      &lt;start-stop&gt; could be 0(stop) or 1(start)
+      <br>
+      </td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBc</td>
+      <td>ATBc</td>
+      <td>Start/stop BLE Central</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBS</td>
+      <td>ATBS</td>
+      <td>Scan BT</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBC</td>
+      <td>ATBC</td>
+      <td>Create a GATT connection(connect to remote device)</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBD</td>
+      <td>ATBD</td>
+      <td>Disconnect from remote device</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBK</td>
+      <td>ATBK</td>
+      <td>Reply GAP passkey, config authentication mode</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBG</td>
+      <td>ATBG</td>
+      <td>Get peripheral information</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBI</td>
+      <td>ATBI</td>
+      <td>Get information of connected device</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBY</td>
+      <td>ATBY</td>
+      <td>Reply GAP user confirm</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBU</td>
+      <td>ATBU</td>
+      <td>Update connection request</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBO</td>
+      <td>ATBO</td>
+      <td>Get/clear bond information</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBR</td>
+      <td>ATBR</td>
+      <td>GATT client read</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBW</td>
+      <td>ATBW</td>
+      <td>GATT client write</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBB</td>
+      <td>ATBB</td>
+      <td>Start/stop BT config</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBJ</td>
+      <td>ATBJ</td>
+      <td>Start/stop BT Beacon</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBb</td>
+      <td>ATBb</td>
+      <td>Start/stop BT Airsync config</td>
+      <td>OK</td>
+    </tr>
+    <tr align="center">
+      <td>ATBf</td>
+      <td>ATBf</td>
+      <td>Start/stop BLE Scatternet</td>
       <td>OK</td>
     </tr>
   </table>
