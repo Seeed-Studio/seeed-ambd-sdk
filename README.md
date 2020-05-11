@@ -46,9 +46,9 @@ Three binary files (km0_boot_all.bin, km4_boot_all.bin, km0_km4_image2.bin) must
 
 ## How to burn images to RTL87XX chip
 
-'''
-    TODO
-'''
+Refer to [Wio-Terminal-Network-Overview](https://wiki.seeedstudio.com/Wio-Terminal-Network-Overview)
+to update to Wio Terminal.  
+Or Step 'Updating the Firmware' in above page to update to other RTL8720D device.
 
 ## AT command list
 
