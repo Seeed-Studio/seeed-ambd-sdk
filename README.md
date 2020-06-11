@@ -1,4 +1,4 @@
-# Seeed RTL87XX AT firmware [![Build Status](https://travis-ci.com/Seeed-Studio/seeed-ambd-sdk.svg?branch=AT)](https://travis-ci.com/github/Seeed-Studio/ambd_sdk)
+# Seeed RTL87XX AT firmware [![Build Status](https://travis-ci.com/Seeed-Studio/ambd-sdk.svg?branch=AT)](https://travis-ci.com/github/Seeed-Studio/seeed-ambd-sdk)
 
 ## Introduction
 
