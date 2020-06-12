@@ -3797,6 +3797,67 @@ void fATCIPDINFO(void* arg) {
 	return;
 }
 
+/* default country JP */
+static uint16_t at_wifi_country = RTW_COUNTRY_JP,
+		at_wifi_channel_plan = 0x27;
+
+/* override the one in api/wifi/wifi_conf.c */
+void wifi_set_country_code(void) {
+	wifi_set_country(at_wifi_country);
+	wifi_change_channel_plan(at_wifi_channel_plan);
+	return;
+}
+
+void fATCWCNTY(void* arg) {
+	int argc;
+	char *argv[MAX_ARGC] = { 0 };
+	int country, channel = -1;
+
+	if (!arg) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	argc = parse_param(arg, argv);
+	if (argc < 2 || argv[1] == NULL) {
+		at_printf(STR_RESP_FAIL);
+		return;
+	}
+
+	// Query
+	if (*argv[1] == '?') {
+		at_printf("+CWCNTY:%d,%d\r\n", at_wifi_country, at_wifi_channel_plan);
+		at_printf(STR_RESP_OK);
+		return;
+	}
+
+	// Set
+	country = atoi(argv[1]);
+	if (country < 0 || country >= RTW_COUNTRY_MAX) {
+		at_printf(STR_RESP_FAIL);
+	}
+
+	if (argc >= 3) {
+		channel = atoi(argv[2]);
+		if (channel < 0 || channel >= 0x100) {
+			at_printf(STR_RESP_FAIL);
+		}
+	}
+
+	if (country >= 0) {
+		at_wifi_country = country;
+		wifi_set_country(at_wifi_country);
+	}
+
+	if (channel > 0) {
+		at_wifi_channel_plan = channel;
+		wifi_change_channel_plan(at_wifi_channel_plan);
+	}
+
+	at_printf(STR_RESP_OK);
+	return;
+}
+
 
 
 
@@ -3913,6 +3974,7 @@ log_item_t at_wifi_items[] = {
 	{"AT+CWQAP",  fATCWQAP},
 	{"AT+CWJAP",  fATCWJAP},
 	{"AT+CWSAP",  fATCWSAP},
+	{"AT+CWCNTY", fATCWCNTY},
 	{"AT+CIPMUX", fATCIPMUX,},
 	{"AT+CIPSTA", fATCIPSTA},
 	{"AT+CIPSTAMAC", fATCIPSTAMAC},
