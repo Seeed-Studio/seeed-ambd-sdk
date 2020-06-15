@@ -104,7 +104,7 @@ void fATGMR(void *arg)
 	/* To avoid gcc warnings */
 	( void ) arg;
 
-	i += sprintf(buf + i, "AT version:" "2.2.0.0(0 - %s %s)\r\n",
+	i += sprintf(buf + i, "AT version:" "2.2.0.1(0 - %s %s)\r\n",
 		__DATE__, __TIME__);
 	i += sprintf(buf + i, "SDK version:%s\r\n", "v6.2c");
 	i += sprintf(buf + i, "compile time (0):%s\r\n",
