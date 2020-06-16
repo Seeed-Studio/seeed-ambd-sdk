@@ -3798,13 +3798,13 @@ void fATCIPDINFO(void* arg) {
 }
 
 /* default country JP */
-static uint16_t at_wifi_country = RTW_COUNTRY_JP,
+static uint16_t at_wifi_country = RTW_COUNTRY_US,
 		at_wifi_channel_plan = 0x27;
 
 /* override the one in api/wifi/wifi_conf.c */
 void wifi_set_country_code(void) {
-	wifi_set_country(at_wifi_country);
 	wifi_change_channel_plan(at_wifi_channel_plan);
+	wifi_set_country(at_wifi_country);
 	return;
 }
 
