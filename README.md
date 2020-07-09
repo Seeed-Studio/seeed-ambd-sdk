@@ -320,7 +320,7 @@ Or Step 'Updating the Firmware' in above page to update to other RTL8720D device
 
 ----
 
-This software is written by Seeed Studio<br>
+This software AT command section is written by Seeed Studio<br>
 and is licensed under [The MIT License](http://opensource.org/licenses/mit-license.php). Check License.txt for more information.<br>
 
 Contributing to this software is warmly welcomed. You can do this basically by<br>
