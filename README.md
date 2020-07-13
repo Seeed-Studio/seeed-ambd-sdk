@@ -32,8 +32,13 @@ or act as a TCP server (Web Server, Telnet Server, etc).
 
 ```shell
     make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp
-    make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp
+    make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp CONFIG_WIFI_COUNTRY=RTW_COUNTRY_US CONFIG_WIFI_CHANNEL_PLAN=0x27
 ```
+
+|Country|CONFIG_WIFI_COUNTRY|CONFIG_WIFI_CHANNEL_PLAN|
+|:--|:--|:--|
+|United States|RTW_COUNTRY_US|0x27|
+|Japan|RTW_COUNTRY_JP|0x27|
 
 - Check images compiled  
 Three binary files (km0_boot_all.bin, km4_boot_all.bin, km0_km4_image2.bin) must be exist if compiling successful.

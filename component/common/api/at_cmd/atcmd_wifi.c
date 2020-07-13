@@ -3797,9 +3797,9 @@ void fATCIPDINFO(void* arg) {
 	return;
 }
 
-/* default country JP */
-static uint16_t at_wifi_country = RTW_COUNTRY_US,
-		at_wifi_channel_plan = 0x27;
+/* default country */
+static uint16_t at_wifi_country = CONFIG_WIFI_COUNTRY,
+		at_wifi_channel_plan = CONFIG_WIFI_CHANNEL_PLAN;
 
 /* override the one in api/wifi/wifi_conf.c */
 void wifi_set_country_code(void) {
