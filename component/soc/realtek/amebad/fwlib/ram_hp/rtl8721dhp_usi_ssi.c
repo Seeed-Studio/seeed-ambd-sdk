@@ -940,7 +940,7 @@ u32 USI_SSI_SendData(USI_TypeDef *usi_dev,
 
 	if (Writeable) {
 		/* Disable Tx FIFO Empty IRQ */
-		USI_SSI_INTConfig(usi_dev, USI_TXFIFO_ALMOST_EMTY_INTR_EN, DISABLE);
+		//USI_SSI_INTConfig(usi_dev, USI_TXFIFO_ALMOST_EMTY_INTR_EN, DISABLE);
 
 		while (TxWriteMax--) {
 			if (DataFrameSize > 8) {
@@ -974,7 +974,7 @@ u32 USI_SSI_SendData(USI_TypeDef *usi_dev,
 		}
 
 		/* Enable Tx FIFO Empty IRQ */
-		USI_SSI_INTConfig(usi_dev, USI_TXFIFO_ALMOST_EMTY_INTR_EN, ENABLE);
+		//USI_SSI_INTConfig(usi_dev, USI_TXFIFO_ALMOST_EMTY_INTR_EN, ENABLE);
 	}
 
 	return (Length - TxLength);

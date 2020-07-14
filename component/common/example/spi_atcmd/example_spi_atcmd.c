@@ -38,10 +38,9 @@
 #include "lwip/pbuf.h"
 
 #include "Intercom.h"
-#include "DebugDout.h"
 
 /**** LOG SERVICE ****/
-#define LOG_TX_BUFFER_SIZE	(1024)
+#define LOG_TX_BUFFER_SIZE	(2048)
 
 static uint8_t spi_rx_buf[LOG_SERVICE_BUFLEN];
 static struct
@@ -75,7 +74,7 @@ void spi_at_send_buf(uint8_t* buf, uint32_t size)
 	struct pbuf* pb;
 
 	if (size >= UINT16_MAX || !(pb = pbuf_alloc(PBUF_RAW, size, PBUF_RAM))) {
-		printf("L%d at tx overflow size=%u\n", __LINE__, size);
+		printf("L%d at tx overflow size=%d\n", __LINE__, (int)size);
 		return;
 	}
 
@@ -189,7 +188,6 @@ static void spi_atcmd_initial(void)
 {
 	wifi_disable_powersave();
 
-	DebugDoutInit();
 	IntercomInit();
 }
 
@@ -211,7 +209,9 @@ static void spi_trx_thread(void* param)
 		IntercomRx(&u.v8[0], 1);
 		if (u.v8[0] != SPT_TAG_PRE)
 		{
-			if (u.v8[0] != SPT_TAG_DMY) printf("*R%02X\n", u.v8[0]);
+			if (u.v8[0] != SPT_TAG_DMY) {
+				printf("*R%02X\n", u.v8[0]);
+			}
 			continue;
 		}
 

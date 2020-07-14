@@ -13,12 +13,14 @@ void DebugDoutInit(void)
 	gpioDef.GPIO_Mode = GPIO_Mode_OUT;
 	gpioDef.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_Init(&gpioDef);
+	DebugDout0(0);
 
 	memset(&gpioDef, 0, sizeof(gpioDef));
 	gpioDef.GPIO_Pin = PIN_DEBUG_DOUT1;
 	gpioDef.GPIO_Mode = GPIO_Mode_OUT;
 	gpioDef.GPIO_PuPd = GPIO_PuPd_NOPULL;
 	GPIO_Init(&gpioDef);
+	DebugDout1(0);
 }
 
 void DebugDout0(bool on)

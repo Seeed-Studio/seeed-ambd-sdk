@@ -3,7 +3,6 @@
 #include <osdep_service.h>
 #include <device.h>
 #include "rtl8721d_usi_ssi.h"
-#include "DebugDout.h"
 
 #define PIN_DIR_RX			(_PA_13)
 #define PIN_EXIST_TX_DATA	(_PA_12)
@@ -12,6 +11,8 @@
 #define USI_SPI_MISO		(PA_26)
 #define USI_SPI_SCLK		(PA_30)
 #define USI_SPI_CS			(PA_28)
+
+#define min(a,b)			((a)<(b) ? (a):(b))
 
 typedef struct
 {
@@ -33,78 +34,78 @@ static USISSI_OBJ USISsiObj;
 static _sema _SemaRxDone;
 static _sema _SemaTxDone;
 
-static void USISsiFlushRxFifo(P_USISSI_OBJ pHalSsiAdaptor)
+static u32 USISsiInterruptHandle(void* Adaptor)
 {
-	while (USI_SSI_Readable(pHalSsiAdaptor->usi_dev))
-	{
-		u32 rx_fifo_level = USI_SSI_GetRxCount(pHalSsiAdaptor->usi_dev);
-		for (u32 i = 0; i < rx_fifo_level; ++i)
-		{
-			USI_SSI_ReadData(pHalSsiAdaptor->usi_dev);
+	P_USISSI_OBJ usi_ssi_adapter = (P_USISSI_OBJ)Adaptor;
+	u32 InterruptStatus = USI_SSI_GetIsr(usi_ssi_adapter->usi_dev);
+
+	USI_SSI_SetIsrClean(usi_ssi_adapter->usi_dev, InterruptStatus);
+
+	if (InterruptStatus & USI_RXFIFO_ALMOST_FULL_INTS) {
+		u32 TransLen = USI_SSI_ReceiveData(usi_ssi_adapter->usi_dev, usi_ssi_adapter->RxData, usi_ssi_adapter->RxLength);
+		usi_ssi_adapter->RxLength -= TransLen;
+		if (usi_ssi_adapter->RxData != NULL) usi_ssi_adapter->RxData = (void*)(((u8*)usi_ssi_adapter->RxData) + TransLen);
+
+		if (usi_ssi_adapter->RxLength >= 1) {
+			USI_SSI_SetRxFifoLevel(USI0_DEV, min(usi_ssi_adapter->RxLength - 1, USI_SPI_RX_FIFO_DEPTH / 2));
 		}
+		else {
+			USI_SSI_INTConfig(usi_ssi_adapter->usi_dev, (USI_RXFIFO_ALMOST_FULL_INTR_EN | USI_RXFIFO_OVERFLOW_INTR_EN | USI_RXFIFO_UNDERFLOW_INTR_EN), DISABLE);
+			rtw_up_sema(&_SemaRxDone);
+		}
+	}
+
+	if (InterruptStatus & USI_TXFIFO_ALMOST_EMTY_INTS) {
+		u32 TransLen = USI_SSI_SendData(usi_ssi_adapter->usi_dev, usi_ssi_adapter->TxData, usi_ssi_adapter->TxLength, usi_ssi_adapter->Role);
+		usi_ssi_adapter->TxLength -= TransLen;
+		if (usi_ssi_adapter->TxData != NULL) usi_ssi_adapter->TxData = (void*)(((u8*)usi_ssi_adapter->TxData) + TransLen);
+
+		if (usi_ssi_adapter->TxLength == 0) {
+			USI_SSI_INTConfig(usi_ssi_adapter->usi_dev, (USI_TXFIFO_OVERFLOW_INTR_EN | USI_TXFIFO_ALMOST_EMTY_INTR_EN), DISABLE);
+			rtw_up_sema(&_SemaTxDone);
+		}
+	}
+
+	return 0;
+}
+
+static void USISsiSlaveReadStream(P_USISSI_OBJ pUSISsiObj, char* rx_buffer, u32 length)
+{
+	while (USI_SSI_Busy(pUSISsiObj->usi_dev));
+
+	pUSISsiObj->RxLength = length;
+	pUSISsiObj->RxData = rx_buffer;
+
+	u32 TransLen = USI_SSI_ReceiveData(pUSISsiObj->usi_dev, pUSISsiObj->RxData, pUSISsiObj->RxLength);
+	pUSISsiObj->RxLength -= TransLen;
+	if (pUSISsiObj->RxData != NULL) pUSISsiObj->RxData = (void*)(((u8*)pUSISsiObj->RxData) + TransLen);
+
+	if (pUSISsiObj->RxLength >= 1) {
+		USI_SSI_SetRxFifoLevel(USI0_DEV, min(pUSISsiObj->RxLength - 1, USI_SPI_RX_FIFO_DEPTH / 2));
+		USI_SSI_INTConfig(pUSISsiObj->usi_dev, (USI_RXFIFO_ALMOST_FULL_INTR_EN | USI_RXFIFO_OVERFLOW_INTR_EN | USI_RXFIFO_UNDERFLOW_INTR_EN), ENABLE);
+	}
+	else {
+		rtw_up_sema(&_SemaRxDone);
 	}
 }
 
-static void USISsiDmaRxIrqHandle(P_USISSI_OBJ pUSISsiObj)
+static void USISsiSlaveWriteStream(P_USISSI_OBJ pUSISsiObj, char* tx_buffer, u32 length)
 {
-	u32 Length = pUSISsiObj->RxLength;
-	u32* pRxData = pUSISsiObj->RxData;
-	PGDMA_InitTypeDef GDMA_InitStruct;
+	while (USI_SSI_Busy(pUSISsiObj->usi_dev));
 
-	GDMA_InitStruct = &pUSISsiObj->USISsiRxGdmaInitStruct;
-
-	/* Clear Pending ISR */
-	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
-
-	DCache_Invalidate((u32)pRxData, Length);
-
-	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_RX_DMA_ENABLE);
-
-	/*  RX complete callback */
-	rtw_up_sema(&_SemaRxDone);
-
-	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-
-	DebugDout0(0);
-}
-
-static void USISsiSlaveReadStreamDma(P_USISSI_OBJ pUSISsiObj, u8* rx_buffer, u32 length)
-{
-	DebugDout0(1);
-
-	pUSISsiObj->RxLength = length;
-	pUSISsiObj->RxData = (void*)rx_buffer;
-
-	USI_SSI_RXGDMA_Init(0, &pUSISsiObj->USISsiRxGdmaInitStruct, pUSISsiObj, (IRQ_FUN)USISsiDmaRxIrqHandle, rx_buffer, length);
-	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_RX_DMA_ENABLE);
-}
-
-static void USISsiDmaTxIrqHandle(P_USISSI_OBJ pUSISsiObj)
-{
-	PGDMA_InitTypeDef GDMA_InitStruct;
-
-	GDMA_InitStruct = &pUSISsiObj->USISsiTxGdmaInitStruct;
-
-	/* Clear Pending ISR */
-	GDMA_ClearINT(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-	GDMA_Cmd(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum, DISABLE);
-
-	/*  TX complete callback */
-	rtw_up_sema(&_SemaTxDone);
-
-	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, DISABLE, USI_TX_DMA_ENABLE);
-
-	GDMA_ChnlFree(GDMA_InitStruct->GDMA_Index, GDMA_InitStruct->GDMA_ChNum);
-}
-
-static void USISsiSlaveWriteStreamDma(P_USISSI_OBJ pUSISsiObj, const u8* tx_buffer, u32 length)
-{
 	pUSISsiObj->TxLength = length;
-	pUSISsiObj->TxData = (void*)tx_buffer;
+	pUSISsiObj->TxData = tx_buffer;
 
-	USI_SSI_TXGDMA_Init(0, &pUSISsiObj->USISsiTxGdmaInitStruct, pUSISsiObj, (IRQ_FUN)USISsiDmaTxIrqHandle, (u8*)tx_buffer, length);
-	USI_SSI_SetDmaEnable(pUSISsiObj->usi_dev, ENABLE, USI_TX_DMA_ENABLE);
+	u32 TransLen = USI_SSI_SendData(pUSISsiObj->usi_dev, pUSISsiObj->TxData, pUSISsiObj->TxLength, pUSISsiObj->Role);
+	pUSISsiObj->TxLength -= TransLen;
+	if (pUSISsiObj->TxData != NULL) pUSISsiObj->TxData = (void*)(((u8*)pUSISsiObj->TxData) + TransLen);
+
+	if (pUSISsiObj->TxLength >= 1) {
+		USI_SSI_INTConfig(pUSISsiObj->usi_dev, (USI_TXFIFO_OVERFLOW_INTR_EN | USI_TXFIFO_ALMOST_EMTY_INTR_EN), ENABLE);
+	}
+	else {
+		rtw_up_sema(&_SemaTxDone);
+	}
 }
 
 void IntercomInit(void)
@@ -135,8 +136,10 @@ void IntercomInit(void)
 	Pinmux_Config(USI_SPI_CS  , PINMUX_FUNCTION_SPIS);
 	Pinmux_Config(USI_SPI_SCLK, PINMUX_FUNCTION_SPIS);
 
+	PAD_PullCtrl(USI_SPI_MOSI, GPIO_PuPd_NOPULL);
+	PAD_PullCtrl(USI_SPI_MISO, GPIO_PuPd_NOPULL);
 	PAD_PullCtrl(USI_SPI_CS  , GPIO_PuPd_UP);
-	PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_DOWN);
+	PAD_PullCtrl(USI_SPI_SCLK, GPIO_PuPd_NOPULL);
 
 	USI_SSI_InitTypeDef USI_SSI_InitStruct;
 	USI_SSI_StructInit(&USI_SSI_InitStruct);
@@ -145,8 +148,11 @@ void IntercomInit(void)
 	USI_SSI_InitStruct.USI_SPI_SclkPolarity = USI_SPI_SCPOL_INACTIVE_IS_LOW;
 	USI_SSI_InitStruct.USI_SPI_DataFrameSize = 8 - 1;
 	USI_SSI_Init(USI0_DEV, &USI_SSI_InitStruct);
+	USI_SSI_SetTxFifoLevel(USI0_DEV, USI_SPI_TX_FIFO_DEPTH / 2);
 
 	USISsiObj.usi_dev = USI0_DEV;
+	InterruptRegister((IRQ_FUN)USISsiInterruptHandle, USI_IRQ, (u32)&USISsiObj, 10);
+	InterruptEn(USI_IRQ, 10);
 }
 
 void IntercomDirRx(bool on)
@@ -161,37 +167,22 @@ void IntercomExistTxData(bool on)
 
 int IntercomRx(u8* buf, u16 len)
 {
-	USISsiSlaveReadStreamDma(&USISsiObj, buf, len);
+	USISsiSlaveReadStream(&USISsiObj, buf, len);
 
-	DebugDout1(1);
 	rtw_down_sema(&_SemaRxDone);
-	DebugDout1(0);
 
 	return len;
 }
 
 int IntercomTx(const u8* buf, u16 len)
 {
-	static u8* readBuf = NULL;
-	static u16 readLen = 0;
-
-	if (len > readLen)
-	{
-		if (readBuf != NULL) free(readBuf);
-
-		readLen = len;
-		readBuf = malloc(sizeof(u8) * readLen);
-	}
-
-	USISsiSlaveWriteStreamDma(&USISsiObj, buf, len);
-	USISsiSlaveReadStreamDma(&USISsiObj, readBuf, len);
+	USISsiSlaveWriteStream(&USISsiObj, buf, len);
+	USISsiSlaveReadStream(&USISsiObj, NULL, len);
 
 	IntercomDirRx(false);
 
-	DebugDout1(1);
 	rtw_down_sema(&_SemaTxDone);
 	rtw_down_sema(&_SemaRxDone);
-	DebugDout1(0);
 
 	IntercomDirRx(true);
 

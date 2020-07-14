@@ -20,7 +20,6 @@
 #include "usi_ex_api.h"
 #include "PinNames.h"
 #include "pinmap.h"
-#include "../../../../example/spi_atcmd/DebugDout.h"
 
 /** @addtogroup AmebaD_Mbed_API 
   * @{
@@ -139,7 +138,7 @@ static u32 uspi_interrupt(void *Adaptor)
 		DBG_PRINTF(MODULE_SPI, LEVEL_INFO, "[INT] Tx/Rx Warning %x \n", InterruptStatus);
 	}
 
-	if (InterruptStatus & USI_RXFIFO_ALMOST_FULL_INTS) {
+	if ((InterruptStatus & USI_RXFIFO_ALMOST_FULL_INTS) ) {
 		u32 TransLen = 0;
 
 		TransLen = USI_SSI_ReceiveData(ssi_adapter->spi_dev, ssi_adapter->RxData, ssi_adapter->RxLength);
@@ -164,36 +163,65 @@ static u32 uspi_interrupt(void *Adaptor)
 	}
 
 	if (InterruptStatus & USI_TXFIFO_ALMOST_EMTY_INTS) {
-		DebugDout0(true);
+		u32 TransLen = 0;
 
-		u32 TransLen = USI_SSI_SendData(ssi_adapter->spi_dev, ssi_adapter->TxData, ssi_adapter->TxLength, ssi_adapter->Role);
+		/* all data complete */
+		if (ssi_adapter->TxLength == 0) {
+			volatile u32 bus_busy;
+			u32 i;
 
-		ssi_adapter->TxLength -= TransLen;
-		if (DataFrameSize > 8) {
-			// 16~9 bits mode
-			ssi_adapter->TxData = (void*)(((u16*)ssi_adapter->TxData) + TransLen);
-		} else {
-			// 8~4 bits mode
-			ssi_adapter->TxData = (void*)(((u8*)ssi_adapter->TxData) + TransLen);
+			USI_SSI_INTConfig(ssi_adapter->spi_dev,
+					  (USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_ALMOST_EMTY_INTS),
+					  DISABLE);
+			for (i = 0; i < 1000000; i++) {
+				bus_busy = USI_SSI_Busy(ssi_adapter->spi_dev);
+				if (!bus_busy) {
+					break;  // break the for loop
+				}
+			}
+			
+			// If it's not a dummy TX for master read SPI, then call the TX_done callback
+			if (ssi_adapter->TxData != NULL) {
+				if (ssi_adapter->TxIdleCallback != NULL) {
+					ssi_adapter->TxIdleCallback(ssi_adapter->TxIdleCbPara);
+				}
+			}
+
+			return 0;
 		}
 
+		#if 0 // no effect
+		TransLen = USI_SPI_TX_FIFO_DEPTH - USI_SSI_GetTxCount(ssi_adapter->spi_dev);
+		if (TransLen >= ssi_adapter->TxLength) {
+			// To generate interrupt USI_TXFIFO_ALMOST_EMTY_INTS
+			// when fifo empty or send complete
+			USI_SSI_SetTxFifoLevel(ssi_adapter->spi_dev, 0);
+		}
+		#endif
+
+		TransLen = USI_SSI_SendData(ssi_adapter->spi_dev, ssi_adapter->TxData,
+			ssi_adapter->TxLength, ssi_adapter->Role);
+
+		ssi_adapter->TxLength -= TransLen;
+		if (ssi_adapter->TxData != NULL) {
+			if (DataFrameSize > 8) {
+				// 16~9 bits mode
+				ssi_adapter->TxData = (void*)(((u16*)ssi_adapter->TxData) + TransLen);
+			} else {
+				// 8~4 bits mode
+				ssi_adapter->TxData = (void*)(((u8*)ssi_adapter->TxData) + TransLen);
+			}
+		}
 		/* all data write into fifo */
 		if (ssi_adapter->TxLength == 0) {
-			DebugDout1(true);
-
-			USI_SSI_INTConfig(ssi_adapter->spi_dev, USI_TXFIFO_ALMOST_EMTY_INTS, DISABLE);
-
+			USI_SSI_INTConfig(ssi_adapter->spi_dev, USI_TXFIFO_OVERFLOW_INTS, DISABLE);
 			// If it's not a dummy TX for master read SPI, then call the TX_done callback
 			if (ssi_adapter->TxData != NULL) {
 				if (ssi_adapter->TxCompCallback != NULL) {
 					ssi_adapter->TxCompCallback(ssi_adapter->TxCompCbPara);
 				}
 			}
-
-			DebugDout1(false);
 		}
-
-		DebugDout0(false);
 	}
 
 	return 0;
@@ -247,7 +275,7 @@ static u32 ssi_int_write(void *Adapter, u8 *pTxData, u32 Length)
 
 	ssi_adapter->TxData = (void*)pTxData;
 	// USI_SSI_SetTxFifoLevel(ssi_adapter->spi_dev, _DEFAULT_TXFIFO_THRD);
-	USI_SSI_INTConfig(ssi_adapter->spi_dev, USI_TXFIFO_ALMOST_EMTY_INTS, ENABLE);
+	USI_SSI_INTConfig(ssi_adapter->spi_dev, (USI_TXFIFO_OVERFLOW_INTS | USI_TXFIFO_ALMOST_EMTY_INTS), ENABLE);
 
 	return _TRUE;
 }
