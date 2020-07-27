@@ -37,7 +37,7 @@ or act as a TCP server (Web Server, Telnet Server, etc).
 
 |Country|CONFIG_WIFI_COUNTRY|CONFIG_WIFI_CHANNEL_PLAN|
 |:--|:--|:--|
-|United States|RTW_COUNTRY_US|0x27|
+|United States|RTW_COUNTRY_US|0x25|
 |Japan|RTW_COUNTRY_JP|0x27|
 
 - Check images compiled  
