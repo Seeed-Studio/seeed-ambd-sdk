@@ -3,7 +3,6 @@
 #include <osdep_service.h>
 #include <device.h>
 #include "rtl8721d_usi_ssi.h"
-#include "DebugDout.h"
 
 #define PIN_DIR_RX			(_PA_13)
 #define PIN_EXIST_TX_DATA	(_PA_12)
@@ -43,8 +42,6 @@ static u32 USISsiInterruptHandle(void* Adaptor)
 	USI_SSI_SetIsrClean(usi_ssi_adapter->usi_dev, InterruptStatus);
 
 	if (InterruptStatus & USI_RXFIFO_ALMOST_FULL_INTS) {
-		DebugDout1(true);
-
 		u32 TransLen = USI_SSI_ReceiveData(usi_ssi_adapter->usi_dev, usi_ssi_adapter->RxData, usi_ssi_adapter->RxLength);
 		usi_ssi_adapter->RxLength -= TransLen;
 		if (usi_ssi_adapter->RxData != NULL) usi_ssi_adapter->RxData = (void*)(((u8*)usi_ssi_adapter->RxData) + TransLen);
@@ -56,8 +53,6 @@ static u32 USISsiInterruptHandle(void* Adaptor)
 			USI_SSI_INTConfig(usi_ssi_adapter->usi_dev, (USI_RXFIFO_ALMOST_FULL_INTR_EN | USI_RXFIFO_OVERFLOW_INTR_EN | USI_RXFIFO_UNDERFLOW_INTR_EN), DISABLE);
 			rtw_up_sema(&_SemaRxDone);
 		}
-
-		DebugDout1(false);
 	}
 
 	if (InterruptStatus & USI_TXFIFO_ALMOST_EMTY_INTS) {
@@ -76,7 +71,7 @@ static u32 USISsiInterruptHandle(void* Adaptor)
 
 static void USISsiSlaveReadStream(P_USISSI_OBJ pUSISsiObj, char* rx_buffer, u32 length)
 {
-	while (USI_SSI_Busy(pUSISsiObj->usi_dev));
+	//while (USI_SSI_Busy(pUSISsiObj->usi_dev));
 
 	pUSISsiObj->RxLength = length;
 	pUSISsiObj->RxData = rx_buffer;
@@ -158,8 +153,6 @@ void IntercomInit(void)
 	USISsiObj.usi_dev = USI0_DEV;
 	InterruptRegister((IRQ_FUN)USISsiInterruptHandle, USI_IRQ, (u32)&USISsiObj, 10);
 	InterruptEn(USI_IRQ, 10);
-
-	DebugDoutInit();
 }
 
 void IntercomDirRx(bool on)
@@ -174,13 +167,9 @@ void IntercomExistTxData(bool on)
 
 int IntercomRx(u8* buf, u16 len)
 {
-	DebugDout0(true);
-
 	USISsiSlaveReadStream(&USISsiObj, buf, len);
 
 	rtw_down_sema(&_SemaRxDone);
-
-	DebugDout0(false);
 
 	return len;
 }
