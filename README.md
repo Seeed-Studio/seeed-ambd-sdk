@@ -32,7 +32,7 @@ or act as a TCP server (Web Server, Telnet Server, etc).
 
 ```shell
     make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_lp
-    make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp CONFIG_WIFI_COUNTRY=RTW_COUNTRY_US CONFIG_WIFI_CHANNEL_PLAN=0x27
+    make -C project/realtek_amebaD_va0_example/GCC-RELEASE/project_hp CONFIG_WIFI_COUNTRY=RTW_COUNTRY_US CONFIG_WIFI_CHANNEL_PLAN=0x25
 ```
 
 |Country|CONFIG_WIFI_COUNTRY|CONFIG_WIFI_CHANNEL_PLAN|
