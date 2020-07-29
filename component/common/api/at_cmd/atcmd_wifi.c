@@ -3803,9 +3803,8 @@ static uint16_t at_wifi_country = CONFIG_WIFI_COUNTRY,
 
 /* override the one in api/wifi/wifi_conf.c */
 void wifi_set_country_code(void) {
-	wifi_change_channel_plan(at_wifi_channel_plan);
 	wifi_set_country(at_wifi_country);
-	return;
+	wifi_change_channel_plan(at_wifi_channel_plan);
 }
 
 void fATCWCNTY(void* arg) {
