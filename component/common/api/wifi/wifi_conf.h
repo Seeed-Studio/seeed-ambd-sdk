@@ -46,7 +46,7 @@
  *                    Macros
  ******************************************************/
 
-#define RTW_ENABLE_API_INFO
+//#define RTW_ENABLE_API_INFO
 
 #ifdef RTW_ENABLE_API_INFO
 #if defined(CONFIG_MBED_ENABLED)
@@ -59,7 +59,7 @@
     #define RTW_API_INFO printf
 #endif
 #else
-    #define RTW_API_INFO(args)
+    #define RTW_API_INFO(...)
 #endif
 
 #define MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]

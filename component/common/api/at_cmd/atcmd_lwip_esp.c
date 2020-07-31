@@ -23,13 +23,13 @@
 #endif
 #endif
 
-#define MAX_BUFFER 		(LOG_SERVICE_BUFLEN)
+#define MAX_BUFFER 		(TCP_MSS)
 #define ATCP_STACK_SIZE		1024
 #define ATCP_SSL_STACK_SIZE	2048
 
 
-static unsigned char _tx_buffer[MAX_BUFFER];
-static unsigned char _rx_buffer[MAX_BUFFER];
+static unsigned char _tx_buffer[MAX_BUFFER + 1];
+static unsigned char _rx_buffer[MAX_BUFFER + 1];
 static unsigned char *tx_buffer = _tx_buffer;
 static unsigned char *rx_buffer = _rx_buffer;
 int tx_buffer_size = MAX_BUFFER;
@@ -75,7 +75,7 @@ _WEAK int errno = 0;		//LWIP errno
 static void atcmd_ssl_debug(void *ctx, int level, const char *file, int line, const char *str)
 {
 	if (level <= ATCMD_SSL_DEBUG_LEVEL) {
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "%s", str);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "%s", str);
 	}
 }
 
@@ -334,7 +334,7 @@ static void server_start(void *param)
 			at_printf(STR_END_OF_ATCMD_RET);
 			LOG_SERVICE_UNLOCK();
 		}
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The SSL SERVER START OK!");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "The SSL SERVER START OK!");
 		/***********************************************************
 		*  SSL 3. Waiting for ssl client to connect
 		************************************************************/
@@ -345,12 +345,12 @@ static void server_start(void *param)
 				rt = 22;
 				goto err_exit;
 			}
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "An SSL/TLS client[%s:%d] is connecting",
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "An SSL/TLS client[%s:%d] is connecting",
 				   inet_ntoa(s_cli_addr.sin_addr), ntohs(s_cli_addr.sin_port));
 			/***********************************************************
 			*  SSL 4. Setup stuff for this ssl connection
 			************************************************************/
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Setting up the SSL/TLS structure...");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Setting up the SSL/TLS structure...");
 			ssl = (mbedtls_ssl_context *) rtw_malloc(sizeof(mbedtls_ssl_context));
 			conf = (mbedtls_ssl_config *) rtw_zmalloc(sizeof(mbedtls_ssl_config));
 			if ((ssl == NULL) || (conf == NULL)) {
@@ -394,7 +394,7 @@ static void server_start(void *param)
 			/***********************************************************
 			*  SSL 5. Wait for the ssl handshake done
 			************************************************************/
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Performing the SSL/TLS handshake...");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Performing the SSL/TLS handshake...");
 			if ((ret = mbedtls_ssl_handshake(ssl)) != 0) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "ERROR: ssl_handshake -0x%x\n", -ret);
 				rtw_free((void *) ssl);
@@ -421,7 +421,7 @@ static void server_start(void *param)
 				delete_node(seednode);
 				seednode = NULL;
 			} else {
-				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The SSL/TLS client is connected");
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "The SSL/TLS client is connected");
 				LOG_SERVICE_LOCK();
 				at_printf("\r\n[ATPS] A client connected to server[%d]\r\n"
 					  "con_id:%d,"
@@ -458,8 +458,7 @@ static void server_start(void *param)
 				} else {
 					LOG_SERVICE_LOCK();
 					if (esp_compatible_recv) {
-						printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
-						printf(STR_END_OF_ATCMD_RET);
+						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d" STR_END_OF_ATCMD_RET, node_server->con_id);
 					} else {
 						at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
 						at_printf(STR_END_OF_ATCMD_RET);
@@ -468,7 +467,7 @@ static void server_start(void *param)
 				}
 			}
 
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The TCP SERVER START OK!");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "The TCP SERVER START OK!");
 			/***********************************************************
 			*  TCP 3. Waiting for TCP client to connect
 			************************************************************/
@@ -566,8 +565,7 @@ static void server_start(void *param)
 				}
 				LOG_SERVICE_LOCK();
 				if (esp_compatible_recv) {
-					printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
-					printf(STR_END_OF_ATCMD_RET);
+					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d" STR_END_OF_ATCMD_RET, node_server->con_id);
 				} else {
 					at_printf("\r\n[ATPS] OK" "\r\n[ATPS] con_id=%d", node_server->con_id);
 					at_printf(STR_END_OF_ATCMD_RET);
@@ -576,7 +574,7 @@ static void server_start(void *param)
 				//task will exit itself
 				node_server->handletask = NULL;
 			}
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "The UDP SERVER START OK!");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "The UDP SERVER START OK!");
 		}
 	}
 
@@ -588,8 +586,7 @@ err_exit:
 	}
 	LOG_SERVICE_LOCK();
 	if (esp_compatible_recv) {
-		printf("\r\n[ATPS] ERROR:%d", rt);
-		printf(STR_END_OF_ATCMD_RET);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "\r\n[ATPS] ERROR:%d" STR_END_OF_ATCMD_RET, rt);
 	} else {
 		at_printf("\r\n[ATPS] ERROR:%d", rt);
 		at_printf(STR_END_OF_ATCMD_RET);
@@ -658,7 +655,7 @@ static void client_start(void *param)
 		c_serv_addr.sin_addr.s_addr = inet_addr(c_remote_addr);
 		c_serv_addr.sin_port = htons(c_remote_port);
 	}
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "OK to create sock_fd!");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "OK to create sock_fd!");
 
 	/***********************************************************
 	* Assign socket fd to the node used for this client
@@ -672,7 +669,7 @@ static void client_start(void *param)
 		*  SSL 1. Setup stuff for this ssl connection
 		************************************************************/
 		int retry_count = 0;
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Setting up the SSL/TLS structure...");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Setting up the SSL/TLS structure...");
 		mbedtls_platform_set_calloc_free(my_calloc, vPortFree);
 		ssl = (mbedtls_ssl_context *) rtw_zmalloc(sizeof(mbedtls_ssl_context));
 		conf = (mbedtls_ssl_config *) rtw_zmalloc(sizeof(mbedtls_ssl_config));
@@ -715,7 +712,7 @@ static void client_start(void *param)
 		/***********************************************************
 		*  SSL 2. Wait for the ssl handshake done
 		************************************************************/
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Performing the SSL/TLS handshake...");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Performing the SSL/TLS handshake...");
 		while ((ret = mbedtls_ssl_handshake(ssl)) != 0) {
 			if (retry_count >= 5) {
 				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "ssl_handshake failed -0x%x\n", -ret);
@@ -724,7 +721,7 @@ static void client_start(void *param)
 			}
 			retry_count++;
 		}
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Connect to Server successful!");
 		/***********************************************************
 		*  SSL 3. Hang node on mainlist for global management
 		************************************************************/
@@ -744,7 +741,7 @@ static void client_start(void *param)
 			*  TCP 1. Connect a netconn to a specific remote IP address and port
 			************************************************************/
 			if (connect(c_sockfd, (struct sockaddr *) &c_serv_addr, sizeof(c_serv_addr)) == 0) {
-				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Connect to Server successful!");
 				/***********************************************************
 				*  TCP 2. Hand node on mainlist for global management if connect success
 				************************************************************/
@@ -825,7 +822,7 @@ static void client_start(void *param)
 				at_printf(STR_END_OF_ATCMD_RET);
 				LOG_SERVICE_UNLOCK();
 			}
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "UDP client starts successful!");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "UDP client starts successful!");
 		}
 	}
 	goto exit;
@@ -882,7 +879,7 @@ static void server_start_task(void *param)
 void fATP0(void *arg)
 {
 	(void) arg;
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATP0]: _AT_TRANSPORT_ERRNO");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATP0]: _AT_TRANSPORT_ERRNO");
 #ifdef ERRNO
 	at_printf("\r\n[ATP0] OK:%d", errno);
 #else
@@ -907,7 +904,7 @@ void fATPC(void *arg)
 	struct hostent *server_host;
 #endif
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPC]: _AT_TRANSPORT_START_CLIENT");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPC]: _AT_TRANSPORT_START_CLIENT");
 
 	if (atcmd_lwip_is_tt_mode() && mainlist->next) {
 		rt = 13;
@@ -935,7 +932,7 @@ void fATPC(void *arg)
 		server_host = gethostbyname(argv[2]);
 		if (server_host) {
 			rtw_memcpy(&addr, server_host->h_addr, 4);
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPC] Found name '%s' = %s", argv[2], inet_ntoa(addr)
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPC] Found name '%s' = %s", argv[2], inet_ntoa(addr)
 			    );
 		} else
 #endif
@@ -1000,7 +997,7 @@ void fATPS(void *arg)
 	int rt = 0;
 	u32 server_task_stksz = ATCP_STACK_SIZE;
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPS]: _AT_TRANSPORT_START_SERVER");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPS]: _AT_TRANSPORT_START_SERVER");
 
 	if (atcmd_lwip_is_tt_mode()) {
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPS] ERROR: Server can only start when TT is disabled");
@@ -1075,7 +1072,7 @@ void fATPD(void *arg)
 	int rt = 0;
 	node *s_node;
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPD]: _AT_TRANSPORT_CLOSE_CONNECTION");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPD]: _AT_TRANSPORT_CLOSE_CONNECTION");
 
 	if (!arg) {
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPD] Usage: ATPD=con_id or 0 (close all)");
@@ -1169,7 +1166,7 @@ void fATPT(void *arg)
 	int data_pos = C_NUM_AT_CMD + C_NUM_AT_CMD_DLT + strlen(arg) + 1;
 	u8 *data = (u8 *) log_buf + data_pos;
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPT]: _AT_TRANSPORT_SEND_DATA");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPT]: _AT_TRANSPORT_SEND_DATA");
 
 	argc = parse_param(arg, argv);
 
@@ -1234,7 +1231,7 @@ void fATPR(void *arg)
 	int header_len = 0;
 #endif
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPR]: _AT_TRANSPORT_RECEIVE_DATA");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPR]: _AT_TRANSPORT_RECEIVE_DATA");
 
 	if (atcmd_lwip_is_autorecv_mode()) {
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "[ATPR] ERROR: Receive changed to auto mode.");
@@ -1282,7 +1279,7 @@ void fATPR(void *arg)
 	}
 
 	memset(rx_buffer, 0, rx_buffer_size);
-	int r = atcmd_lwip_receive_data(cn, rx_buffer, ETH_MAX_MTU, &recv_size, udp_clientaddr, &udp_clientport);
+	int r = atcmd_lwip_receive_data(cn, rx_buffer, rx_buffer_size, &recv_size, udp_clientaddr, &udp_clientport);
 	if (r < 0) rt = 7;
 
       exit:
@@ -1308,11 +1305,11 @@ void fATPR(void *arg)
 		}
 		memset(tmpbuf, 0, ATPR_RSVD_HEADER_SIZE);
 		if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO,
 				   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", total_recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
 			sprintf(tmpbuf, "\r\n[ATPR] OK,%d,%d,%s,%d:", total_recv_size, con_id, udp_clientaddr, udp_clientport);
 		} else {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "\r\n[ATPR] OK,%d,%d:%s", total_recv_size, con_id, rx_buffer);
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "\r\n[ATPR] OK,%d,%d:%s", total_recv_size, con_id, rx_buffer);
 			sprintf(tmpbuf, "\r\n[ATPR] OK,%d,%d:", total_recv_size, con_id);
 		}
 		header_len = strlen(tmpbuf);
@@ -1321,11 +1318,11 @@ void fATPR(void *arg)
 		at_print_data(rx_buffer, total_recv_size + header_len);
 #else				// #if (EXTEND_ATPR_SIZE)
 		if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO,
 				   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, con_id, udp_clientaddr, udp_clientport, rx_buffer);
 			at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, con_id, udp_clientaddr, udp_clientport);
 		} else {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "\r\n[ATPR] OK,%d,%d:%s", recv_size, con_id, rx_buffer);
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "\r\n[ATPR] OK,%d,%d:%s", recv_size, con_id, rx_buffer);
 			at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, con_id);
 		}
 		if (recv_size)
@@ -1343,7 +1340,7 @@ void fATPK(void *arg)
 	int enable = 0;
 	char *argv[MAX_ARGC] = { 0 };
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPK]: _AT_TRANSPORT_AUTO_RECV");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPK]: _AT_TRANSPORT_AUTO_RECV");
 
 	argc = parse_param(arg, argv);
 	if (argc < 2) {
@@ -1356,7 +1353,7 @@ void fATPK(void *arg)
 
 	if (enable) {
 		if (atcmd_lwip_is_autorecv_mode()) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPK] already enter auto receive mode");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPK] already enter auto receive mode");
 		} else {
 			if (atcmd_lwip_start_autorecv_task())
 				rt = 2;
@@ -1365,7 +1362,7 @@ void fATPK(void *arg)
 		if (atcmd_lwip_is_autorecv_mode())
 			atcmd_lwip_set_autorecv_mode(FALSE);
 		else {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPK] already leave auto receive mode");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPK] already leave auto receive mode");
 		}
 	}
 
@@ -1385,7 +1382,7 @@ void fATPU(void *arg)
 	int enable = 0;
 	char *argv[MAX_ARGC] = { 0 };
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPU]: _AT_TRANSPORT_TT_MODE");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPU]: _AT_TRANSPORT_TT_MODE");
 
 	argc = parse_param(arg, argv);
 	if (argc < 2) {
@@ -1475,7 +1472,7 @@ void fATPP(void *arg)
 	int rt = 0;
 	int ping_lost = 0;
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPP]: _AT_TRANSPORT_PING");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPP]: _AT_TRANSPORT_PING");
 
 	if (!arg) {
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR,
@@ -1508,15 +1505,15 @@ void fATPP(void *arg)
 
 	if (argc == 2) {
 		count = 5;
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPP]Repeat Count: %d", count);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPP]Repeat Count: %d", count);
 		do_ping_call(buf, 0, count);	//Not loop, count=5
 	} else {
 		if (strcmp(argv[2], "loop") == 0) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPP]Repeat Count: %s", "loop");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPP]Repeat Count: %s", "loop");
 			do_ping_call(buf, 1, 0);	//loop, no count
 		} else {
 			count = atoi(argv[2]);
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPP]Repeat Count: %d", count);
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPP]Repeat Count: %d", count);
 			do_ping_call(buf, 0, count);	//Not loop, with count
 		}
 	}
@@ -1539,7 +1536,7 @@ void fATPI(void *arg)
 	struct in_addr addr;
 
 	(void) arg;
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "[ATPI]: _AT_TRANSPORT_CONNECTION_INFO");
 
 	while (n != NULL) {
 		if (n->con_id == INVALID_CON_ID)
@@ -1841,7 +1838,7 @@ int hang_seednode(node * main_node, node * insert_node)
 			SYS_ARCH_UNPROTECT(lev);
 			struct in_addr addr;
 			addr.s_addr = htonl(insert_node->addr);
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO,
 				   "This seed IP:%s PORT:%d already exist", inet_ntoa(addr), insert_node->port);
 			return -1;
 		}
@@ -1901,7 +1898,7 @@ int atcmd_lwip_receive_data(node * cn, u8 * buffer, u16 buffer_size, int *recv_s
 	ret = select(cn->sockfd + 1, &readfds, NULL, NULL, &tv);
 
 	if (!((ret > 0) && (FD_ISSET(cn->sockfd, &readfds)))) {
-		//AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, 
+		//AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, 
 		//      "[ATPR] No receive event for con_id %d", cn->con_id);
 		goto __ret;
 	}
@@ -1980,10 +1977,9 @@ __ret:
 static void atcmd_lwip_receive_task(void *param)
 {
 	int i;
-	int packet_size = ETH_MAX_MTU;
 	(void) param;
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Enter auto receive mode");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Enter auto receive mode");
 
 	while (atcmd_lwip_is_autorecv_mode()) {
 		for (i = 0; i < NUM_NS; ++i) {
@@ -2002,12 +1998,13 @@ static void atcmd_lwip_receive_task(void *param)
 			u8_t udp_clientaddr[16] = { 0 };
 			u16_t udp_clientport = 0;
 
-			int rt = atcmd_lwip_receive_data(cn, rx_buffer, packet_size, &recv_size, udp_clientaddr, &udp_clientport);
+			memset(rx_buffer, 0, rx_buffer_size);
+			int rt = atcmd_lwip_receive_data(cn, rx_buffer, rx_buffer_size, &recv_size, udp_clientaddr, &udp_clientport);
 
 			if (atcmd_lwip_is_tt_mode()) {
 				if (rt >= 0 && recv_size) {
 					rx_buffer[recv_size] = '\0';
-					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Recv[%d]:%s", recv_size, rx_buffer);
+					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Recv[%d]:%s", recv_size, rx_buffer);
 					at_print_data(rx_buffer, recv_size);
 					rtw_msleep_os(20);
 				}
@@ -2016,8 +2013,7 @@ static void atcmd_lwip_receive_task(void *param)
 
 			if (esp_compatible_recv) {
 				if (rt < 0) {
-					printf("+IPD Error %d receiving data, errno = %d(%s)\n",
-						rt, errno, strerror(errno));
+					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+IPD Error %d receiving data, errno = %d(%s)", rt, errno, strerror(errno));
 					if (cn->sockfd == INVALID_SOCKET_ID) {
 						delete_node(cn);
 					}
@@ -2039,6 +2035,7 @@ static void atcmd_lwip_receive_task(void *param)
 
 				LOG_SERVICE_LOCK();
 				// Receiving data header
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+IPD %d", recv_size);
 				at_printf("\r\n+IPD,%d,%d,%s,%d:",
 					cn->con_id,
 					recv_size,
@@ -2048,8 +2045,6 @@ static void atcmd_lwip_receive_task(void *param)
 				at_print_data(rx_buffer, recv_size);
 				LOG_SERVICE_UNLOCK();
 
-				// Debug only
-				printf("\r\n%s\r\n", rx_buffer);
 				continue;
 			}
 
@@ -2058,13 +2053,13 @@ static void atcmd_lwip_receive_task(void *param)
 					rx_buffer[recv_size] = '\0';
 					LOG_SERVICE_LOCK();
 					if (cn->protocol == NODE_MODE_UDP && cn->role == NODE_ROLE_SERVER) {
-						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
+						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO,
 							   "\r\n[ATPR] OK,%d,%d,%s,%d:%s", recv_size, cn->con_id,
 							   udp_clientaddr, udp_clientport, rx_buffer);
 						at_printf("\r\n[ATPR] OK,%d,%d,%s,%d:", recv_size, cn->con_id,
 							  udp_clientaddr, udp_clientport);
 					} else {
-						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS,
+						AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO,
 							   "\r\n[ATPR] OK,%d,%d:%s", recv_size, cn->con_id, rx_buffer);
 						at_printf("\r\n[ATPR] OK,%d,%d:", recv_size, cn->con_id);
 					}
@@ -2081,7 +2076,7 @@ static void atcmd_lwip_receive_task(void *param)
 		}
 	}
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Leave auto receive mode");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Leave auto receive mode");
 
 	vTaskDelete(NULL);
 }
@@ -2112,7 +2107,7 @@ static void _tt_wait_rx_complete(void)
 static void atcmd_lwip_tt_handler(void *param)
 {
 	struct sockaddr_in cli_addr;
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Enter TT data mode");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Enter TT data mode");
 	(void) param;
 
 	while (rtw_down_sema(&atcmd_lwip_tt_sema) == _SUCCESS) {
@@ -2133,11 +2128,11 @@ static void atcmd_lwip_tt_handler(void *param)
 		atcmd_lwip_tt_datasize = 0;
 		rtw_exit_critical(&lock, &irqL);
 		tx_buffer[tt_size] = '\0';
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Send[%d]:%s", tt_size, tx_buffer);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Send[%d]:%s", tt_size, tx_buffer);
 		atcmd_lwip_send_data(mainlist->next, tx_buffer, tt_size, cli_addr);
 	}
 
-	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Leave TT data mode");
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Leave TT data mode");
 	rtw_free_sema(&atcmd_lwip_tt_sema);
 	atcmd_lwip_set_autorecv_mode(FALSE);
 	at_printf(STR_END_OF_ATCMD_RET);	//mark return to command mode
@@ -2216,7 +2211,7 @@ int atcmd_lwip_write_info_to_flash(struct atcmd_lwip_conn_info *cur_conn, int en
 
 	for (i = 0; i < read_data.conn_num; i++) {
 		if (rtw_memcmp((u8 *) cur_conn, (u8 *) & read_data.conn[i], sizeof(struct atcmd_lwip_conn_info)) == _TRUE) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "the same profile found in flash");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "the same profile found in flash");
 			found = 1;
 			break;
 		}
@@ -2230,7 +2225,7 @@ int atcmd_lwip_write_info_to_flash(struct atcmd_lwip_conn_info *cur_conn, int en
 		read_data.conn_num++;
 		if (read_data.conn_num > ATCMD_LWIP_CONN_STORE_MAX_NUM)
 			read_data.conn_num = ATCMD_LWIP_CONN_STORE_MAX_NUM;
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "not the same proto/addr/port, write new profile to flash");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "not the same proto/addr/port, write new profile to flash");
 	}
 	if (!found || read_data.enable != enable) {
 		read_data.enable = enable;
@@ -2288,7 +2283,7 @@ int atcmd_lwip_auto_connect(void)
 		}
 		struct in_addr addr;
 		addr.s_addr = htonl(re_node->addr);
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "\r\nAuto connect to: %d,%s,%d", re_node->protocol, inet_ntoa(addr), re_node->port);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "\r\nAuto connect to: %d,%s,%d", re_node->protocol, inet_ntoa(addr), re_node->port);
 
 #if (ATCMD_VER == ATVER_2) && ATCMD_SUPPORT_SSL
 		if (re_node->protocol == NODE_MODE_SSL) {
@@ -2319,7 +2314,7 @@ int atcmd_lwip_auto_connect(void)
 			mbedtls_ssl_context *ssl;
 			mbedtls_ssl_config *conf;
 
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Setting up the SSL/TLS structure...");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Setting up the SSL/TLS structure...");
 			mbedtls_platform_set_calloc_free(my_calloc, vPortFree);
 			ssl = (mbedtls_ssl_context *) rtw_zmalloc(sizeof(mbedtls_ssl_context));
 			conf = (mbedtls_ssl_config *) rtw_zmalloc(sizeof(mbedtls_ssl_config));
@@ -2366,7 +2361,7 @@ int atcmd_lwip_auto_connect(void)
 			/***********************************************************
 			*  SSL 2. Wait for the ssl handshake done
 			************************************************************/
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Performing the SSL/TLS handshake...");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Performing the SSL/TLS handshake...");
 			while ((ret = mbedtls_ssl_handshake(ssl)) != 0) {
 				if (retry_count >= 5) {
 					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "ssl_handshake failed -0x%x\n", -ret);
@@ -2383,7 +2378,7 @@ int atcmd_lwip_auto_connect(void)
 				rt = 11;
 				continue;
 			}
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Connect to Server successful!");
 			/***********************************************************
 			*  SSL 3. Hang node on mainlist for global management
 			************************************************************/
@@ -2415,7 +2410,7 @@ int atcmd_lwip_auto_connect(void)
 				c_serv_addr.sin_addr.s_addr = htonl(re_node->addr);
 				c_serv_addr.sin_port = htons(re_node->port);
 				if (connect(re_node->sockfd, (struct sockaddr *) &c_serv_addr, sizeof(c_serv_addr)) == 0) {
-					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+					AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Connect to Server successful!");
 					if (hang_node(re_node) < 0) {
 						rt = 14;
 					}
@@ -2484,7 +2479,7 @@ int atcmd_lwip_auto_connect(void)
 				if (hang_node(re_node) < 0) {
 					rt = 20;
 				}
-				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "UDP client starts successful!");
+				AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "UDP client starts successful!");
 				break;
 			}
 		}
@@ -2510,16 +2505,6 @@ int atcmd_lwip_restore_from_flash(void)
 
 	return ret;
 }
-
-void atcmd_lwip_set_rx_buffer(unsigned char *buf, int bufsize)
-{
-	rx_buffer = buf;
-	rx_buffer_size = bufsize;
-}
-
-
-
-
 
 /* DNS function, resolve domain name to ip address */
 void fATCIPDOMAIN(void *arg)
@@ -2661,7 +2646,7 @@ static void client_esp_task(void *param)
 		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "Unknown connection type[%d]", c_mode);
 
 	if (c_sockfd == INVALID_SOCKET_ID) {
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "Failed to create sock_fd!");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "Failed to create sock_fd! %d(%s)", errno, strerror(errno));
 		r = -2;
 		goto _e_ret;
 	}
@@ -2669,7 +2654,9 @@ static void client_esp_task(void *param)
 	c_serv_addr.sin_family = AF_INET;
 	c_serv_addr.sin_addr.s_addr = inet_addr(c_remote_addr);
 	c_serv_addr.sin_port = htons(client->port);	// remote port */
-	printf("OK to create sock_fd %d!\r\n", c_sockfd);
+	static int create_count = -1;
+	++create_count;
+	AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "%d OK to create sock_fd %d!", create_count, c_sockfd);
 
 	/***********************************************************
 	* Assign socket fd to the node used for this client
@@ -2681,7 +2668,7 @@ static void client_esp_task(void *param)
 		*  TCP 1. Connect a netconn to a specific remote IP address and port
 		************************************************************/
 		if (connect(c_sockfd, (struct sockaddr *) &c_serv_addr, sizeof(c_serv_addr)) == 0) {
-			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "Connect to Server successful!");
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "Connect to Server successful!");
 			/***********************************************************
 			*  TCP 2. Hand node on mainlist for global management if connect success
 			************************************************************/
@@ -2755,7 +2742,7 @@ static void client_esp_task(void *param)
 			goto _e_ret;
 		}
 
-		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ALWAYS, "UDP client starts successful!");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_INFO, "UDP client starts successful!");
 	}
 	goto __ret;
 
@@ -2823,7 +2810,7 @@ void fATCIPSTART(void *arg)
 		if (host) {
 			rtw_memcpy(&addr, host->h_addr, sizeof host->h_addr);
 		} else {
-			printf("+CIPSTART: Host '%s' not found\r\n", argv[3]);
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSTART: Host '%s' not found", argv[3]);
 			r = -2;
 			goto __ret;
 		}
@@ -2846,7 +2833,7 @@ void fATCIPSTART(void *arg)
 
 	#if 0
 	if (xTaskCreate(client_esp_task, "clt_tsk", ATCP_STACK_SIZE, clientnode, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS) {
-		printf("+CIPSTART: Create TCP/UDP/SSL client task failed\r\n");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSTART: Create TCP/UDP/SSL client task failed");
 		r = -5;
 		goto __clean_node;
 	}
@@ -2863,7 +2850,7 @@ __clean_node:
 
 __ret:
 	if (r < 0) {
-		printf("+CIPSTART: Error %d\r\n", r);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSTART: Error %d", r);
 		at_printf(STR_RESP_FAIL);
 	} else {
 		// at_printf(STR_RESP_OK);
@@ -2891,12 +2878,12 @@ int at_net_store_data(const uint8_t* buf, uint32_t size) {
 	struct pbuf* pb;
 
 	if (size >= UINT16_MAX) {
-		printf("L%d requested store size too big =%u\n", __LINE__, size);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "L%d requested store size too big =%d", __LINE__, (int)size);
 		return -1;
 	}
 
 	if (!(pb = pbuf_alloc(PBUF_RAW, size, PBUF_RAM))) {
-		printf("L%d at overflow size=%u\n", __LINE__, size);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "L%d at overflow size=%d", __LINE__, (int)size);
 		return -2;
 	}
 
@@ -2917,7 +2904,7 @@ int at_net_store_data(const uint8_t* buf, uint32_t size) {
 
 	_at_data_counter -= size;
 	if (_at_data_counter < 0) {
-		printf("L%d at error size=%u\n", __LINE__, size);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "L%d at error size=%d", __LINE__, (int)size);
 		_at_data_counter = 0;
 	}
 
@@ -2933,7 +2920,7 @@ int at_net_load_data(uint8_t* buf, uint32_t size) {
 	uint16_t len;
 
 	if (size > UINT16_MAX) {
-		printf("L%d at load data overflow size=%u\n", __LINE__, size);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "L%d at load data overflow size=%d", __LINE__, (int)size);
 		return -1;
 	}
 
@@ -2970,23 +2957,11 @@ int at_net_load_data(uint8_t* buf, uint32_t size) {
 	return len;
 }
 
-/* Sync the sequence of task client_send_task and parent task */
-static _sema client_started, client_ok_sync;
-
 static void client_send_task(void *param)
 {
 	node* nd = (node*) param;
-
-	rtw_init_sema(&client_ok_sync, 0);
-
-	// tell parent task we had started.
-	rtw_up_sema(&client_started);
-
-	// Wait for parent task sent "OK"
-	rtw_down_sema(&client_ok_sync);
-
 	if (!nd) {
-		printf("+CIPSEND: Error task client_send_task argument NULL\n");
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSEND: Error task client_send_task argument NULL");
 		goto __ret;
 	}
 
@@ -2995,7 +2970,7 @@ static void client_send_task(void *param)
 
 	// Inform the coperative device we prepared well for receving DATA
 	LOG_SERVICE_LOCK();
-	at_printf(">");
+	at_printf(STR_RESP_OK ">");
 
 	int err_del_node = 0;
 	int timeout = 0;
@@ -3003,8 +2978,8 @@ static void client_send_task(void *param)
 		int n = at_net_load_data(_tx_buffer, sizeof _tx_buffer);
 
 		if (n <= 0) {
-			rtw_msleep_os(20);
-			if (++timeout > 50 * 5/* seconds */) {
+			rtw_msleep_os(1);
+			if (++timeout > 5000/* seconds */) {
 				break;
 			}
 			continue;
@@ -3015,8 +2990,7 @@ static void client_send_task(void *param)
 			if (errno == ENOTCONN || errno == EBADF) {
 				err_del_node = 1;
 			}
-			printf("+CIPSEND: Error %d sending data, errno = %d(%s)\n",
-				r, errno, strerror(errno));
+			AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSEND: Error %d sending data, errno = %d(%s)", r, errno, strerror(errno));
 			break;
 		}
 		nd->tx_len -= n;
@@ -3030,8 +3004,8 @@ __ret:
 			int n = at_net_load_data(_tx_buffer, sizeof _tx_buffer);
 
 			if (n <= 0) {
-				rtw_msleep_os(20);
-				if (++timeout > 50 * 5/* seconds */) {
+				rtw_msleep_os(1);
+				if (++timeout > 5000/* seconds */) {
 					break;
 				}
 				continue;
@@ -3044,8 +3018,6 @@ __ret:
 		at_printf("\r\nSEND OK\r\n");
 	}
 	at_set_data_counter(nd->tx_len = 0);
-
-	rtw_free_sema(&client_ok_sync);
 
 	if (err_del_node) {
 		at_printf("\r\n%d,CLOSED\r\n", nd->con_id);
@@ -3095,7 +3067,6 @@ void fATCIPSEND(void *arg)
 		cn->udp_dest = cli_addr;
 	}
 
-	rtw_init_sema(&client_started, 0);
 	if (xTaskCreate(client_send_task, "clt_tx", ATCP_STACK_SIZE,
 	                cn, ATCMD_LWIP_TASK_PRIORITY, NULL) != pdPASS
 	) {
@@ -3103,20 +3074,11 @@ void fATCIPSEND(void *arg)
 		goto __ret;
 	}
 
-	// Wait for task client_send_task started.
-	rtw_down_sema(&client_started);
-
-	at_printf(STR_RESP_OK);
-
-	// Inform task client_send_task we had sent "OK"
-	rtw_up_sema(&client_ok_sync);
-
 __ret:
 	if (r < 0) {
-		printf("+CIPSEND: Error %d\r\n", r);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPSEND: Error %d", r);
 		at_printf(STR_RESP_FAIL);
 	}
-	rtw_free_sema(&client_started);
 	return;
 }
 
@@ -3148,7 +3110,7 @@ void fATCIPCLOSE(void *arg)
 __ret:
 	cn = NULL;
 	if (rt) {
-		printf("+CIPCLOSE: Error %d\n", rt);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "+CIPCLOSE: Error %d", rt);
 		at_printf(STR_RESP_FAIL);
 	} else {
 		at_printf("\r\n%d,CLOSED\r\n", linkid);
@@ -3323,7 +3285,7 @@ __ret:
 	if (rt >= 0) {
 		// at_printf(STR_RESP_OK);
 	} else {
-		printf("\r\n+CIPSERVER: Error %d\r\n", rt);
+		AT_DBG_MSG(AT_FLAG_LWIP, AT_DBG_ERROR, "\r\n+CIPSERVER: Error %d", rt);
 		at_printf(STR_RESP_FAIL);
 	}
 
